@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from typing import Union, Optional
 
 from fastapi import Request, Response
-from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 
 from pydantic import BaseModel
 import time
@@ -44,7 +44,7 @@ def patch_cache_headers(response: Response, timestamp: int=None, cache_timeout: 
 
     if etag is not None:
         response.headers['ETag'] = etag
-    elif not isinstance(response, StreamingResponse) and 'ETag' not in response.headers:
+    elif hasattr(response, 'body') and 'ETag' not in response.headers:
         hash_value = hashlib.sha1(response.body).hexdigest()
         result = f'"{hash_value}"'
         response.headers['ETag'] = result
