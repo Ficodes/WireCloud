@@ -47,7 +47,7 @@ from wirecloud.platform.plugins import (get_active_features_info, get_plugin_url
                                             WirecloudPlugin, URLTemplate)
 from wirecloud.platform.context.schemas import BaseContextKey, WorkspaceContextKey
 from wirecloud.platform.preferences.routes import preferences_router
-from wirecloud.platform.preferences.schemas import PreferenceKey, SelectEntry, TabPreferenceKey
+from wirecloud.platform.preferences.schemas import PreferenceKey, TabPreferenceKey
 from wirecloud.platform.urls import patterns
 from wirecloud.platform.routes import get_current_theme, get_current_view
 from wirecloud.commons.auth.schemas import UserAll, Session
@@ -75,6 +75,18 @@ logger = logging.getLogger(__name__)
 
 def get_version_hash():
     return sha1(json.dumps(get_active_features_info())).hexdigest()
+
+
+# Default responsive breakpoints for the 'screenSizes' workspace/tab preference. Kept as a
+# translation-free module-level constant (rather than inline in get_workspace_preferences) so it
+# can be imported and used outside of a request context -- e.g. by
+# wirecloud.commons.utils.template.base.default_desktop_screen_size_id(), which the legacy
+# layout/mashup-template conversion code uses and which must work from CLI management commands.
+DEFAULT_SCREEN_SIZES = [
+    {"id": 0, "name": "Phone", "moreOrEqual": 0, "lessOrEqual": 767, "columns": 1},
+    {"id": 1, "name": "Tablet", "moreOrEqual": 768, "lessOrEqual": 1199, "columns": 6},
+    {"id": 2, "name": "Desktop", "moreOrEqual": 1200, "lessOrEqual": -1, "columns": 12},
+]
 
 
 async def populate_component(db: DBSession, wirecloud_user: UserAll, vendor: Vendor, name: Name,
@@ -368,48 +380,26 @@ class WirecloudCorePlugin(WirecloudPlugin):
             PreferenceKey(
                 name='sharelist',
                 label=_('Share list'),
-                type='layout',  # Legacy client field type used by the preference renderer.
+                type='text',  # Legacy client field type used by the preference renderer. Hidden and never rendered.
                 hidden=True,
                 description=_('List of users with access to this workspace. (default: [])'),
                 defaultValue=[]
             ),
             PreferenceKey(
-                name='initiallayout',
-                label=_('Initial layout'),
-                type='select',
-                initialEntries=[
-                    SelectEntry(value='Fixed', label='Base'),
-                    SelectEntry(value='Free', label='Free')
-                ],
-                description=_('Default layout for the new widgets.')
+                name='screenSizes', label=_('Screen sizes'), type='screenSizes',
+                description=_('Responsive breakpoints of the dashboard. Each screen size covers a range of widths in '
+                              'pixels and defines the number of grid columns used when the dashboard is displayed at '
+                              'that width. Widgets can have a different layout for each screen size.'),
+                defaultValue=[dict(screen_size) for screen_size in DEFAULT_SCREEN_SIZES]
             ),
             PreferenceKey(
-                name='screenSizes',
-                label=_('Screen sizes'),
-                type='screenSizes',
-                description=_('List of screen sizes supported by the workspace. Each screen size is defined by a range of screen widths and different widget configurations are associated with it.'),
-                defaultValue=[
-                    {
-                        "moreOrEqual": 0,
-                        "lessOrEqual": -1,
-                        "name": "Default",
-                        "id": 0
-                    }
-                ]
+                name='cellheight', label=_('Cell height'), type='number',
+                description=_('Height in pixels of a grid row.'), defaultValue=40
             ),
             PreferenceKey(
-                name='baselayout',
-                label=_('Base layout'),
-                type='layout',
-                defaultValue={
-                    "type": "columnlayout",
-                    "smart": "false",
-                    "columns": 20,
-                    "cellheight": 12,
-                    "horizontalmargin": 4,
-                    "verticalmargin": 3
-                }
-            )
+                name='margin', label=_('Widget margin'), type='number',
+                description=_('Space in pixels between widgets.'), defaultValue=5
+            ),
         ]
 
     def get_tab_preferences(self) -> list[TabPreferenceKey]:

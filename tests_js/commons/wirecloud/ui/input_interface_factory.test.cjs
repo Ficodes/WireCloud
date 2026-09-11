@@ -18,7 +18,6 @@ test('Wirecloud.ui.InputInterfaceFactory registers expected field types', () => 
         }
     }
 
-    class LayoutInputInterface {}
     class ScreenSizesInputInterface {}
     class ParametrizableValueInputInterface {}
     class ParametrizedTextInputInterface {}
@@ -29,7 +28,6 @@ test('Wirecloud.ui.InputInterfaceFactory registers expected field types', () => 
     };
     global.Wirecloud = {
         ui: {
-            LayoutInputInterface,
             ScreenSizesInputInterface,
             ParametrizableValueInputInterface,
             ParametrizedTextInputInterface,
@@ -42,13 +40,11 @@ test('Wirecloud.ui.InputInterfaceFactory registers expected field types', () => 
     const factory = Wirecloud.ui.InputInterfaceFactory;
     assert.equal(factory instanceof FakeFactory, true);
     assert.deepEqual(Object.keys(factory.fieldTypes).sort(), [
-        'layout',
         'mac',
         'parametrizableValue',
         'parametrizedText',
         'screenSizes',
     ]);
-    assert.equal(factory.fieldTypes.layout, LayoutInputInterface);
     assert.equal(factory.fieldTypes.screenSizes, ScreenSizesInputInterface);
     assert.equal(factory.fieldTypes.parametrizableValue, ParametrizableValueInputInterface);
     assert.equal(factory.fieldTypes.parametrizedText, ParametrizedTextInputInterface);

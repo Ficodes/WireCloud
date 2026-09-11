@@ -30,6 +30,8 @@ import traceback
 from wirecloud.catalogue.utils import add_packaged_resource, create_widget_on_resource_creation, \
     deploy_operators_on_resource_creation
 from wirecloud.commons.auth.crud import get_user_by_username
+from wirecloud.commons.utils.template.base import convert_legacy_layout, default_desktop_screen_size_id, \
+    is_legacy_default_screen_sizes
 from wirecloud.commons.utils.template.schemas.macdschemas import MACDWidget, MACDOperator, MACDMashup
 from wirecloud.platform.workspace.models import WorkspaceAccessPermissions, DBWorkspacePreference
 
@@ -286,6 +288,96 @@ async def migrate_cmd(args: argparse.Namespace) -> None:
         traceback.print_exc()
         print("Migration cancelled.")
         raise
+
+
+async def convert_layouts_cmd(args: argparse.Namespace) -> None:
+    """
+    Convert workspace documents already stored in this instance's MongoDB database that still carry the
+    old, pre-GridStack fields ('positions'/'layout' on widget instances, 'baselayout'/'initiallayout'
+    workspace and tab preferences) into the new 'layouts'-based format, using the same best-effort
+    conversion rule used by the 'migrate' command. Safe to run more than once: documents that have
+    already been converted (no 'positions'/'layout' widget field left) are left untouched.
+    """
+    examined = 0
+    converted = 0
+
+    async for session in get_session():
+        workspaces = await session.client.workspaces.find({}).to_list()
+
+        for workspace in workspaces:
+            examined += 1
+            set_fields: dict[str, Any] = {}
+            unset_fields: dict[str, Any] = {}
+
+            workspace_prefs = workspace.get('preferences') or []
+            preferences, preferences_changed = _convert_legacy_preferences(workspace_prefs)
+            if preferences_changed:
+                set_fields['preferences'] = preferences
+
+            for tab_id, tab in (workspace.get('tabs') or {}).items():
+                tab_prefs = tab.get('preferences') or []
+                tab_preferences, tab_preferences_changed = _convert_legacy_preferences(tab_prefs)
+                if tab_preferences_changed:
+                    set_fields[f'tabs.{tab_id}.preferences'] = tab_preferences
+
+                tab_legacy_default_screen_sizes = _tab_uses_legacy_default_screen_sizes(tab_prefs, workspace_prefs)
+
+                for widget_id, widget in (tab.get('widgets') or {}).items():
+                    if 'positions' not in widget and 'layout' not in widget:
+                        continue
+
+                    layouts = _migrate_widget_positions_to_layouts(
+                        widget.get('positions') or {}, tab_legacy_default_screen_sizes
+                    )
+                    layouts.update(widget.get('layouts') or {})
+
+                    set_fields[f'tabs.{tab_id}.widgets.{widget_id}.layouts'] = layouts
+                    unset_fields[f'tabs.{tab_id}.widgets.{widget_id}.positions'] = ""
+                    unset_fields[f'tabs.{tab_id}.widgets.{widget_id}.layout'] = ""
+
+            if not set_fields and not unset_fields:
+                continue
+
+            update: dict[str, Any] = {}
+            if set_fields:
+                update['$set'] = set_fields
+            if unset_fields:
+                update['$unset'] = unset_fields
+
+            await session.client.workspaces.update_one({"_id": workspace['_id']}, update)
+            converted += 1
+
+        break
+
+    print(f"Examined {examined} workspace(s), converted {converted}.")
+
+
+def _convert_legacy_preferences(rows: list[dict]) -> tuple[list[dict], bool]:
+    # Drop the removed 'baselayout'/'initiallayout' preferences. For 'screenSizes': drop it when
+    # it is 'legacy default' so the platform's new responsive defaults apply; otherwise keep it
+    # and fix up its entries (add 'columns'). Returns the (possibly unchanged) preference list and
+    # whether it was modified.
+    changed = False
+    new_rows = []
+    for pref in rows:
+        name = pref.get('name')
+        if name in ('baselayout', 'initiallayout'):
+            changed = True
+            continue
+
+        if name == 'screenSizes':
+            if is_legacy_default_screen_sizes(pref.get('value')):
+                changed = True
+                continue
+
+            new_value = _migrate_screensizes_value(pref.get('value') or "")
+            if new_value != pref.get('value'):
+                pref = {**pref, 'value': new_value}
+                changed = True
+
+        new_rows.append(pref)
+
+    return new_rows, changed
 
 
 def _adapt_sql_query(query: str, db_type: str) -> str:
@@ -1033,6 +1125,96 @@ def _migrate_prop_value_users(field: dict[str, Any], user_id_mapping: dict[int, 
         prop_value['value']['users'] = new_users
 
 
+def _migrate_screensizes_value(value: str) -> str:
+    # Add a 'columns' entry (default 12) to every screen size that doesn't already have one
+    try:
+        screen_sizes = json.loads(value)
+    except (TypeError, ValueError):
+        return value
+
+    if not isinstance(screen_sizes, list):
+        return value
+
+    changed = False
+    for screen_size in screen_sizes:
+        if isinstance(screen_size, dict) and 'columns' not in screen_size:
+            screen_size['columns'] = 12
+            changed = True
+
+    return json.dumps(screen_sizes) if changed else value
+
+
+def _migrate_preference_rows(rows: list[dict]) -> list[dict]:
+    # Drop the removed 'baselayout'/'initiallayout' preferences. For 'screenSizes': drop it when
+    # it is 'legacy default' (a single [0, +inf) interval, or missing) so the platform's new
+    # responsive defaults apply; otherwise keep it and fix up its entries (add 'columns').
+    pref_list = []
+    for p in rows:
+        name = p['name']
+        if name in ('baselayout', 'initiallayout'):
+            continue
+
+        value = p['value'] or ""
+        if name == 'screenSizes':
+            if is_legacy_default_screen_sizes(value):
+                continue
+            value = _migrate_screensizes_value(value)
+
+        pref_list.append({
+            "name": name,
+            "value": value,
+            "inherit": p['inherit'] if type(p['inherit']) == bool else (str(p['inherit']).lower() == "true" or str(p['inherit']).lower() == "1")
+        })
+
+    return pref_list
+
+
+def _tab_uses_legacy_default_screen_sizes(tab_prefs: list, workspace_prefs: list) -> bool:
+    # Effective 'screenSizes' preference for a tab: its own value if present and not inherited,
+    # else the workspace's value if present, else none. Returns whether that effective value is
+    # 'legacy default' (see is_legacy_default_screen_sizes) -- in which case widget layouts
+    # converted from the legacy position/rendering format must be remapped to the id of the new
+    # default desktop screen size instead of reusing the old (now meaningless) screen size id.
+    tab_pref = next((p for p in tab_prefs if p['name'] == 'screenSizes'), None)
+    if tab_pref is not None and not _as_bool(tab_pref['inherit']):
+        return is_legacy_default_screen_sizes(tab_pref['value'])
+
+    workspace_pref = next((p for p in workspace_prefs if p['name'] == 'screenSizes'), None)
+    if workspace_pref is not None:
+        return is_legacy_default_screen_sizes(workspace_pref['value'])
+
+    return True
+
+
+def _migrate_widget_positions_to_layouts(positions: dict, legacy_default_screen_sizes: bool) -> dict[str, dict]:
+    # Convert the old 'positions.configurations' structure into the new 'layouts' dict, using the
+    # best-effort legacy grid conversion rule (old grid: 20 columns x 12px rows; new grid: 12 columns x 40px rows).
+    # When the tab's effective screenSizes preference is 'legacy default' (the old single
+    # "Default" screen size covering everything), the converted (12-column-targeted) layout is
+    # keyed to the new default desktop screen size instead of the old screen size id, which no
+    # longer refers to a 12-column screen size under the new responsive defaults.
+    layouts = {}
+    desktop_key = str(default_desktop_screen_size_id()) if legacy_default_screen_sizes else None
+    for conf in positions.get('configurations', []):
+        widget_conf = conf.get('widget', {}) or {}
+        key = desktop_key if legacy_default_screen_sizes else str(conf.get('id', 0))
+        layouts[key] = convert_legacy_layout(
+            top=float(widget_conf.get('top', 0) or 0),
+            left=float(widget_conf.get('left', 0) or 0),
+            width=float(widget_conf.get('width', 10) or 10),
+            height=float(widget_conf.get('height', 10) or 10),
+            relx=bool(widget_conf.get('relx', True)),
+            rely=bool(widget_conf.get('rely', False)),
+            relwidth=bool(widget_conf.get('relwidth', True)),
+            relheight=bool(widget_conf.get('relheight', False)),
+            minimized=bool(widget_conf.get('minimized', False)),
+            titlevisible=bool(widget_conf.get('titlevisible', True)),
+            fulldragboard=bool(widget_conf.get('fulldragboard', False)),
+        )
+
+    return layouts
+
+
 async def _migrate_workspaces(
     db_connection, new_db_session, http_session: aiohttp.ClientSession,
     old_url: str, token: str, user_id_mapping: dict[int, str],
@@ -1170,8 +1352,7 @@ async def _migrate_workspaces(
                 workspace_prefs = cursor.fetchall()
 
                 if workspace_prefs:
-                    pref_list = [{"name": p['name'], "value": p['value'] or "",
-                                  "inherit": p['inherit'] if type(p['inherit']) == bool else (str(p['inherit']).lower() == "true" or str(p['inherit']).lower() == "1")} for p in workspace_prefs]
+                    pref_list = _migrate_preference_rows(workspace_prefs)
 
                     for pref in pref_list:
                         new_workspace.preferences.append(DBWorkspacePreference(**pref))
@@ -1220,10 +1401,10 @@ async def _migrate_workspaces(
                         WHERE tab_id = %s
                     """, db_type), (tab_data['id'],))
                     tab_prefs = cursor.fetchall()
+                    tab_legacy_default_screen_sizes = _tab_uses_legacy_default_screen_sizes(tab_prefs, workspace_prefs)
 
                     if tab_prefs:
-                        pref_list = [{"name": p['name'], "value": p['value'] or "",
-                                      "inherit": p['inherit'] if type(p['inherit']) == bool else (str(p['inherit']).lower() == "true" or str(p['inherit']).lower() == "1")} for p in tab_prefs]
+                        pref_list = _migrate_preference_rows(tab_prefs)
 
                         for pref in pref_list:
                             tab.preferences.append(DBWorkspacePreference(**pref))
@@ -1236,7 +1417,7 @@ async def _migrate_workspaces(
                     # Migrate widget instances (IWidgets)
                     read_only_column = _sql_identifier("readOnly", db_type)
                     cursor.execute(_adapt_sql_query(f"""
-                        SELECT iw.id, iw.name, iw.widget_uri, iw.layout,
+                        SELECT iw.id, iw.name, iw.widget_uri,
                             iw.positions, iw.{read_only_column} AS read_only,
                             iw.variables, iw.permissions,
                             w.resource_id
@@ -1291,6 +1472,9 @@ async def _migrate_workspaces(
 
                             positions = new_positions
 
+                        # Convert positions.configurations into the new layouts format
+                        layouts = _migrate_widget_positions_to_layouts(positions, tab_legacy_default_screen_sizes)
+
                         # Fix permissions
                         permissions = json.loads(iwidget['permissions']) if iwidget['permissions'] else {}
                         if not 'viewer' in permissions:
@@ -1305,10 +1489,9 @@ async def _migrate_workspaces(
                             "resource": ObjectId(new_resource_id),
                             "widget_uri": iwidget['widget_uri'],
                             "title": iwidget['name'],
-                            "layout": iwidget['layout'],
                             "read_only": _as_bool(iwidget['read_only']),
                             "variables": variables,
-                            "positions": positions,
+                            "layouts": layouts,
                             "permissions": permissions
                         }
 
@@ -1540,7 +1723,14 @@ def setup_commands(subparsers: argparse._SubParsersAction) -> dict[str, Callable
         help="Skip confirmation prompt"
     )
 
+    subparsers.add_parser(
+        "convert_layouts",
+        help="Convert workspace documents still using the old 'positions'/'layout' widget fields into "
+             "the new 'layouts' format (idempotent, safe to run more than once)"
+    )
+
     return {
         "createsuperuser": createsuperuser_cmd,
-        "migrate": migrate_cmd
+        "migrate": migrate_cmd,
+        "convert_layouts": convert_layouts_cmd
     }

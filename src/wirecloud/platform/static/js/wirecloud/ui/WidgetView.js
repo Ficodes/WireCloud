@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Wirecloud.  If not, see <http://www.gnu.org/licenses/>.
 
-/* globals StyledElements, Wirecloud */
+/* globals Wirecloud */
 
 
 (function (ns, se, utils) {
@@ -25,167 +25,109 @@
 
     const privates = new WeakMap();
 
+    const compute_minimized_rows = function compute_minimized_rows() {
+        const dragboard = this.tab.dragboard;
+        const heading = this.heading;
+
+        let marginTop = 0, marginBottom = 0;
+        if (heading != null && typeof window !== 'undefined' && window.getComputedStyle) {
+            const style = window.getComputedStyle(heading);
+            marginTop = parseFloat(style.marginTop) || 0;
+            marginBottom = parseFloat(style.marginBottom) || 0;
+        }
+
+        const cellHeightPx = (dragboard.grid != null && dragboard.grid.getCellHeight(true)) || dragboard.cellheight || 1;
+        const headingHeight = (heading != null) ? heading.offsetHeight : 0;
+
+        return Math.max(1, Math.ceil((headingHeight + marginTop + marginBottom) / cellHeightPx));
+    };
+
+    const update_classes = function update_classes() {
+        const layout = this.layout || {};
+
+        this.wrapperElement.classList.toggle('wc-missing-widget', this.model.missing);
+        this.wrapperElement.classList.toggle('wc-moveable-widget', this.canMove);
+        this.wrapperElement.classList.toggle('wc-titled-widget', !!layout.titlevisible);
+        this.wrapperElement.classList.toggle('wc-minimized-widget', !!layout.minimized);
+        this.wrapperElement.classList.toggle('wc-widget-fulldragboard', !!layout.fulldragboard);
+    };
+
+    const update_tab_fulldragboard_class = function update_tab_fulldragboard_class(view) {
+        const anyFulldragboard = view.tab.dragboard.views.some((v) => v.layout != null && v.layout.fulldragboard);
+        view.tab.wrapperElement.classList.toggle('wc-fulldragboard-active', anyFulldragboard);
+    };
+
     const update_buttons = function update_buttons() {
         const editing = this.tab.workspace.editing;
         const role = editing ? "editor" : "viewer";
+        const layout = this.layout || {};
+
         if (this.grip) {
-            const editable = editing && !this.model.volatile && this.layout instanceof Wirecloud.ui.FreeLayout && (this.draggable == null || this.draggable.canDrag(null, {widget: this}, 'editor'));
-            const moveable = this.draggable != null && this.draggable.canDrag(null, {widget: this}, 'viewer');
-            this.grip.enabled = editable;
-            this.grip.hidden = !editable && !(moveable && this.layout instanceof Wirecloud.ui.FreeLayout);
-            this.grip.icon.classList.toggle("fa-anchor", !moveable);
-            this.grip.icon.classList.toggle("fa-grip-vertical", moveable);
-            this.grip.setTitle(moveable ? utils.gettext("Disallow to move this widget") : utils.gettext("Allow to move this widget"));
+            const visible = editing && !this.model.volatile;
+            this.grip.hidden = !visible;
+            if (visible) {
+                const moveable = this.model.isAllowed('move', 'viewer');
+                this.grip.icon.classList.toggle("fa-anchor", !moveable);
+                this.grip.icon.classList.toggle("fa-grip-vertical", moveable);
+                this.grip.setTitle(moveable ? utils.gettext("Disallow to move this widget") : utils.gettext("Allow to move this widget"));
+            }
         }
 
         if (this.titlevisibilitybutton) {
             this.titlevisibilitybutton.hidden = !editing;
-            this.titlevisibilitybutton.enabled = (!this.model.volatile && !this.minimized && editing);
-            this.titlevisibilitybutton.setTitle(this.model.titlevisible ? utils.gettext("Hide title") : utils.gettext("Show title"));
-            if (this.model.titlevisible) {
+            this.titlevisibilitybutton.enabled = (!this.model.volatile && !layout.minimized && editing);
+            this.titlevisibilitybutton.setTitle(layout.titlevisible ? utils.gettext("Hide title") : utils.gettext("Show title"));
+            if (layout.titlevisible) {
                 this.titlevisibilitybutton.replaceIconClassName("fa-eye-slash", "fa-eye");
             } else {
                 this.titlevisibilitybutton.replaceIconClassName("fa-eye", "fa-eye-slash");
             }
         }
+
+        if (this.minimizebutton) {
+            this.minimizebutton.enabled = this.model.isAllowed('minimize', role);
+        }
+
         this.closebutton.hidden = !(this.model.volatile || editing) || !this.model.isAllowed('close', role);
         this.menubutton.hidden = !editing;
-
-        this.bottomresizehandle.enabled = (this.model.volatile || editing) && this.model.isAllowed('resize', role);
-        this.leftresizehandle.enabled = (this.model.volatile || editing) && this.model.isAllowed('resize', role);
-        this.rightresizehandle.enabled = (this.model.volatile || editing) && this.model.isAllowed('resize', role);
     };
 
-    const update_className = function update_className() {
-        this.wrapperElement.classList.toggle('wc-missing-widget', this.model.missing);
-        this.wrapperElement.classList.toggle('wc-floating-widget', this.layout != null && this.layout instanceof Wirecloud.ui.FreeLayout);
-        this.wrapperElement.classList.toggle('wc-moveable-widget', this.draggable != null && this.draggable.canDrag(null, {widget: this}));
-        this.wrapperElement.classList.toggle('wc-titled-widget', this.model.titlevisible);
-    };
+    const notify_context = function notify_context() {
+        const node = this.wrapperElement.gridstackNode || {};
+        const layout = this.layout || {};
 
-    const update = function update() {
-        update_className.call(this);
-        update_buttons.call(this);
-    };
-
-    const update_position = function update_position() {
-        this.layout.updatePosition(this, this.wrapperElement);
-        this.wrapperElement.style.zIndex = this.position.z + 1;
-    };
-
-    const update_shape = function update_shape() {
-        this.layout.updateShape(this, this.wrapperElement);
-    };
-
-    const notify_position = function notify_position() {
         this.model.contextManager.modify({
-            'xPosition': this.position.x,
-            'yPosition': this.position.y,
-            'zPosition': this.position.z
-        });
-    };
-
-    const notify_shape = function notify_shape() {
-        this.model.contextManager.modify({
-            'height': this.shape.height,
-            'width': this.shape.width,
-            'heightInPixels': this.model.wrapperElement.offsetHeight,
-            'widthInPixels': this.model.wrapperElement.offsetWidth
-        });
-    };
-
-    const update_widget_visibility = function update_widget_visibility() {
-        this.model.contextManager.modify({
-            visible: !this.minimized && !this.tab.hidden && !this.tab.workspace.hidden
-        });
-    };
-
-    const getUpdatedLayoutConfigurations = function getUpdatedLayoutConfigurations(newLayout) {
-        const layoutConfigurations = this.model.layoutConfig;
-
-        const priv = privates.get(this);
-        const tabChange = priv.tab !== newLayout.dragboard.tab;
-        const dragboardChange = this.layout.dragboard !== newLayout.dragboard || tabChange;
-
-        layoutConfigurations.forEach((layoutConfiguration) => {
-            if (this.layout instanceof Wirecloud.ui.FullDragboardLayout || newLayout instanceof Wirecloud.ui.FullDragboardLayout) {
-                // Skip if coming from or going to a FullDragboardLayout
-                return;
-            }
-
-            const newLayoutConfiguration = layoutConfiguration;
-
-            let avgScreenSize = layoutConfiguration.lessOrEqual + (layoutConfiguration.moreOrEqual - layoutConfiguration.lessOrEqual) / 2;
-            if (layoutConfiguration.lessOrEqual === -1) {
-                avgScreenSize = layoutConfiguration.moreOrEqual;
-            }
-
-            const layout = (this.layout instanceof Wirecloud.ui.FullDragboardLayout) ? this.previousLayout : this.layout;
-            const previousWidth = (layoutConfiguration.relwidth) ? layout.fromHCellsToPixels(layoutConfiguration.width, avgScreenSize) : layoutConfiguration.width;
-            const previousHeight = (layoutConfiguration.relheight) ? layout.fromVCellsToPixels(layoutConfiguration.height) : layoutConfiguration.height;
-
-            if (newLayout instanceof Wirecloud.ui.FreeLayout) {
-                Wirecloud.Utils.merge(newLayoutConfiguration, {
-                    relwidth: true,
-                    width: newLayout.adaptWidth(previousWidth + 'px', avgScreenSize).inLU,
-                    relheight: false,
-                    height: newLayout.adaptHeight(previousHeight + 'px').inPixels
-                });
-            } else {
-                Wirecloud.Utils.merge(newLayoutConfiguration, {
-                    relwidth: true,
-                    width: newLayout.adaptWidth(previousWidth + 'px', avgScreenSize).inLU,
-                    relheight: true,
-                    height: newLayout.adaptHeight(previousHeight + 'px').inLU
-                });
-            }
-
-            if (dragboardChange && !(newLayout instanceof Wirecloud.ui.FreeLayout)) {
-                const matrix = Wirecloud.Utils.getLayoutMatrix(newLayout, newLayout.dragboard.widgets, avgScreenSize);
-                const newposition = newLayout._searchFreeSpace2(newLayoutConfiguration.width, newLayoutConfiguration.height, matrix);
-                newposition.relx = true;
-                newposition.rely = true;
-                newposition.anchor = "top-left";
-                Wirecloud.Utils.merge(newLayoutConfiguration, newposition);
-            } else {
-                const position = {
-                    x: layoutConfiguration.left,
-                    y: layoutConfiguration.top,
-                    z: layoutConfiguration.zIndex,
-                    relx: layoutConfiguration.relx,
-                    rely: layoutConfiguration.rely,
-                    anchor: layoutConfiguration.anchor
-                };
-
-                const oldPositionPixels = {
-                    x: layout.getColumnOffset(position, avgScreenSize),
-                    y: layout.getRowOffset(position)
-                };
-
-                if (newLayout instanceof Wirecloud.ui.FreeLayout) {
-                    Wirecloud.Utils.merge(newLayoutConfiguration, {
-                        left: newLayout.adaptColumnOffset(oldPositionPixels.x + 'px', avgScreenSize).inLU,
-                        top: newLayout.adaptRowOffset(oldPositionPixels.y + 'px').inPixels,
-                        relx: true,
-                        rely: false,
-                        anchor: "top-left"
-                    });
-                } else {
-                    Wirecloud.Utils.merge(newLayoutConfiguration, {
-                        left: newLayout.adaptColumnOffset(oldPositionPixels.x + 'px', avgScreenSize).inLU,
-                        top: newLayout.adaptRowOffset(oldPositionPixels.y + 'px').inLU,
-                        relx: true,
-                        rely: true,
-                        anchor: "top-left"
-                    });
-                }
-            }
+            xPosition: (node.x != null) ? node.x : 0,
+            yPosition: (node.y != null) ? node.y : 0,
+            zPosition: 0,
+            width: (node.w != null) ? node.w : 0,
+            height: (node.h != null) ? node.h : 0,
+            widthInPixels: this.wrapperElement.offsetWidth,
+            heightInPixels: this.wrapperElement.offsetHeight,
+            visible: layout.visible !== false && !layout.minimized && !this.tab.hidden && !this.tab.workspace.hidden
         });
     };
 
     // =========================================================================
     // EVENT HANDLERS
     // =========================================================================
+
+    /**
+     * Applies a change of one of the layout flags (minimized, titlevisible,
+     * fulldragboard) and stores the resulting layout in the model. The whole
+     * current layout is stored (not only the changed flag) so that a screen
+     * size that had no stored layout yet keeps the derived position and size.
+     *
+     * @private
+     */
+    const change_layout_flag = function change_layout_flag(changes, persist) {
+        const activeId = String(this.tab.dragboard.activeScreenSize.id);
+        const newLayout = utils.merge(utils.clone(this.layout || {}, true), changes);
+
+        this.applyLayout(newLayout);
+
+        return this.model.setLayout(activeId, this.currentLayout, persist).then(() => this);
+    };
 
     const on_add_log = function on_add_log() {
         const errorCount = this.model.logManager.errorCount;
@@ -197,10 +139,6 @@
             true
         );
         this.errorbutton.setTitle(label);
-    };
-
-    const on_remove = function on_remove() {
-        this.dispatchEvent('remove');
     };
 
     ns.WidgetView = class WidgetView extends se.StyledElement {
@@ -227,63 +165,43 @@
             }, options);
 
             privates.set(this, {
-                layout: null,
-                minimized: false,
-                minimized_shape: null,
-                position: model.position,
-                shape: model.shape,
-                tab: tab
+                tab: tab,
+                layout: null
             });
 
             Object.defineProperties(this, {
                 id: {
                     value: model.id
                 },
+                /**
+                 * The layout currently applied to this widget view:
+                 * `{x, y, w, h, minimized, titlevisible, fulldragboard, visible}`.
+                 *
+                 * @memberOf Wirecloud.ui.WidgetView#
+                 * @type {Object}
+                 */
                 layout: {
                     get: function () {
                         return privates.get(this).layout;
                     },
-                    set: function (new_layout) {
-                        privates.get(this).layout = new_layout;
-                        const fulldragboard = new_layout instanceof Wirecloud.ui.FullDragboardLayout;
-                        this.model.setLayoutFulldragboard(fulldragboard);
-                        if (!fulldragboard && new_layout != null) {
-                            this.model.setLayoutIndex(new_layout.dragboard.layouts.indexOf(new_layout));
-                        }
-                        update.call(this);
-                    }
-                },
-                minimized: {
-                    get: function () {
-                        return privates.get(this).minimized;
+                    set: function (value) {
+                        privates.get(this).layout = value;
                     }
                 },
                 model: {
                     value: model
                 },
-                position: {
-                    get: function () {
-                        return utils.clone(privates.get(this).position);
-                    }
-                },
-                shape: {
-                    get: function () {
-                        return utils.clone(privates.get(this)[this.minimized ? 'minimized_shape' : 'shape']);
-                    }
-                },
                 tab: {
                     get: function () {
                         return privates.get(this).tab;
+                    },
+                    set: function (value) {
+                        privates.get(this).tab = value;
                     }
                 },
                 title: {
                     get: () => {
                         return this.model.title;
-                    }
-                },
-                titlevisible: {
-                    get: () => {
-                        return this.model.titlevisible;
                     }
                 }
             });
@@ -379,94 +297,40 @@
                     view.titlevisibilitybutton = button;
                     return button;
                 },
-                'bottomresizehandle': function (options, tcomponents, view) {
-                    const handle = new Wirecloud.ui.WidgetViewResizeHandle(view, {resizeLeftSide: true, fixWidth: true});
-
-                    handle.addClassName("wc-bottom-resize-handle");
-                    view.bottomresizehandle = handle;
-                    return handle;
-                },
-                'leftresizehandle': function (options, tcomponents, view) {
-                    const handle = new Wirecloud.ui.WidgetViewResizeHandle(view, {resizeLeftSide: true});
-
-                    handle.addClassName("wc-bottom-left-resize-handle");
-                    view.leftresizehandle = handle;
-                    return handle;
-                },
-                'rightresizehandle': function (options, tcomponents, view) {
-                    const handle = new Wirecloud.ui.WidgetViewResizeHandle(view, {resizeLeftSide: false});
-
-                    handle.addClassName("wc-bottom-right-resize-handle");
-                    view.rightresizehandle = handle;
-                    return handle;
-                },
                 'iframe': function (options, tcomponents, view) {
                     return view.model.wrapperElement;
                 }
             }, this).children[1];
 
-            if ('bottomresizehandle' in this) {
-                this.bottomresizehandle.setResizableElement(this.wrapperElement);
-            }
-            if ('leftresizehandle' in this) {
-                this.leftresizehandle.setResizableElement(this.wrapperElement);
-            }
-            if ('rightresizehandle' in this) {
-                this.rightresizehandle.setResizableElement(this.wrapperElement);
-            }
-
-            this.wrapperElement.classList.add("wc-widget");
+            this.wrapperElement.classList.add("wc-widget", "grid-stack-item");
             this.wrapperElement.setAttribute('data-id', model.id);
+
+            this.contentElement = this.wrapperElement.children[0];
+            this.heading = this.wrapperElement.getElementsByClassName('wc-widget-heading')[0];
 
             model.addEventListener('change', (widget, changes) => {
                 if (changes.indexOf('title') !== -1) {
                     this.titleelement.setTextContent(widget.title);
                 }
 
-                if (changes.indexOf('meta') !== -1 || changes.indexOf('permissions') !== -1 || changes.indexOf('titlevisible') !== -1) {
-                    update.call(this);
+                if (changes.indexOf('meta') !== -1) {
+                    update_classes.call(this);
+                    update_buttons.call(this);
+                }
+
+                if (changes.indexOf('permissions') !== -1) {
+                    update_classes.call(this);
+                    update_buttons.call(this);
+                    this.updateGridPermissions();
                 }
             });
 
-            model.addEventListener('unload', (widget) => {
+            model.addEventListener('unload', () => {
                 this.unhighlight();
             });
 
-            this.heading = this.wrapperElement.getElementsByClassName('wc-widget-heading')[0];
-            this.draggable = new Wirecloud.ui.WidgetViewDraggable(this);
-
-
-            // TODO: review
-            let layout;
-            if (model.fulldragboard) {
-                layout = tab.dragboard.fulldragboardLayout;
-                this.previousLayout = tab.dragboard.layouts[model.layout];
-                this.previousPosition = model.position;
-                this.previousShape = model.shape;
-            } else {
-                layout = tab.dragboard.layouts[model.layout];
-            }
-
-            // Init minimized and title visibility options
-            let wrapperHeight = this.wrapperElement.offsetHeight;
-            // On first load, the height is 0. This is a workaround to avoid this issue and set the correct height to the widget
-            wrapperHeight = (wrapperHeight === 0) ? 42 : wrapperHeight;
-            this._setMinimizeStatusStyle(model.minimized, layout, wrapperHeight);
-
-            layout.addWidget(this, true);
-
-            this.model.logManager.addEventListener('newentry', on_add_log.bind(this));
-
-            this.wrapperElement.addEventListener('transitionend', function (e) {
-                if (this.layout.iwidgetToMove == null && ['width', 'height', 'top', 'left'].indexOf(e.propertyName) !== -1) {
-                    this.repaint();
-                    notify_shape.call(this);
-                }
-            }.bind(this), true);
-
-            model.addEventListener('load', (model) => {
-
-                this.wrapperElement.classList.add('in');
+            model.addEventListener('load', () => {
+                this.contentElement.classList.add('in');
 
                 const containerToListen = (model.meta.macversion > 1) ? model.wrapperElement : model.wrapperElement.contentDocument.defaultView;
 
@@ -484,91 +348,257 @@
                 this.repaint();
             });
 
-            this.tab.workspace.addEventListener('editmode', update.bind(this));
-            model.addEventListener('remove', on_remove.bind(this));
+            model.addEventListener('remove', () => {
+                this.tab.dragboard.removeWidget(this);
+                this.dispatchEvent('remove');
+            });
 
-            this.tab.workspace.addEventListener('show', update_widget_visibility.bind(this));
-            this.tab.workspace.addEventListener('hide', update_widget_visibility.bind(this));
-            this.tab.addEventListener('show', update_widget_visibility.bind(this));
-            this.tab.addEventListener('hide', update_widget_visibility.bind(this));
+            this.model.logManager.addEventListener('newentry', on_add_log.bind(this));
 
-            update.call(this);
+            this.tab.workspace.addEventListener('editmode', () => {
+                update_classes.call(this);
+                update_buttons.call(this);
+                this.updateGridPermissions();
+            });
+
+            this.tab.workspace.addEventListener('show', () => notify_context.call(this));
+            this.tab.workspace.addEventListener('hide', () => notify_context.call(this));
+            this.tab.addEventListener('show', () => notify_context.call(this));
+            this.tab.addEventListener('hide', () => notify_context.call(this));
+
+            this.tab.dragboard.addWidget(this);
+
+            update_classes.call(this);
+            update_buttons.call(this);
         }
 
         /**
-         * Changes minimize status of this iwidget
+         * The `{x, y, w, h, minimized, titlevisible, fulldragboard, visible}`
+         * object that should be persisted for the active screen size: `x`/`y`/`w`/`h`
+         * are read from the underlying GridStack node (when minimized, `h` is
+         * the remembered un-minimized height, not the collapsed one).
          *
-         * @param newStatus new minimize status of the iwidget
+         * @type {Object}
          */
-        setMinimizeStatus(newStatus, persistence, reserveSpace) {
-            const oldHeight = this.shape.height;
+        get currentLayout() {
+            const node = this.wrapperElement.gridstackNode || {};
+            const layout = this.layout || {};
 
-            this._setMinimizeStatusStyle(newStatus, this.layout);
-            this.model.setLayoutMinimizedStatus(this.minimized);
+            return {
+                x: (node.x != null) ? node.x : layout.x,
+                y: (node.y != null) ? node.y : layout.y,
+                w: (node.w != null) ? node.w : layout.w,
+                h: layout.minimized ? (this._unminimizedHeight != null ? this._unminimizedHeight : layout.h) : ((node.h != null) ? node.h : layout.h),
+                minimized: !!layout.minimized,
+                titlevisible: !!layout.titlevisible,
+                fulldragboard: !!layout.fulldragboard,
+                visible: layout.visible !== false
+            };
+        }
 
-            // Notify resize event
-            reserveSpace = reserveSpace != null ? reserveSpace : true;
-            if (reserveSpace) {
-                const persist = persistence != null ? persistence : true;
-                this.layout._notifyResizeEvent(this, this.shape.width, oldHeight, this.shape.width,  this.shape.height, false, false, persist, reserveSpace);
+        get canMove() {
+            const layout = this.layout || {};
+            if (layout.fulldragboard) {
+                return false;
+            }
+            const role = this.tab.workspace.editing ? 'editor' : 'viewer';
+            return this.model.isAllowed('move', role);
+        }
+
+        get canResize() {
+            const layout = this.layout || {};
+            if (layout.fulldragboard || layout.minimized) {
+                return false;
+            }
+            const role = this.tab.workspace.editing ? 'editor' : 'viewer';
+            return this.model.isAllowed('resize', role);
+        }
+
+        /**
+         * Applies a resolved layout (as produced by
+         * `Wirecloud.ui.WorkspaceTabViewDragboard#resolveLayout`) to this view:
+         * updates its CSS classes/buttons, collapses/restores it if
+         * minimized, refreshes its move/resize permissions and re-notifies
+         * the widget context.
+         *
+         * @param {Object} layout
+         *
+         * @returns {Wirecloud.ui.WidgetView}
+         */
+        applyLayout(layout) {
+            this.layout = layout;
+
+            if (!layout.minimized || this._unminimizedHeight == null) {
+                this._unminimizedHeight = layout.h;
             }
 
-            update.call(this);
+            update_classes.call(this);
+            update_buttons.call(this);
+            update_tab_fulldragboard_class(this);
+
+            if (this.wrapperElement.gridstackNode != null && this.tab.dragboard.grid != null) {
+                this.tab.dragboard.withApplying(() => {
+                    if (layout.minimized) {
+                        const rows = compute_minimized_rows.call(this);
+                        this.tab.dragboard.grid.update(this.wrapperElement, {h: rows, noResize: true});
+                    } else {
+                        this.tab.dragboard.grid.update(this.wrapperElement, {h: layout.h});
+                    }
+                });
+            }
+
+            this.updateGridPermissions();
+            notify_context.call(this);
+
             return this;
         }
 
-        _setMinimizeStatusStyle(newStatus, layout, height = undefined) {
-            const priv = privates.get(this);
+        /**
+         * Refreshes `layout.x/y/w/h` from the underlying GridStack node after
+         * the user moved or resized the widget (when minimized, the height is
+         * left untouched as the node holds the collapsed height).
+         *
+         * @returns {Wirecloud.ui.WidgetView}
+         */
+        syncLayoutFromNode() {
+            const node = this.wrapperElement.gridstackNode;
+            const layout = this.layout;
 
-            // Sanitize newStatus value
-            newStatus = !!newStatus;
-
-            if (newStatus === this.minimized) {
+            if (node == null || layout == null) {
                 return this;
             }
 
-            priv.minimized = newStatus;
-
-            if (this.minimized) {
-                this.minimizebutton.setTitle(utils.gettext("Maximize"));
-                this.minimizebutton.replaceIconClassName("fa-minus", "fa-plus");
-                this.wrapperElement.classList.add('wc-minimized-widget');
-                this.wrapperElement.style.height = "";
-
-                const wrapperHeight = (height) ? height : this.wrapperElement.offsetHeight;
-
-                priv.minimized_shape = {
-                    relheight: true,
-                    height: layout.adaptHeight(wrapperHeight + 'px').inLU,
-                    relwidth: priv.shape.relwidth,
-                    width: priv.shape.width
-                };
-                this.model.setTitleVisibility(true, false);
-            } else {
-                this.minimizebutton.setTitle(utils.gettext("Minimize"));
-                this.minimizebutton.replaceIconClassName("fa-plus", "fa-minus");
-                this.wrapperElement.classList.remove('wc-minimized-widget');
-                this.wrapperElement.style.height = layout.getHeightInPixels(priv.shape.height) + 'px';
-                priv.minimized_shape = null;
+            layout.x = node.x;
+            layout.y = node.y;
+            layout.w = node.w;
+            if (!layout.minimized) {
+                layout.h = node.h;
+                this._unminimizedHeight = node.h;
             }
 
-            this.model.contextManager.modify({
-                height: this.shape.height,
-                heightInPixels: this.model.wrapperElement.offsetHeight,
-                visible: !priv.minimized && !this.tab.hidden && !this.tab.workspace.hidden
+            return this;
+        }
+
+        /**
+         * Refreshes this widget's `noMove`/`noResize` GridStack node options
+         * from its current permissions.
+         */
+        updateGridPermissions() {
+            const dragboard = this.tab.dragboard;
+
+            if (dragboard.grid == null || this.wrapperElement.gridstackNode == null) {
+                return;
+            }
+
+            dragboard.withApplying(() => {
+                dragboard.grid.update(this.wrapperElement, {
+                    noMove: !this.canMove,
+                    noResize: !this.canResize
+                });
             });
         }
 
         /**
-         * Toggles title visibility
+         * @param {Boolean} [persist]
          *
+         * @returns {Promise}
+         */
+        toggleMinimizeStatus(persist) {
+            return this.setMinimizeStatus(!(this.layout && this.layout.minimized), persist);
+        }
+
+        /**
+         * @param {Boolean} status
+         * @param {Boolean} [persist]
+         *
+         * @returns {Promise}
+         */
+        setMinimizeStatus(status, persist) {
+            status = !!status;
+
+            if (this.layout != null && status === !!this.layout.minimized) {
+                return Promise.resolve(this);
+            }
+
+            return change_layout_flag.call(this, {minimized: status}, persist);
+        }
+
+        /**
          * @param {Boolean} persistence save change on server
+         *
+         * @returns {Promise}
          */
         toggleTitleVisibility(persistence) {
+            const newValue = !(this.layout && this.layout.titlevisible);
+
             this.titlevisibilitybutton.disable().addClassName('busy');
-            const t = this.model.setTitleVisibility(!this.titlevisible, persistence);
-            t.finally(() => {this.titlevisibilitybutton.enable().removeClassName('busy');});
-            return t;
+
+            return change_layout_flag.call(this, {titlevisible: newValue}, persistence).finally(() => {
+                this.titlevisibilitybutton.enable().removeClassName('busy');
+            });
+        }
+
+        /**
+         * Enables/disables "full dragboard" mode (the widget covers the whole
+         * tab).
+         *
+         * @param {Boolean} enable
+         * @param {Boolean} [persist]
+         *
+         * @returns {Promise}
+         */
+        setFullDragboardMode(enable, persist) {
+            enable = !!enable;
+
+            if (this.layout != null && enable === !!this.layout.fulldragboard) {
+                return Promise.resolve(this);
+            }
+
+            if (enable) {
+                // The widget covers the visible area of the tab, starting at its top
+                this.tab.wrapperElement.scrollTop = 0;
+            }
+
+            return change_layout_flag.call(this, {fulldragboard: enable}, persist);
+        }
+
+        /**
+         * Hides this widget for the current screen size.
+         *
+         * @returns {Promise}
+         */
+        hideInCurrentScreenSize() {
+            // The whole layout is stored (not just the flag) so that the
+            // widget comes back to the same place when shown again, and so
+            // that the other screen sizes, which may derive their layout from
+            // this one, keep showing the widget.
+            return change_layout_flag.call(this, {visible: false}, true).then(() => {
+                this.tab.dragboard.refreshWidget(this);
+                return this;
+            });
+        }
+
+        /**
+         * Shows this widget again for the current screen size.
+         *
+         * @returns {Promise}
+         */
+        showInCurrentScreenSize() {
+            return change_layout_flag.call(this, {visible: true}, true).then(() => {
+                this.tab.dragboard.refreshWidget(this);
+                return this;
+            });
+        }
+
+        /**
+         * Moves this widget to another tab.
+         *
+         * @param {Wirecloud.ui.WorkspaceTabView} tabView
+         *
+         * @returns {Promise}
+         */
+        moveToTab(tabView) {
+            return this.tab.dragboard.moveWidgetToTab(this, tabView);
         }
 
         /**
@@ -586,47 +616,9 @@
             return this.model.setPermissions(changes, persistence);
         }
 
-        setPosition(position, updateModel = true) {
-            utils.update(privates.get(this).position, position);
-
-            if (updateModel) {
-                this.model.setPosition(this.position);
-                this.model.setLayoutPosition(this.position);
-            }
-
-            if (this.layout != null) {
-                update_position.call(this);
-                notify_position.call(this);
-            }
-            return this;
-        }
-
-        setShape(shape, resizeLeftSide, resizeTopSide, persist, updateModel = true) {
-            const oldWidth = this.shape.width;
-            const oldHeight = this.shape.height;
-
-            utils.update(privates.get(this).shape, shape);
-
-            if (updateModel) {
-                this.model.setShape(privates.get(this).shape);
-                this.model.setLayoutShape(privates.get(this).shape);
-            }
-
-            if (this.layout == null) {
-                return;
-            }
-
-            update_shape.call(this);
-            notify_shape.call(this);
-
-            // Notify resize event
-            this.layout._notifyResizeEvent(this, oldWidth, oldHeight, this.shape.width, this.shape.height, resizeLeftSide, resizeTopSide, persist);
-        }
-
         load() {
-
             if (!this.model.loaded) {
-                this.wrapperElement.classList.add('in');
+                this.contentElement.classList.add('in');
                 this.model.load();
             }
 
@@ -634,16 +626,10 @@
         }
 
         /**
-         * Updates widget size and position css
+         * Re-notifies the widget context (position/size/visibility).
          */
         repaint() {
-
-            update_position.call(this);
-            update_shape.call(this);
-
-            notify_position.call(this);
-            notify_shape.call(this);
-
+            notify_context.call(this);
             return this;
         }
 
@@ -663,8 +649,8 @@
         }
 
         highlight() {
-            this.wrapperElement.classList.add('panel-success');
-            this.wrapperElement.classList.remove('panel-default');
+            this.contentElement.classList.add('panel-success');
+            this.contentElement.classList.remove('panel-default');
             if (!this.wrapperElement.classList.contains('wc-widget-highlight')) {
                 this.wrapperElement.classList.add('wc-widget-highlight');
                 this.dispatchEvent('highlight');
@@ -680,8 +666,8 @@
         }
 
         unhighlight() {
-            this.wrapperElement.classList.remove('panel-success');
-            this.wrapperElement.classList.add('panel-default');
+            this.contentElement.classList.remove('panel-success');
+            this.contentElement.classList.add('panel-default');
             if (this.wrapperElement.classList.contains('wc-widget-highlight')) {
                 this.wrapperElement.classList.remove('wc-widget-highlight');
                 this.dispatchEvent('unhighlight');
@@ -690,198 +676,14 @@
             return this;
         }
 
-        moveToLayout(newLayout) {
-            if (this.layout === newLayout) {
-                return Promise.resolve();
-            }
-
-            const priv = privates.get(this);
-            let minimizeOnFinish = false;
-            if (this.minimized) {
-                minimizeOnFinish = true;
-                this.toggleMinimizeStatus();
-            }
-
-            const previousWidth = this.wrapperElement.offsetWidth;
-            const previousHeight = this.wrapperElement.offsetHeight;
-
-            const tabChange = priv.tab !== newLayout.dragboard.tab;
-            const dragboardChange = this.layout.dragboard !== newLayout.dragboard || tabChange;
-            const oldLayout = this.layout;
-            getUpdatedLayoutConfigurations.call(this, newLayout);
-
-            const affectedWidgetsRemoving = oldLayout.removeWidget(this, dragboardChange);
-
-            const updateModel = !(newLayout instanceof Wirecloud.ui.FullDragboardLayout);
-
-            if (oldLayout instanceof Wirecloud.ui.FullDragboardLayout) {
-                this.setShape(this.previousShape);
-            } else if (newLayout instanceof Wirecloud.ui.FreeLayout) {
-                this.setShape({
-                    relwidth: true,
-                    width: newLayout.adaptWidth(previousWidth + 'px').inLU,
-                    relheight: false,
-                    height: newLayout.adaptHeight(previousHeight + 'px').inPixels
-                });
-            } else {
-                this.setShape({
-                    relwidth: true,
-                    width: newLayout.adaptWidth(previousWidth + 'px').inLU,
-                    relheight: true,
-                    height: newLayout.adaptHeight(previousHeight + 'px').inLU
-                }, false, false, false, updateModel);
-            }
-
-            if (dragboardChange && !(newLayout instanceof Wirecloud.ui.FreeLayout)) {
-                const newposition = newLayout._searchFreeSpace(this.shape.width, this.shape.height);
-                newposition.relx = true;
-                newposition.rely = true;
-                newposition.anchor = "top-left";
-                this.setPosition(newposition);
-            } else if (oldLayout instanceof Wirecloud.ui.FullDragboardLayout) {
-                this.setPosition(this.previousPosition);
-            } else {
-                const oldPositionPixels = {
-                    x: oldLayout.getColumnOffset(this.position),
-                    y: oldLayout.getRowOffset(this.position)
-                };
-                if (newLayout instanceof Wirecloud.ui.FreeLayout) {
-                    this.setPosition({
-                        x: newLayout.adaptColumnOffset(oldPositionPixels.x + 'px').inLU,
-                        y: newLayout.adaptRowOffset(oldPositionPixels.y + 'px').inPixels,
-                        relx: true,
-                        rely: false,
-                        anchor: "top-left"
-                    });
-                } else {
-                    this.setPosition({
-                        x: newLayout.adaptColumnOffset(oldPositionPixels.x + 'px').inLU,
-                        y: newLayout.adaptRowOffset(oldPositionPixels.y + 'px').inLU,
-                        relx: true,
-                        rely: true,
-                        anchor: "top-left"
-                    }, updateModel);
-                }
-            }
-
-            const affectedWidgetsAdding = newLayout.addWidget(this, dragboardChange);
-            priv.tab = newLayout.dragboard.tab;
-
-            if (minimizeOnFinish) {
-                this.toggleMinimizeStatus();
-            }
-
-            // Persist changes
-            this.model.changeTab(newLayout.dragboard.tab.model).then(() => {
-                affectedWidgetsAdding.add(this.id);
-                if (dragboardChange) {
-                    oldLayout.dragboard.update([...affectedWidgetsRemoving], true);
-                    newLayout.dragboard.update([...affectedWidgetsAdding], true);
-                } else {
-                    newLayout.dragboard.update([...utils.setupdate(affectedWidgetsAdding, affectedWidgetsRemoving)], true);
-                }
-            });
-        }
-
-        toggleMinimizeStatus(persistence) {
-            this.setMinimizeStatus(!this.minimized, persistence);
-        }
-
-        setFullDragboardMode(enable) {
-            if ((this.layout === this.tab.dragboard.fulldragboardLayout) === enable) {
-                return this;
-            }
-
-            const dragboard = this.layout.dragboard;
-
-            if (enable) {
-                this.previousShape = this.shape;
-                this.previousLayout = this.layout;
-                this.previousPosition = this.position;
-
-                this.moveToLayout(dragboard.fulldragboardLayout);
-                dragboard.lowerToBottom(this);
-            } else {
-                this.moveToLayout(this.previousLayout);
-            }
-            this.model.fulldragboard = enable;
-
-            update.call(this);
-            return this;
-        }
-
-        updateWindowSize(windowSize) {
-            this.model.updateWindowSize(windowSize);
-
-            const newPos = {
-                x: this.model.position.x,
-                y: this.model.position.y,
-                z: this.model.position.z,
-                relx: this.model.position.relx,
-                rely: this.model.position.rely,
-                anchor: this.model.position.anchor
-            };
-
-            const newShape = {
-                relwidth: this.model.shape.relwidth,
-                width: this.model.shape.width,
-                relheight: this.model.shape.relheight,
-                height: this.model.shape.height
-            };
-
-            this.layout.removeWidgetEventListeners(this);
-            if ('removeHandle' in this.layout) {
-                this.layout.removeHandle();
-            }
-            this.layout = null;
-
-            this.setPosition(newPos, false);
-            this.setShape(newShape, false, false, false, false);
-
-            if (this.model.fulldragboard) {
-                this.previousPosition = this.position;
-                this.previousShape = this.shape;
-                this.previousLayout = this.tab.dragboard.layouts[this.model.layout];
-
-                this._setMinimizeStatusStyle(this.model.minimized, this.tab.dragboard.fulldragboardLayout);
-                this.tab.dragboard.fulldragboardLayout.addWidget(this, false);
-            } else {
-                // Remove wc-widget-fulldragboard class
-                this.wrapperElement.classList.remove('wc-widget-fulldragboard');
-                this._setMinimizeStatusStyle(this.model.minimized, this.tab.dragboard.layouts[this.model.layout]);
-                this.tab.dragboard.layouts[this.model.layout].addWidget(this, false);
-            }
-        }
-
-        toJSON(action = 'update', allLayoutConfigurations = false) {
-            const fulldragboard = this.layout === this.tab.dragboard.fulldragboardLayout;
-
-            // We keep all or only the current layout configuration and then we clone it to add the action
-            const configs = this.model.layoutConfig.reduce((result, layoutConfig) => {
-                if (allLayoutConfigurations || layoutConfig.id === this.model.currentLayoutConfig.id) {
-                    const config = StyledElements.Utils.clone(layoutConfig, true);
-                    config.action = action;
-                    result.push(config);
-                }
-
-                return result;
-            }, []);
-
+        toJSON() {
+            const activeId = String(this.tab.dragboard.activeScreenSize.id);
             return {
                 id: this.id,
-                tab: this.tab.id,
-                layout: this.tab.dragboard.layouts.indexOf(fulldragboard ? this.previousLayout : this.layout),
-                layoutConfig: configs
+                layouts: {
+                    [activeId]: this.currentLayout
+                }
             };
-        }
-
-        persist() {
-            if (!this.model.volatile) {
-                this.model.setPosition(this.position);
-                this.model.setShape(privates.get(this).shape);
-            }
-
-            return this;
         }
 
         remove() {

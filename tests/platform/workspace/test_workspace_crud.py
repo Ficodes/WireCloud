@@ -6,7 +6,7 @@ import pytest
 from bson import ObjectId
 from fastapi import Response
 
-from wirecloud.platform.iwidget.models import WidgetConfig, WidgetInstance, WidgetPositions, WidgetPositionsConfig
+from wirecloud.platform.iwidget.models import WidgetInstance, WidgetLayout
 from wirecloud.platform.workspace import crud
 from wirecloud.platform.workspace.models import Workspace, WorkspaceAccessPermissions, Tab
 
@@ -21,29 +21,6 @@ def _workspace_model(name="workspace", creator=None):
         tabs={},
         users=[WorkspaceAccessPermissions(id=creator, accesslevel=2)],
     )
-
-
-def test_sanitize_widget_layout_config():
-    data = {
-        "tabs": {
-            "t1": {
-                "widgets": {
-                    "w1": {
-                        "positions": {
-                            "configurations": [
-                                {"widget": {"moreOrEqual": 0, "lessOrEqual": -1, "top": 1}},
-                                {"widget": "invalid"},
-                            ]
-                        }
-                    }
-                }
-            }
-        }
-    }
-    crud._sanitize_widget_layout_config(data)
-    widget = data["tabs"]["t1"]["widgets"]["w1"]["positions"]["configurations"][0]["widget"]
-    assert "moreOrEqual" not in widget
-    assert "lessOrEqual" not in widget
 
 
 async def test_workspace_crud_db_operations_and_lookup(db_session, monkeypatch):
@@ -260,7 +237,7 @@ async def test_workspace_description_and_user_lookup(db_session, monkeypatch):
     widget = WidgetInstance(
         id="w1",
         title="Weather",
-        positions=WidgetPositions(configurations=[WidgetPositionsConfig(id=0, moreOrEqual=0, lessOrEqual=-1, widget=WidgetConfig())]),
+        layouts={"0": WidgetLayout()},
     )
     workspace.tabs = {f"{workspace.id}-0": Tab(id=f"{workspace.id}-0", name="t0", title="T0", widgets={"w1": widget})}
     await crud.insert_workspace(db_session, workspace)

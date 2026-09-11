@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 import orjson
+from pydantic import ValidationError
 
 from wirecloud.commons.utils.template import base as template_base
 from wirecloud.commons.utils.template.parsers import json as json_parser
@@ -13,9 +14,7 @@ from wirecloud.commons.utils.template.schemas.macdschemas import (
     MACDTranslationIndexUsage,
     MACDMashup,
     MACDMashupResource,
-    MACDMashupResourcePosition,
-    MACDMashupResourceRendering,
-    MACDMashupResourceScreenSize,
+    MACDMashupResourceLayout,
     MACDOperator,
     MACDPreference,
     MACDPreferenceListOption,
@@ -93,18 +92,9 @@ def _widget_info_dict():
     }
 
 
-def _mashup_with_resource(type_value="mashup", screen_sizes=None):
-    if screen_sizes is None:
-        screen_sizes = [
-            {
-                "id": 0,
-                "moreOrEqual": 0,
-                "lessOrEqual": -1,
-                "layout": 0,
-                "rendering": {"width": "1", "height": "1"},
-                "position": {"x": "0", "y": "0", "z": "0"},
-            }
-        ]
+def _mashup_with_resource(type_value="mashup", layouts=None):
+    if layouts is None:
+        layouts = {"0": {"x": 0, "y": 0, "w": 1, "h": 1}}
     return {
         "type": type_value,
         "macversion": 1,
@@ -120,7 +110,7 @@ def _mashup_with_resource(type_value="mashup", screen_sizes=None):
                         "name": "widget",
                         "vendor": "acme",
                         "version": "1.0.0",
-                        "screenSizes": screen_sizes,
+                        "layouts": layouts,
                     }
                 ],
             }
@@ -163,6 +153,57 @@ def test_template_base_helpers_and_contacts():
     assert str(template_base.UnsupportedFeature("y")) == "y"
 
 
+def test_convert_legacy_layout():
+    # Cell-based (relative) coordinates: rescaled by the column/row ratio between the old grid
+    # (20 columns x 12px rows) and the new one (12 columns x 40px rows)
+    cell_based = template_base.convert_legacy_layout(
+        top=8, left=10, width=6, height=4, relx=True, rely=True, relwidth=True, relheight=True,
+    )
+    assert cell_based == {
+        "x": round(10 * 12 / 20),
+        "y": round(8 * 12 / 40),
+        "w": max(1, round(6 * 12 / 20)),
+        "h": max(1, round(4 * 12 / 40)),
+        "minimized": False,
+        "titlevisible": True,
+        "fulldragboard": False,
+        "visible": True,
+    }
+
+    # Pixel-based (absolute) coordinates: position is left to auto-placement (None); size is
+    # estimated assuming a 100px column / 40px row
+    pixel_based = template_base.convert_legacy_layout(
+        top=80, left=250, width=250, height=80, relx=False, rely=False, relwidth=False, relheight=False,
+        minimized=True, titlevisible=False, fulldragboard=True,
+    )
+    assert pixel_based == {
+        "x": None,
+        "y": None,
+        "w": max(1, round(250 / 100)),
+        "h": max(1, round(80 / 40)),
+        "minimized": True,
+        "titlevisible": False,
+        "fulldragboard": True,
+        "visible": True,
+    }
+
+    # w/h are never rounded down to 0
+    tiny = template_base.convert_legacy_layout(
+        top=0, left=0, width=1, height=1, relx=True, rely=True, relwidth=False, relheight=False,
+    )
+    assert tiny["w"] == 1
+    assert tiny["h"] == 1
+
+    # relx/rely and relwidth/relheight are independent of each other
+    mixed = template_base.convert_legacy_layout(
+        top=8, left=10, width=250, height=80, relx=True, rely=False, relwidth=False, relheight=True,
+    )
+    assert mixed["x"] == round(10 * 12 / 20)
+    assert mixed["y"] is None
+    assert mixed["w"] == max(1, round(250 / 100))
+    assert mixed["h"] == max(1, round(80 * 12 / 40))
+
+
 def test_json_template_parser_errors_and_getters():
     with pytest.raises(ValueError):
         json_parser.JSONTemplateParser(123)
@@ -198,12 +239,14 @@ def test_json_template_parser_errors_and_getters():
     assert any(u.type == "resource" for u in info.translation_index_usage["TITLE"])
 
 
-def test_json_template_parser_mashup_invalid_screen_sizes():
+def test_json_template_parser_mashup_empty_layouts_is_valid():
+    # A widget with no stored layouts at all is valid: it is auto-placed by the client
     json_parser._ = lambda text: text
-    payload = _mashup_with_resource(screen_sizes=[])
+    payload = _mashup_with_resource(layouts={})
     parser = json_parser.JSONTemplateParser(payload)
-    with pytest.raises(template_base.TemplateParseException, match="Invalid screen sizes"):
-        parser._init()
+    parser._init()
+    info = parser.get_resource_info()
+    assert info.tabs[0].resources[0].layouts == {}
 
 
 def test_json_template_parser_mashup_params_translation_indexes():
@@ -393,7 +436,7 @@ def test_json_writer_helpers_and_output():
     assert '"type":"mashup"' in written_mashup
 
 
-def test_macdschemas_validators_and_screen_sizes():
+def test_macdschemas_validators_and_layouts():
     import wirecloud.commons.utils.template.schemas.macdschemas as macdschemas
     macdschemas._ = lambda text: text
 
@@ -460,195 +503,52 @@ def test_macdschemas_validators_and_screen_sizes():
     )
     assert op.type == MACType.operator
 
-    # fix_old_format and set_default_rely
-    old = MACDMashupResource.model_validate(
-        {
-            "id": "r1",
-            "name": "widget",
-            "vendor": "acme",
-            "version": "1.0.0",
-            "layout": 1,
-            "rendering": {"width": "1", "height": "1", "layout": 0},
-            "position": {"x": "0", "y": "0", "z": "0"},
-        }
-    )
-    assert len(old.screenSizes) == 1
-    assert isinstance(old.screenSizes[0].position.rely, bool)
-
-    # if rendering/position are not dict, keep data unchanged path
-    preserved = MACDMashupResource.fix_old_format({"screenSizes": [], "rendering": "x", "position": "y"})
-    assert preserved["rendering"] == "x"
-    preserved_2 = MACDMashupResource.fix_old_format({"rendering": "x", "position": "y"})
-    assert preserved_2["rendering"] == "x"
-    fixed = MACDMashupResource.fix_old_format(
-        {
-            "rendering": {"width": "1", "height": "1", "layout": 1},
-            "position": {"x": "0", "y": "0", "z": "0"},
-        }
-    )
-    assert "screenSizes" in fixed
-    assert "rendering" not in fixed
-    assert "position" not in fixed
-    fixed_no_layout = MACDMashupResource.fix_old_format(
-        {
-            "rendering": {"width": "1", "height": "1"},
-            "position": {"x": "0", "y": "0", "z": "0"},
-        }
-    )
-    assert "screenSizes" in fixed_no_layout
-
     with pytest.raises(ValueError, match="Invalid type for mashup"):
         MACDMashup.model_validate({**_mashup_with_resource(), "type": "widget"})
 
     valid_mashup = MACDMashup.model_validate(_mashup_with_resource())
-    assert valid_mashup.is_valid_screen_sizes() is True
-
-    bad_no_sizes = MACDMashup.model_validate(_mashup_with_resource(screen_sizes=[]))
-    assert bad_no_sizes.is_valid_screen_sizes() is False
-
-    bad_start = MACDMashup.model_validate(
-        _mashup_with_resource(
-            screen_sizes=[
-                {
-                    "id": 0,
-                    "moreOrEqual": 1,
-                    "lessOrEqual": -1,
-                    "layout": 0,
-                    "rendering": {"width": "1", "height": "1"},
-                    "position": {"x": "0", "y": "0", "z": "0"},
-                }
-            ]
-        )
-    )
-    assert bad_start.is_valid_screen_sizes() is False
-
-    bad_gap = MACDMashup.model_validate(
-        _mashup_with_resource(
-            screen_sizes=[
-                {
-                    "id": 0,
-                    "moreOrEqual": 0,
-                    "lessOrEqual": 10,
-                    "layout": 0,
-                    "rendering": {"width": "1", "height": "1"},
-                    "position": {"x": "0", "y": "0", "z": "0"},
-                },
-                {
-                    "id": 1,
-                    "moreOrEqual": 12,
-                    "lessOrEqual": -1,
-                    "layout": 0,
-                    "rendering": {"width": "1", "height": "1"},
-                    "position": {"x": "0", "y": "0", "z": "0"},
-                },
-            ]
-        )
-    )
-    assert bad_gap.is_valid_screen_sizes() is False
+    assert valid_mashup.tabs[0].resources[0].layouts["0"].w == 1
 
     # cover parse_contacts non-dict branch directly
     assert macdschemas.MACDBase.parse_contacts("noop") == "noop"
 
-    # cover fix_old_format branch combinations for optional key deletions
-    out_only_position = macdschemas.MACDMashupResource.fix_old_format(
-        {"position": {"x": "0", "y": "0", "z": "0"}, "rendering": {"width": "1", "height": "1"}}
-    )
-    assert "position" not in out_only_position
-
-    out_only_rendering = macdschemas.MACDMashupResource.fix_old_format({"rendering": {"width": "1", "height": "1"}})
-    assert "screenSizes" in out_only_rendering
-
-    out_only_position2 = macdschemas.MACDMashupResource.fix_old_format({"position": {"x": "0", "y": "0", "z": "0"}})
-    assert "screenSizes" in out_only_position2
-
-    out_no_old_format = macdschemas.MACDMashupResource.fix_old_format({"layout": 0})
-    assert out_no_old_format["layout"] == 0
-
-    contiguous_ok = MACDMashup.model_validate(
-        _mashup_with_resource(
-            screen_sizes=[
-                {
-                    "id": 0,
-                    "moreOrEqual": 0,
-                    "lessOrEqual": 10,
-                    "layout": 0,
-                    "rendering": {"width": "1", "height": "1"},
-                    "position": {"x": "0", "y": "0", "z": "0"},
-                },
-                {
-                    "id": 1,
-                    "moreOrEqual": 11,
-                    "lessOrEqual": -1,
-                    "layout": 0,
-                    "rendering": {"width": "1", "height": "1"},
-                    "position": {"x": "0", "y": "0", "z": "0"},
-                },
-            ]
-        )
-    )
-    assert contiguous_ok.is_valid_screen_sizes() is True
-
-    bad_end = MACDMashup.model_validate(
-        _mashup_with_resource(
-            screen_sizes=[
-                {
-                    "id": 0,
-                    "moreOrEqual": 0,
-                    "lessOrEqual": 5,
-                    "layout": 0,
-                    "rendering": {"width": "1", "height": "1"},
-                    "position": {"x": "0", "y": "0", "z": "0"},
-                }
-            ]
-        )
-    )
-    assert bad_end.is_valid_screen_sizes() is False
-
-    bad_end = MACDMashup.model_validate(
-        _mashup_with_resource(
-            screen_sizes=[
-                {
-                    "id": 0,
-                    "moreOrEqual": 0,
-                    "lessOrEqual": 10,
-                    "layout": 0,
-                    "rendering": {"width": "1", "height": "1"},
-                    "position": {"x": "0", "y": "0", "z": "0"},
-                }
-            ]
-        )
-    )
-    assert bad_end.is_valid_screen_sizes() is False
-
-    good_two_ranges = MACDMashup.model_validate(
-        _mashup_with_resource(
-            screen_sizes=[
-                {
-                    "id": 0,
-                    "moreOrEqual": 0,
-                    "lessOrEqual": 10,
-                    "layout": 0,
-                    "rendering": {"width": "1", "height": "1"},
-                    "position": {"x": "0", "y": "0", "z": "0"},
-                },
-                {
-                    "id": 1,
-                    "moreOrEqual": 11,
-                    "lessOrEqual": -1,
-                    "layout": 0,
-                    "rendering": {"width": "1", "height": "1"},
-                    "position": {"x": "0", "y": "0", "z": "0"},
-                },
-            ]
-        )
-    )
-    assert good_two_ranges.is_valid_screen_sizes() is True
-
-    set_default_data = {
-        "screenSizes": [
-            {"layout": 1, "position": {"x": "0", "y": "0", "z": "0"}},
-            {"layout": 0, "position": {"x": "1", "y": "1", "z": "1", "rely": False}},
-        ]
+    # MACDMashupResourceLayout defaults and field validation
+    default_layout = MACDMashupResourceLayout()
+    assert default_layout.model_dump() == {
+        "x": None,
+        "y": None,
+        "w": 1,
+        "h": 1,
+        "minimized": False,
+        "titlevisible": True,
+        "fulldragboard": False,
+        "visible": True,
     }
-    out = MACDMashupResource.set_default_rely(set_default_data)
-    assert out["screenSizes"][0]["position"]["rely"] is False
+
+    with pytest.raises(ValidationError):
+        MACDMashupResourceLayout(w=0)
+    with pytest.raises(ValidationError):
+        MACDMashupResourceLayout(h=0)
+    with pytest.raises(ValidationError):
+        MACDMashupResourceLayout(x=-1)
+    with pytest.raises(ValidationError):
+        MACDMashupResourceLayout(y=-1)
+
+    # A MACDMashupResource with no layouts at all is valid: the widget has no persisted layout
+    # yet and is auto-placed
+    no_layouts_resource = MACDMashupResource(id="r2", name="widget", vendor="acme", version="1.0.0")
+    assert no_layouts_resource.layouts == {}
+
+    multi_layout_resource = MACDMashupResource(
+        id="r3",
+        name="widget",
+        vendor="acme",
+        version="1.0.0",
+        layouts={
+            "0": MACDMashupResourceLayout(x=1, y=2, w=3, h=4),
+            "2": MACDMashupResourceLayout(w=12, h=8, visible=False),
+        },
+    )
+    assert multi_layout_resource.layouts["0"].x == 1
+    assert multi_layout_resource.layouts["2"].visible is False
+    assert multi_layout_resource.layouts["2"].x is None

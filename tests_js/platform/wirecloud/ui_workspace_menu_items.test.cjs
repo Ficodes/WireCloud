@@ -59,6 +59,18 @@ const setup = () => {
             }
         }
     };
+    StyledElements.SubMenuItem = class SubMenuItem {
+        constructor(label, options = {}) {
+            this.label = label;
+            this.options = options;
+            this.icons = options.iconClass ? [options.iconClass] : [];
+            this.items = [];
+        }
+        append(item) {
+            this.items.push(item);
+            return this;
+        }
+    };
 };
 
 // ==========================================================================
@@ -99,6 +111,7 @@ const makeTab = (overrides = {}) => {
         },
         widgets: overrides.widgets !== undefined ? overrides.widgets : [],
         showSettings: overrides.showSettings || (() => {}),
+        dragboard: overrides.dragboard || {hiddenWidgets: []},
     };
 };
 
@@ -284,6 +297,61 @@ test('WorkspaceTabViewMenuItems inherits from DynamicMenuItems', () => {
     const tab = makeTab();
     const items = new Wirecloud.ui.WorkspaceTabViewMenuItems(tab);
     assert.ok(items instanceof StyledElements.DynamicMenuItems);
+});
+
+// -- "Hidden widgets" submenu -----------------------------------------------
+
+test('WorkspaceTabViewMenuItems does not add a "Hidden widgets" submenu when nothing is hidden', () => {
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceTabViewMenuItems.js');
+
+    const tab = makeTab({dragboard: {hiddenWidgets: []}});
+    const items = new Wirecloud.ui.WorkspaceTabViewMenuItems(tab);
+    const menuItems = items.build();
+
+    assert.equal(menuItems.length, 4);
+});
+
+test('WorkspaceTabViewMenuItems adds a "Hidden widgets" submenu when the dragboard reports hidden widgets', () => {
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceTabViewMenuItems.js');
+
+    const hiddenView = {title: 'My Hidden Widget', showInCurrentScreenSize: () => {}};
+    const tab = makeTab({dragboard: {hiddenWidgets: [hiddenView]}});
+    const items = new Wirecloud.ui.WorkspaceTabViewMenuItems(tab);
+    const menuItems = items.build();
+
+    assert.equal(menuItems.length, 5);
+    const submenu = menuItems[4];
+    assert.equal(submenu.label, 'Hidden widgets');
+    assert.ok(submenu.icons.includes('fas fa-eye-slash'));
+});
+
+test('WorkspaceTabViewMenuItems "Hidden widgets" submenu has one entry per hidden widget, named after its title', () => {
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceTabViewMenuItems.js');
+
+    const widgetA = {title: 'Widget A', showInCurrentScreenSize: () => {}};
+    const widgetB = {title: 'Widget B', showInCurrentScreenSize: () => {}};
+    const tab = makeTab({dragboard: {hiddenWidgets: [widgetA, widgetB]}});
+    const items = new Wirecloud.ui.WorkspaceTabViewMenuItems(tab);
+    const menuItems = items.build();
+
+    const submenu = menuItems[4];
+    assert.equal(submenu.items.length, 2);
+    assert.equal(submenu.items[0].label, 'Widget A');
+    assert.equal(submenu.items[1].label, 'Widget B');
+});
+
+test('WorkspaceTabViewMenuItems "Hidden widgets" entry click calls showInCurrentScreenSize on that widget', () => {
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceTabViewMenuItems.js');
+
+    let shownCalled = false;
+    const widgetA = {title: 'Widget A', showInCurrentScreenSize: () => { shownCalled = true; }};
+    const tab = makeTab({dragboard: {hiddenWidgets: [widgetA]}});
+    const items = new Wirecloud.ui.WorkspaceTabViewMenuItems(tab);
+    const menuItems = items.build();
+
+    menuItems[4].items[0].run();
+
+    assert.equal(shownCalled, true);
 });
 
 // ==========================================================================

@@ -25,7 +25,7 @@ from wirecloud.commons.utils.template.base import Contact
 from wirecloud.commons.utils.template.schemas.macdschemas import MACDMashupWithParametrization, MACDTab, \
     MACDMashupEmbedded, MACDMashupWiring, IntegerStr, MACDParametrizationOptions, MACDParametrizationOptionsStatus, \
     MACDParametrizationOptionsSource, MACDMashupResourcePreference, MACDMashupResourcePropertyBase, \
-    MACDMashupResourceScreenSize, MACDMashupResourcePosition, MACDMashupResourceRendering, MACDMashupResource
+    MACDMashupResourceLayout, MACDMashupResource
 from wirecloud.database import DBSession
 from wirecloud.platform.iwidget.models import WidgetInstance
 from wirecloud.platform.wiring.schemas import WiringOperator, WiringOperatorPreference, WiringConnection, \
@@ -131,31 +131,10 @@ async def process_widget_instance(db: DBSession, request: Optional[Request], iwi
             value=value
         )
 
-    screen_sizes = []
-    for configuration in iwidget.positions.configurations:
-        size = MACDMashupResourceScreenSize(
-            id=configuration.id,
-            moreOrEqual=configuration.moreOrEqual,
-            lessOrEqual=configuration.lessOrEqual,
-            position=MACDMashupResourcePosition(
-                anchor=str(configuration.widget.anchor),
-                relx=configuration.widget.relx,
-                rely=configuration.widget.rely,
-                x=str(configuration.widget.left),
-                y=str(configuration.widget.top),
-                z=str(configuration.widget.zIndex)
-            ),
-            rendering=MACDMashupResourceRendering(
-                relwidth=configuration.widget.relwidth,
-                relheight=configuration.widget.relheight,
-                width=str(configuration.widget.width),
-                height=str(configuration.widget.height),
-                fulldragboard=configuration.widget.fulldragboard,
-                minimized=configuration.widget.minimized,
-                titlevisible=configuration.widget.titlevisible
-            )
-        )
-        screen_sizes.append(size)
+    layouts = {
+        screen_size_id: MACDMashupResourceLayout(**layout.model_dump())
+        for screen_size_id, layout in iwidget.layouts.items()
+    }
 
     iwidget_data = MACDMashupResource(
         id=iwidget.id,
@@ -163,11 +142,10 @@ async def process_widget_instance(db: DBSession, request: Optional[Request], iwi
         name=widget.short_name,
         version=widget.version,
         title=iwidget.title,
-        layout=iwidget.layout,
         readonly=read_only_widgets,
         properties=properties,
         preferences=preferences,
-        screenSizes=screen_sizes
+        layouts=layouts
     )
 
     return iwidget_data

@@ -115,6 +115,44 @@ test('Widget constructor throws with null data', () => {
     );
 });
 
+test('Widget layouts getter returns an empty object when no layouts are given', () => {
+    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
+    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
+    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1' });
+    assert.deepEqual(widget.layouts, {});
+});
+
+test('Widget layouts getter returns a deep clone of the stored layouts', () => {
+    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
+    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
+    const initial = { '0': { x: 1, y: 2, w: 3, h: 4, minimized: false, titlevisible: true, fulldragboard: false, visible: true } };
+    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layouts: initial });
+
+    const layouts = widget.layouts;
+    assert.deepEqual(layouts, initial);
+    layouts['0'].x = 999;
+    assert.equal(widget.layouts['0'].x, 1, 'mutating the returned object must not affect internal state');
+});
+
+test('Widget contextManager is constructed with zPosition initial value 0', () => {
+    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
+    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
+
+    let capturedDesc = null;
+    const OriginalContextManager = Wirecloud.ContextManager;
+    Wirecloud.ContextManager = class ContextManager extends OriginalContextManager {
+        constructor(inst, desc) {
+            super(inst, desc);
+            capturedDesc = desc;
+        }
+    };
+
+    new Wirecloud.Widget(tab, meta, { id: 'w1' });
+
+    assert.equal(capturedDesc.zPosition.value, 0);
+    Wirecloud.ContextManager = OriginalContextManager;
+});
+
 test('Widget is returns true for same widget', () => {
     const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
     const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
@@ -152,58 +190,203 @@ test('Widget isAllowed throws with invalid name', () => {
     assert.throws(() => widget.isAllowed('invalid'), /invalid name parameter/);
 });
 
-test('Widget setPosition updates position', () => {
+test('Widget getLayout returns null when there is no stored layout for that screen size', () => {
     const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
     const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    widget.setPosition({ x: 5, y: 10, z: 2 });
-    const pos = widget.position;
-    assert.equal(pos.x, 5);
-    assert.equal(pos.y, 10);
+    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1' });
+    assert.equal(widget.getLayout(0), null);
+    assert.equal(widget.getLayout('0'), null);
 });
 
-test('Widget setShape updates shape', () => {
+test('Widget getLayout accepts both numeric and string screen size ids and returns a clone', () => {
     const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
     const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    widget.setShape({ width: 3, height: 2 });
-    const shape = widget.shape;
-    assert.equal(shape.width, 3);
-    assert.equal(shape.height, 2);
+    const stored = { x: 1, y: 2, w: 3, h: 4, minimized: false, titlevisible: true, fulldragboard: false, visible: true };
+    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layouts: { '0': stored } });
+
+    assert.deepEqual(widget.getLayout(0), stored);
+    assert.deepEqual(widget.getLayout('0'), stored);
+
+    const layout = widget.getLayout(0);
+    layout.x = 999;
+    assert.equal(widget.getLayout(0).x, 1, 'mutating the returned layout must not affect internal state');
 });
 
-test('Widget setLayoutPosition updates layout config', () => {
+test('Widget setLayout creates a layout from defaults when there is none yet', async () => {
     const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
     const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    widget.setLayoutPosition({ x: 10, y: 20, z: 5, anchor: 'top-left', relx: true, rely: true });
-    const cfg = widget.currentLayoutConfig;
-    assert.equal(cfg.anchor, 'top-left');
+    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', volatile: true });
+
+    const result = await widget.setLayout(0, { w: 4 });
+
+    assert.equal(result, widget);
+    assert.deepEqual(widget.getLayout(0), { x: null, y: null, w: 4, h: 1, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
 });
 
-test('Widget setLayoutIndex updates layout index', () => {
+test('Widget setLayout merges changes into an existing layout', async () => {
     const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
     const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    widget.setLayoutIndex(5);
-    assert.equal(widget.layout, 5);
+    const widget = new Wirecloud.Widget(tab, meta, {
+        id: 'w1', volatile: true,
+        layouts: { '0': { x: 1, y: 2, w: 3, h: 4, minimized: false, titlevisible: true, fulldragboard: false, visible: true } },
+    });
+
+    await widget.setLayout(0, { minimized: true, w: 6 });
+
+    assert.deepEqual(widget.getLayout(0), { x: 1, y: 2, w: 6, h: 4, minimized: true, titlevisible: true, fulldragboard: false, visible: true });
 });
 
-test('Widget setLayoutFulldragboard updates fulldragboard', () => {
+test('Widget setLayout dispatches a change event with [\'layouts\']', () => {
     const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
     const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    widget.setLayoutFulldragboard(true);
-    const cfg = widget.currentLayoutConfig;
-    assert.equal(cfg.fulldragboard, true);
+    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', volatile: true });
+
+    let received = null;
+    widget.addEventListener('change', (w, changes) => { received = changes; });
+    widget.setLayout(0, { w: 2 });
+
+    assert.deepEqual(received, ['layouts']);
 });
 
-test('Widget setLayoutMinimizedStatus updates minimized', () => {
+test('Widget setLayout without persist never calls the server', async () => {
+    let called = false;
+    Wirecloud.io.makeRequest = () => { called = true; return Promise.resolve({ status: 204 }); };
     const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
     const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    widget.setLayoutMinimizedStatus(true);
-    assert.equal(widget.minimized, true);
+    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1' });
+
+    const result = await widget.setLayout(0, { w: 2 });
+
+    assert.equal(called, false);
+    assert.equal(result, widget);
+});
+
+test('Widget setLayout with persist POSTs {layouts: {id: changes}} to IWIDGET_ENTRY and resolves on 204', async () => {
+    let requestUrl = null;
+    let requestOpts = null;
+    Wirecloud.io.makeRequest = (url, opts) => { requestUrl = url; requestOpts = opts; return Promise.resolve({ status: 204 }); };
+    Wirecloud.URLs.IWIDGET_ENTRY = { evaluate: () => '/api/iwidget/w1' };
+    const tab = { id: 'tab1', workspace: { id: 'ws1', isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
+    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
+    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1' });
+
+    const result = await widget.setLayout(1, { w: 6, minimized: true }, true);
+
+    assert.equal(requestUrl, '/api/iwidget/w1');
+    assert.equal(requestOpts.method, 'POST');
+    assert.equal(requestOpts.contentType, 'application/json');
+    assert.deepEqual(JSON.parse(requestOpts.postBody), { layouts: { '1': { w: 6, minimized: true } } });
+    assert.equal(result, widget);
+});
+
+test('Widget setLayout with persist rejects on a non-204 response', async () => {
+    Wirecloud.io.makeRequest = () => Promise.resolve({ status: 500 });
+    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
+    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
+    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1' });
+
+    await assert.rejects(widget.setLayout(0, { w: 2 }, true), /Unexpected response/);
+});
+
+test('Widget setLayout never persists for volatile widgets, even with persist=true', async () => {
+    let called = false;
+    Wirecloud.io.makeRequest = () => { called = true; return Promise.resolve({ status: 204 }); };
+    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
+    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
+    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', volatile: true });
+
+    const result = await widget.setLayout(0, { w: 2 }, true);
+
+    assert.equal(called, false);
+    assert.equal(result, widget);
+});
+
+test('Widget removeLayout deletes the stored layout and dispatches a change event', () => {
+    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
+    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
+    const widget = new Wirecloud.Widget(tab, meta, {
+        id: 'w1', volatile: true,
+        layouts: { '0': { x: 1, y: 2, w: 3, h: 4, minimized: false, titlevisible: true, fulldragboard: false, visible: true } },
+    });
+
+    let received = null;
+    widget.addEventListener('change', (w, changes) => { received = changes; });
+    widget.removeLayout(0);
+
+    assert.equal(widget.getLayout(0), null);
+    assert.deepEqual(received, ['layouts']);
+});
+
+test('Widget removeLayout on a missing screen size id is a no-op that still resolves', async () => {
+    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
+    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
+    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', volatile: true });
+
+    const result = await widget.removeLayout(5);
+
+    assert.equal(result, widget);
+    assert.equal(widget.getLayout(5), null);
+});
+
+test('Widget removeLayout without persist never calls the server', async () => {
+    let called = false;
+    Wirecloud.io.makeRequest = () => { called = true; return Promise.resolve({ status: 204 }); };
+    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
+    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
+    const widget = new Wirecloud.Widget(tab, meta, {
+        id: 'w1', layouts: { '0': { x: 1, y: 2, w: 3, h: 4, minimized: false, titlevisible: true, fulldragboard: false, visible: true } },
+    });
+
+    const result = await widget.removeLayout(0);
+
+    assert.equal(called, false);
+    assert.equal(result, widget);
+});
+
+test('Widget removeLayout with persist POSTs {layouts: {id: null}} to IWIDGET_ENTRY and resolves on 204', async () => {
+    let requestUrl = null;
+    let requestOpts = null;
+    Wirecloud.io.makeRequest = (url, opts) => { requestUrl = url; requestOpts = opts; return Promise.resolve({ status: 204 }); };
+    Wirecloud.URLs.IWIDGET_ENTRY = { evaluate: () => '/api/iwidget/w1' };
+    const tab = { id: 'tab1', workspace: { id: 'ws1', isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
+    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
+    const widget = new Wirecloud.Widget(tab, meta, {
+        id: 'w1', layouts: { '2': { x: 1, y: 2, w: 3, h: 4, minimized: false, titlevisible: true, fulldragboard: false, visible: true } },
+    });
+
+    const result = await widget.removeLayout(2, true);
+
+    assert.equal(requestUrl, '/api/iwidget/w1');
+    assert.equal(requestOpts.method, 'POST');
+    assert.deepEqual(JSON.parse(requestOpts.postBody), { layouts: { '2': null } });
+    assert.equal(result, widget);
+});
+
+test('Widget removeLayout with persist rejects on a non-204 response', async () => {
+    Wirecloud.io.makeRequest = () => Promise.resolve({ status: 500 });
+    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
+    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
+    const widget = new Wirecloud.Widget(tab, meta, {
+        id: 'w1', layouts: { '0': { x: 1, y: 2, w: 3, h: 4, minimized: false, titlevisible: true, fulldragboard: false, visible: true } },
+    });
+
+    await assert.rejects(widget.removeLayout(0, true), /Unexpected response/);
+});
+
+test('Widget removeLayout never persists for volatile widgets, even with persist=true', async () => {
+    let called = false;
+    Wirecloud.io.makeRequest = () => { called = true; return Promise.resolve({ status: 204 }); };
+    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
+    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
+    const widget = new Wirecloud.Widget(tab, meta, {
+        id: 'w1', volatile: true,
+        layouts: { '0': { x: 1, y: 2, w: 3, h: 4, minimized: false, titlevisible: true, fulldragboard: false, visible: true } },
+    });
+
+    const result = await widget.removeLayout(0, true);
+
+    assert.equal(called, false);
+    assert.equal(result, widget);
 });
 
 test('Widget registerPrefCallback stores callback', () => {
@@ -243,23 +426,6 @@ test('Widget codeurl includes id', () => {
     const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/code', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
     const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
     assert.ok(widget.codeurl.includes('id=w1'));
-});
-
-test('Widget updateWindowSize returns boolean', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    // With single layout config, change returns false
-    const result = widget.updateWindowSize(800);
-    assert.equal(typeof result, 'boolean');
-});
-
-test('Widget getLayoutConfigBySize returns config', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    const cfg = widget.getLayoutConfigBySize(500);
-    assert.ok(cfg);
 });
 
 test('Widget constructor builds default properties when persistence values are missing', () => {
@@ -371,14 +537,6 @@ test('Widget fullDisconnect disconnects endpoints', () => {
     assert.doesNotThrow(() => widget.fullDisconnect());
 });
 
-test('Widget setLayoutShape updates shape in layout config', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    widget.setLayoutShape({ width: 2, height: 2, relwidth: false, relheight: false });
-    assert.equal(widget.currentLayoutConfig.width, 2);
-});
-
 test('Widget permissions getter returns clone', () => {
     const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
     const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
@@ -416,22 +574,6 @@ test('Widget setPermissions with volatile widget', async () => {
     assert.equal(result, widget);
 });
 
-test('Widget setTitleVisibility with volatile widget', async () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1, volatile: true });
-    const result = await widget.setTitleVisibility(false);
-    assert.equal(result, widget);
-});
-
-test('Widget setTitleVisibility without persistence', async () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1, volatile: true });
-    const result = await widget.setTitleVisibility(true, false);
-    assert.equal(result, widget);
-});
-
 test('Widget remove with volatile widget returns resolved promise', async () => {
     const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
     const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
@@ -461,13 +603,6 @@ test('Widget constructor with custom permissions overrides', () => {
         permissions: { editor: { close: false }, viewer: { close: true } }
     });
     assert.equal(widget.isAllowed('close', 'editor'), false);
-});
-
-test('Widget fulldragboard from config', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1, layoutConfig: [{ id: 0, moreOrEqual: 0, lessOrEqual: -1, anchor: 'top-left', relx: true, rely: true, left: 0, top: 0, zIndex: 0, relheight: true, relwidth: true, height: 1, width: 1, minimized: false, fulldragboard: true, titlevisible: true }] });
-    assert.equal(widget.fulldragboard, true);
 });
 
 test('Widget codeurl includes workspaceview when present', () => {
@@ -582,25 +717,6 @@ test('Widget setPermissions non-volatile server error rejects', async () => {
     await assert.rejects(widget.setPermissions({ close: false }), /Unexpected response/);
 });
 
-// --- setTitleVisibility + persistence ---
-
-test('Widget setTitleVisibility with persistence server success', async () => {
-    Wirecloud.io.makeRequest = () => Promise.resolve({ status: 204 });
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    const result = await widget.setTitleVisibility(false, true);
-    assert.equal(result, widget);
-});
-
-test('Widget setTitleVisibility persistence server error rejects', async () => {
-    Wirecloud.io.makeRequest = () => Promise.resolve({ status: 500 });
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    await assert.rejects(widget.setTitleVisibility(false, true), /Unexpected response/);
-});
-
 // --- setPreferences ---
 
 test('Widget setPreferences no changes resolves immediately', async () => {
@@ -695,55 +811,6 @@ test('Widget changeTab server error rejects', async () => {
 
 // --- return value chains ---
 
-test('Widget setPosition returns widget', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    assert.equal(widget.setPosition({ x: 1, y: 2 }), widget);
-});
-
-test('Widget setShape returns widget', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    assert.equal(widget.setShape({ width: 2, height: 2 }), widget);
-});
-
-test('Widget setLayoutShape returns widget', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    assert.equal(widget.setLayoutShape({ width: 2, height: 2 }), widget);
-});
-
-test('Widget setLayoutPosition returns widget', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    assert.equal(widget.setLayoutPosition({ x: 1, y: 1, z: 0, anchor: 'top-left', relx: true, rely: true }), widget);
-});
-
-test('Widget setLayoutIndex returns widget', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    assert.equal(widget.setLayoutIndex(3), widget);
-});
-
-test('Widget setLayoutFulldragboard returns widget', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    assert.equal(widget.setLayoutFulldragboard(true), widget);
-});
-
-test('Widget setLayoutMinimizedStatus returns widget', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    assert.equal(widget.setLayoutMinimizedStatus(false), widget);
-});
-
 test('Widget fullDisconnect returns widget', () => {
     const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
     const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
@@ -751,101 +818,12 @@ test('Widget fullDisconnect returns widget', () => {
     assert.equal(widget.fullDisconnect(), widget);
 });
 
-// --- updateWindowSize true ---
-
-
-// --- getLayoutConfigBySize multiple ---
-
-test('Widget getLayoutConfigBySize picks correct from multiple configs', () => {
-    global.window.innerWidth = 1024;
-    global.window.innerHeight = 768;
+test('Widget setLayout/removeLayout return a promise resolving to the widget', async () => {
     const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
     const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const layoutConfig = [
-        { id: 0, moreOrEqual: 0, lessOrEqual: 400, anchor: 'top-left', relx: true, rely: true, left: 0, top: 0, zIndex: 0, relheight: true, relwidth: true, height: 1, width: 1, minimized: false, fulldragboard: false, titlevisible: true },
-        { id: 1, moreOrEqual: 401, lessOrEqual: -1, anchor: 'top-left', relx: true, rely: true, left: 0, top: 0, zIndex: 0, relheight: true, relwidth: true, height: 3, width: 3, minimized: false, fulldragboard: false, titlevisible: true }
-    ];
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1, layoutConfig: layoutConfig });
-    assert.equal(widget.getLayoutConfigBySize(200).id, 0);
-    assert.equal(widget.getLayoutConfigBySize(600).id, 1);
-});
-
-// --- updateWindowSize returns true when layout changes (lines 1052-1075) ---
-
-test('Widget updateWindowSize returns true when layout config changes', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const layoutConfig = [
-        { id: 0, moreOrEqual: 0, lessOrEqual: 400, anchor: 'bottom-right', relx: false, rely: false, left: 10, top: 20, zIndex: 5, relheight: false, relwidth: false, height: 2, width: 3, minimized: false, fulldragboard: true, titlevisible: false },
-        { id: 1, moreOrEqual: 401, lessOrEqual: -1, anchor: 'top-left', relx: true, rely: true, left: 0, top: 0, zIndex: 0, relheight: true, relwidth: true, height: 1, width: 1, minimized: false, fulldragboard: false, titlevisible: true }
-    ];
-    // Initially 1024 → picks config id=1 (400-799, but wait, id=1 is moreOrEqual:401,lessOrEqual:-1 → any ≥401)
-    // The constructor picks config based on window.innerWidth at construction time.
-    // We set window.innerWidth to 200 at construction so it picks id=0.
-    global.window.innerWidth = 200;
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1, layoutConfig: layoutConfig });
-
-    // Now update to a larger window → should pick config id=1
-    const result = widget.updateWindowSize(1024);
-    assert.equal(result, true, 'should return true when config changes');
-
-    // Verify shape was updated
-    const shape = widget.shape;
-    assert.equal(shape.height, 1);
-    assert.equal(shape.width, 1);
-    assert.equal(shape.relheight, true);
-    assert.equal(shape.relwidth, true);
-
-    // Verify position was updated
-    const pos = widget.position;
-    assert.equal(pos.x, 0);
-    assert.equal(pos.y, 0);
-    assert.equal(pos.anchor, 'top-left');
-
-    // Verify titlevisible and fulldragboard
-    assert.equal(widget.titlevisible, true);
-    assert.equal(widget.fulldragboard, false);
-});
-
-// --- updateWindowSize returns false when same config (lines 1049-1051) ---
-
-test('Widget updateWindowSize returns false when same config applies', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const layoutConfig = [
-        { id: 0, moreOrEqual: 0, lessOrEqual: 400, anchor: 'top-left', relx: true, rely: true, left: 0, top: 0, zIndex: 0, relheight: true, relwidth: true, height: 1, width: 1, minimized: false, fulldragboard: false, titlevisible: true },
-        { id: 1, moreOrEqual: 401, lessOrEqual: -1, anchor: 'top-left', relx: true, rely: true, left: 0, top: 0, zIndex: 0, relheight: true, relwidth: true, height: 1, width: 1, minimized: false, fulldragboard: false, titlevisible: true }
-    ];
-    global.window.innerWidth = 200;
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1, layoutConfig: layoutConfig });
-
-    // Still within same config range → should return false
-    const result = widget.updateWindowSize(300);
-    assert.equal(result, false);
-});
-
-// --- getLayoutConfigBySize with moreOrEqual/lessOrEqual boundary ---
-
-test('Widget getLayoutConfigBySize with moreOrEqual=-1 matches', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const layoutConfig = [
-        { id: 0, moreOrEqual: -1, lessOrEqual: 400, anchor: 'top-left', relx: true, rely: true, left: 0, top: 0, zIndex: 0, relheight: true, relwidth: true, height: 1, width: 1, minimized: false, fulldragboard: false, titlevisible: true }
-    ];
-    // Window must be <= 400 for moreOrEqual:-1,lessOrEqual:400 to match
-    global.window.innerWidth = 200;
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1, layoutConfig: layoutConfig });
-    assert.equal(widget.getLayoutConfigBySize(200).id, 0);
-});
-
-test('Widget getLayoutConfigBySize with lessOrEqual=-1 matches', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const layoutConfig = [
-        { id: 0, moreOrEqual: 401, lessOrEqual: -1, anchor: 'top-left', relx: true, rely: true, left: 0, top: 0, zIndex: 0, relheight: true, relwidth: true, height: 1, width: 1, minimized: false, fulldragboard: false, titlevisible: true }
-    ];
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1, layoutConfig: layoutConfig });
-    assert.equal(widget.getLayoutConfigBySize(600).id, 0);
+    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', volatile: true });
+    assert.equal(await widget.setLayout(0, { w: 2 }), widget);
+    assert.equal(await widget.removeLayout(0), widget);
 });
 
 // --- loaded setter/getter ---
@@ -856,26 +834,6 @@ test('Widget loaded setter forces RUNNING', () => {
     const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
     widget.loaded = true;
     assert.equal(widget.loaded, true);
-});
-
-// --- layoutConfig getter ---
-
-test('Widget layoutConfig getter returns array', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    const cfg = widget.layoutConfig;
-    assert.ok(Array.isArray(cfg));
-    assert.ok(cfg.length > 0);
-});
-
-// --- titlevisible getter ---
-
-test('Widget titlevisible getter', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    assert.equal(widget.titlevisible, true);
 });
 
 // --- contextManager initial values ---
@@ -1399,16 +1357,6 @@ test('Widget registerContextAPICallback platform scope registers on global conte
 });
 
 // --- minimized setter (lines 658-660) ---
-
-test('Widget minimized setter updates layout config', () => {
-    const tab = { workspace: { isAllowed: () => true, restricted: false, view: {} }, addEventListener: () => {} };
-    const meta = { title: 'W', type: 'widget', inputList: [], outputList: [], preferenceList: [], propertyList: [], codeurl: '/c', macversion: 1, missing: false, requirements: [], codecontenttype: 'text/html', hasEndpoints: () => false, hasPreferences: () => false };
-    const widget = new Wirecloud.Widget(tab, meta, { id: 'w1', layout: 0, left: 0, top: 0, zIndex: 0, height: 1, width: 1 });
-    widget.minimized = true;
-    assert.equal(widget.minimized, true);
-    widget.minimized = false;
-    assert.equal(widget.minimized, false);
-});
 
 // --- load with macversion > 1 (line 867) ---
 

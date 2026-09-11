@@ -49,19 +49,6 @@ from wirecloud.platform.workspace.utils import create_tab, _workspace_cache_key,
 from wirecloud.translation import gettext as _
 
 
-def _sanitize_widget_layout_config(workspace_data: dict) -> None:
-    tabs = workspace_data.get('tabs') or {}
-    for tab in tabs.values():
-        widgets = tab.get('widgets') or {}
-        for widget in widgets.values():
-            lcs = widget.get('positions', {}).get('configurations', [])
-            for lc in lcs:
-                widget = lc.get('widget', {})
-                if isinstance(widget, dict):
-                    widget.pop('moreOrEqual', None)
-                    widget.pop('lessOrEqual', None)
-
-
 async def get_workspace_list(db: DBSession, user: Optional[UserAll]) -> list[Workspace]:
     if user is not None:
         if user.has_perm("WORKSPACE.VIEW"):
@@ -250,9 +237,7 @@ async def add_user_to_workspace(db: DBSession, workspace: Workspace, user: User)
 
 
 async def insert_workspace(db: DBSession, workspace: Workspace) -> None:
-    # Create a dict representation and remove unwanted keys from layout configurations
     data = workspace.model_dump(by_alias=True)
-    _sanitize_widget_layout_config(data)
 
     await db.client.workspaces.insert_one(data)
 
@@ -264,9 +249,7 @@ async def change_workspace(db: DBSession, workspace: Workspace, user: Optional[U
     workspace.last_modified = datetime.now(timezone.utc)
     query = {"_id": ObjectId(workspace.id)}
 
-    # Create a dict representation and remove unwanted keys from layout configurations
     data = workspace.model_dump(by_alias=True)
-    _sanitize_widget_layout_config(data)
 
     await db.client.workspaces.replace_one(query, data)
     await update_workspace_in_index(db, workspace)

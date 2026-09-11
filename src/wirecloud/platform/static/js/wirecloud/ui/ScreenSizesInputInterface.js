@@ -64,7 +64,8 @@
                 id: maxId + 1,
                 name: "Default-" + (maxId + 1),
                 moreOrEqual: (screenSizes.length > 0) ? screenSizes[screenSizes.length - 1].lessOrEqual + 1 : 0,
-                lessOrEqual: -1
+                lessOrEqual: -1,
+                columns: 12
             };
 
             this.highestIdUsed = newScreenSize.id;
@@ -118,6 +119,17 @@
 
             if (!Array.isArray(screenSizes) || screenSizes.length === 0) {
                 return se.InputValidationError.SCREEN_SIZES_ERROR;
+            }
+
+            const ids = new Set();
+            for (let i = 0; i < screenSizes.length; i++) {
+                if (!Number.isInteger(screenSizes[i].columns) || screenSizes[i].columns < 1) {
+                    return se.InputValidationError.SCREEN_SIZES_ERROR;
+                }
+                if (ids.has(screenSizes[i].id)) {
+                    return se.InputValidationError.SCREEN_SIZES_ERROR;
+                }
+                ids.add(screenSizes[i].id);
             }
 
             screenSizes.sort((a, b) => a.moreOrEqual - b.moreOrEqual);
@@ -260,6 +272,35 @@
                 toContainer.appendChild(toAddon);
                 toContainer.appendChild(lessOrEqualInput);
 
+                const columnsAddon = new se.Addon({
+                    text: utils.gettext('Columns:'),
+                    title: utils.gettext('Number of grid columns used at this screen size.')
+                });
+                columnsAddon.setDisabled(!this.enabledStatus);
+
+                const columnsVal = ('columns' in screenSize) ? screenSize.columns : 12;
+                const columnsInput = new se.NumericField({
+                    name: 'columns',
+                    initialValue: columnsVal,
+                    min: 1,
+                    max: 48,
+                    inc: 1
+                });
+
+                if (columnsVal !== screenSize.columns) {
+                    this.on_valueChange(screenSize.id, 'columns', columnsVal);
+                    screenSize.columns = columnsVal;
+                }
+
+                columnsInput.setDisabled(!this.enabledStatus);
+                columnsInput.addEventListener('change', () => {
+                    this.on_valueChange(screenSize.id, 'columns', columnsInput.getValue());
+                });
+
+                const columnsContainer = new se.Container({class: 'se-input-group se-screen-size-columns'});
+                columnsContainer.appendChild(columnsAddon);
+                columnsContainer.appendChild(columnsInput);
+
                 const deleteButton = new se.Button({
                     class: 'btn-danger',
                     iconClass: 'fas fa-trash'
@@ -272,8 +313,7 @@
                     const err = !(this._checkValue(this.value) === se.InputValidationError.NO_ERROR);
                     this._callEvent('requestSave', () => {
                         if (!err) {
-                            Wirecloud.activeWorkspace.view.activeTab.quitEditingInterval();
-                            Wirecloud.activeWorkspace.view.activeTab.setEditingInterval(screenSize.moreOrEqual, screenSize.lessOrEqual, screenSize.name);
+                            Wirecloud.activeWorkspace.view.activeTab.setEditingScreenSize(screenSize.id);
                         }
                     });
                 });
@@ -288,6 +328,7 @@
                 screenSizeContainer.appendChild(nameContainer);
                 screenSizeContainer.appendChild(fromContainer);
                 screenSizeContainer.appendChild(toContainer);
+                screenSizeContainer.appendChild(columnsContainer);
                 screenSizeContainer.appendChild(buttonContainer);
 
                 this.screenSizesInputs[screenSize.id] = screenSizeContainer;

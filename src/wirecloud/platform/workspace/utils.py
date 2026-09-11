@@ -38,7 +38,7 @@ from wirecloud.commons.utils.template.schemas.macdschemas import MACDPreference,
 from wirecloud.commons.utils.urlify import URLify
 from wirecloud.database import DBSession, Id
 from wirecloud.platform.context.utils import get_context_values
-from wirecloud.platform.iwidget.models import WidgetVariables, WidgetInstance, WidgetConfig
+from wirecloud.platform.iwidget.models import WidgetVariables, WidgetInstance
 from wirecloud.platform.iwidget.schemas import WidgetInstanceData
 from wirecloud.platform.iwidget.utils import parse_value_from_text, get_widget_instances_from_workspace
 from wirecloud.platform.preferences.schemas import WorkspacePreference
@@ -334,35 +334,11 @@ async def get_widget_instance_data(db: DBSession, request: Request, iwidget: Wid
     data_ret = WidgetInstanceData(
         id=iwidget.id,
         title=iwidget.title,
-        layout=iwidget.layout,
         widget=iwidget.widget_uri,
-        layoutConfig=[],
+        layouts=iwidget.layouts,
         read_only=iwidget.read_only,
         permissions=iwidget.permissions
     )
-
-    for layout_configuration in iwidget.positions.configurations:
-        widget_position = layout_configuration.widget
-        data_layout = WidgetConfig(
-            top=widget_position.top,
-            left=widget_position.left,
-            anchor=widget_position.anchor,
-            relx=True if iwidget.layout != 1 else widget_position.relx,
-            rely=True if iwidget.layout != 1 else widget_position.rely,
-            relheight=True if iwidget.layout != 1 else widget_position.relheight,
-            relwidth=True if iwidget.layout != 1 else widget_position.relwidth,
-            zIndex=widget_position.zIndex,
-            width=widget_position.width,
-            height=widget_position.height,
-            fulldragboard=widget_position.fulldragboard,
-            minimized=widget_position.minimized,
-            titlevisible=widget_position.titlevisible,
-            id=widget_position.id,
-            moreOrEqual=layout_configuration.moreOrEqual,
-            lessOrEqual=layout_configuration.lessOrEqual
-        )
-
-        data_ret.layoutConfig.append(data_layout)
 
     if iwidget.resource is None:
         return data_ret

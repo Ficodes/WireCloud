@@ -175,9 +175,7 @@
             options = Wirecloud.Utils.merge(options, {
                 id: resource.id + '/' + counter++,
                 commit: false,
-                layout: 1,
-                volatile: true,
-                refiframe: resource_element
+                volatile: true
             });
 
             const widget = tab.createWidget(widget_def, options);

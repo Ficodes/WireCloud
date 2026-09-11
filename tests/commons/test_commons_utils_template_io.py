@@ -49,16 +49,7 @@ def _mashup_info_dict():
                         "name": "widget",
                         "vendor": "acme",
                         "version": "1.0.0",
-                        "screenSizes": [
-                            {
-                                "id": 0,
-                                "moreOrEqual": 0,
-                                "lessOrEqual": -1,
-                                "layout": 0,
-                                "rendering": {"width": "1", "height": "1"},
-                                "position": {"x": "0", "y": "0", "z": "0"},
-                            }
-                        ],
+                        "layouts": {"0": {"x": 0, "y": 0, "w": 1, "h": 1}},
                     }
                 ],
             }

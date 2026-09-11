@@ -62,7 +62,13 @@
         <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
         <rdfs:isDefinedBy rdf:resource="http://wirecloud.conwet.fi.upm.es/ns/mashup"/>
         <rdfs:label>Screen Size Layout Configuration</rdfs:label>
-        <rdfs:comment>Gives information about the position and rendering of an iWidget in a specific screen size.</rdfs:comment>
+        <rdfs:comment>DEPRECATED. Gives information about the position and rendering of an iWidget in a specific screen size. Replaced by Layout.</rdfs:comment>
+    </rdfs:Class>
+    <rdfs:Class rdf:about="http://wirecloud.conwet.fi.upm.es/ns/mashup#Layout">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+        <rdfs:isDefinedBy rdf:resource="http://wirecloud.conwet.fi.upm.es/ns/mashup"/>
+        <rdfs:label>Layout</rdfs:label>
+        <rdfs:comment>The GridStack-based layout (grid position, size and flags) of an iWidget for a specific screen size.</rdfs:comment>
     </rdfs:Class>
     <rdfs:Class rdf:about="http://wirecloud.conwet.fi.upm.es/ns/mashup#iWidgetRendering">
         <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
@@ -217,9 +223,37 @@
     <rdf:Property rdf:about="http://wirecloud.conwet.fi.upm.es/ns/mashup#hasScreenSize"/>
         <rdfs:isDefinedBy rdf:resource="http://wirecloud.conwet.fi.upm.es/ns/mashup"/>
         <rdfs:label>has screen size</rdfs:label>
-        <rdfs:comment>an iWidget has a position and rendering in a specific screen size</rdfs:comment>
+        <rdfs:comment>DEPRECATED. an iWidget has a position and rendering in a specific screen size. Replaced by hasLayout.</rdfs:comment>
         <rdfs:domain rdf:resource="http://wirecloud.conwet.fi.upm.es/ns/mashup#iWidgetRendering"/>
         <rdfs:range rdf:resource="http://wirecloud.conwet.fi.upm.es/ns/mashup#ScreenSize"/>
+    </rdf:Property>
+    <rdf:Property rdf:about="http://wirecloud.conwet.fi.upm.es/ns/mashup#hasLayout">
+        <rdfs:isDefinedBy rdf:resource="http://wirecloud.conwet.fi.upm.es/ns/mashup"/>
+        <rdfs:label>has layout</rdfs:label>
+        <rdfs:comment>an iWidget has a layout (grid position, size and flags) for a specific screen size</rdfs:comment>
+        <rdfs:domain rdf:resource="http://wirecloud.conwet.fi.upm.es/ns/mashup#iWidget"/>
+        <rdfs:range rdf:resource="http://wirecloud.conwet.fi.upm.es/ns/mashup#Layout"/>
+    </rdf:Property>
+    <rdf:Property rdf:about="http://wirecloud.conwet.fi.upm.es/ns/mashup#w">
+        <rdfs:isDefinedBy rdf:resource="http://wirecloud.conwet.fi.upm.es/ns/mashup"/>
+        <rdfs:label>w</rdfs:label>
+        <rdfs:comment>width in grid columns of the iWidget layout</rdfs:comment>
+        <rdfs:domain rdf:resource="http://wirecloud.conwet.fi.upm.es/ns/mashup#Layout"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal"/>
+    </rdf:Property>
+    <rdf:Property rdf:about="http://wirecloud.conwet.fi.upm.es/ns/mashup#h">
+        <rdfs:isDefinedBy rdf:resource="http://wirecloud.conwet.fi.upm.es/ns/mashup"/>
+        <rdfs:label>h</rdfs:label>
+        <rdfs:comment>height in grid rows of the iWidget layout</rdfs:comment>
+        <rdfs:domain rdf:resource="http://wirecloud.conwet.fi.upm.es/ns/mashup#Layout"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal"/>
+    </rdf:Property>
+    <rdf:Property rdf:about="http://wirecloud.conwet.fi.upm.es/ns/mashup#visible">
+        <rdfs:isDefinedBy rdf:resource="http://wirecloud.conwet.fi.upm.es/ns/mashup"/>
+        <rdfs:label>visible</rdfs:label>
+        <rdfs:comment>said if the iWidget is visible in this screen size</rdfs:comment>
+        <rdfs:domain rdf:resource="http://wirecloud.conwet.fi.upm.es/ns/mashup#Layout"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2000/01/rdf-schema#Literal"/>
     </rdf:Property>
     <rdf:Property rdf:about="http://wirecloud.conwet.fi.upm.es/ns/mashup#hasPosition">
         <rdfs:isDefinedBy rdf:resource="http://wirecloud.conwet.fi.upm.es/ns/mashup"/>

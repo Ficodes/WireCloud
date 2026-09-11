@@ -16,64 +16,23 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Wirecloud.  If not, see <http://www.gnu.org/licenses/>.
 
-from pydantic import BaseModel, Field, field_serializer, model_serializer, model_validator
-from typing import Annotated, Any, Optional
-from enum import Enum
+from pydantic import BaseModel, Field, model_serializer
+from typing import Any, Optional
 
 from wirecloud.catalogue.crud import get_catalogue_resource_by_id
 from wirecloud.commons.auth.schemas import User
 from wirecloud.database import Id, DBSession
 
 
-class WidgetConfigAnchor(Enum):
-    top_left = "top-left"
-    top_center = "top-center"
-    top_right = "top-right"
-    bottom_left = "bottom-left"
-    bottom_center = "bottom-center"
-    bottom_right = "bottom-right"
-
-
-class WidgetConfig(BaseModel, use_enum_values=True):
-    id: int = 0
-    top: Annotated[Optional[float], Field(ge=0)] = None
-    left: Annotated[Optional[float], Field(ge=0)] = None
-    zIndex: Annotated[Optional[int], Field(ge=0)] = None
-    height: Annotated[Optional[float], Field(ge=0)] = None
-    width: Annotated[Optional[float], Field(ge=0)] = None
-    minimized: Optional[bool] = None
-    titlevisible: Optional[bool] = None
-    fulldragboard: Optional[bool] = None
-    relx: Optional[bool] = None
-    rely: Optional[bool] = None
-    relwidth: Optional[bool] = None
-    relheight: Optional[bool] = None
-    anchor: Optional[WidgetConfigAnchor] = None
-    moreOrEqual: Optional[int] = None
-    lessOrEqual: Optional[int] = None
-
-    @field_serializer("anchor")
-    def serialize_enum(self, value, _info) -> str:
-        if isinstance(value, WidgetConfigAnchor):
-            return value.value
-        return value
-
-
-class WidgetPositionsConfig(BaseModel):
-    id: int
-    moreOrEqual: Annotated[int, Field(ge=0)]
-    lessOrEqual: Annotated[int, Field(ge=-1)]
-    widget: WidgetConfig = WidgetConfig()
-
-    @model_validator(mode='after')
-    def set_widget_bounds(self):
-        self.widget.moreOrEqual = self.moreOrEqual
-        self.widget.lessOrEqual = self.lessOrEqual
-        return self
-
-
-class WidgetPositions(BaseModel):
-    configurations: list[WidgetPositionsConfig]
+class WidgetLayout(BaseModel):
+    x: Optional[int] = Field(default=None, ge=0)   # None => auto position (GridStack autoPosition)
+    y: Optional[int] = Field(default=None, ge=0)
+    w: int = Field(default=1, ge=1)
+    h: int = Field(default=1, ge=1)
+    minimized: bool = False
+    titlevisible: bool = True
+    fulldragboard: bool = False
+    visible: bool = True
 
 
 class WidgetPermissionsConfig(BaseModel):
@@ -111,8 +70,7 @@ class WidgetInstance(BaseModel):
     resource: Id = None
     widget_uri: str = ''
     title: str = ''
-    layout: int = 0
-    positions: WidgetPositions = {}
+    layouts: dict[str, WidgetLayout] = {}   # key = screen size id as a decimal string, e.g. "0"
     read_only: bool = False
     variables: dict[str, WidgetVariables] = {}
     permissions: WidgetPermissions = WidgetPermissions()

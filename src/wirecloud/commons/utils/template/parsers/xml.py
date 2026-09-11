@@ -22,7 +22,8 @@ import os
 from lxml import etree
 from pydantic import ValidationError
 
-from wirecloud.commons.utils.template.base import ObsoleteFormatError
+from wirecloud.commons.utils.template.base import ObsoleteFormatError, convert_legacy_layout, \
+    default_desktop_screen_size_id, resolve_legacy_screen_sizes
 from wirecloud.commons.utils.template.schemas.macdschemas import *
 from wirecloud.commons.utils.translation import get_trans_index
 from wirecloud.platform.wiring.schemas import *
@@ -75,6 +76,8 @@ ENTRYPOINT_XPATH = 't:entrypoint'
 INCLUDED_RESOURCES_XPATH = 't:structure'
 TAB_XPATH = 't:tab'
 RESOURCE_XPATH = 't:resource'
+LAYOUTS_XPATH = 't:layouts'
+LAYOUT_XPATH = 't:layout'
 POSITION_XPATH = 't:position'
 SCREEN_SIZES_XPATH = 't:screensizes'
 RENDERING_XPATH = 't:rendering'
@@ -539,21 +542,16 @@ class ApplicationMashupTemplateParser(object):
                 preferences=self._parse_preference_values(tab)
             )
 
+            # Resolve (and, if 'legacy default', drop) the effective 'screenSizes' preference for
+            # this tab; legacy position/rendering widget layouts must then be remapped to the new
+            # default desktop screen size instead of the old (now meaningless) screen size id.
+            tab_legacy_default_screen_sizes = resolve_legacy_screen_sizes(tab_info.preferences, self._info.preferences)
+
             for widget in self._xpath(RESOURCE_XPATH, tab):
+                layouts_container = self.get_xpath(LAYOUTS_XPATH, widget, required=False)
                 position = self.get_xpath(POSITION_XPATH, widget, required=False)
                 screenSizes = self.get_xpath(SCREEN_SIZES_XPATH, widget, required=False)
                 rendering = self.get_xpath(RENDERING_XPATH, widget, required=False)
-
-                if (position is None or rendering is None) and screenSizes is None:
-                    raise TemplateParseException(_("Missing position/rendering or screensizes element"))
-
-                if (rendering is None and not widget.get('layout')):
-                    raise TemplateParseException(_("Missing layout in resource or rendering element"))
-
-                if rendering is None:
-                    layout = int(str(widget.get('layout')))
-                else:
-                    layout = int(str(rendering.get('layout')))
 
                 widget_info = MACDMashupResource(
                     id=str(widget.get('id')),
@@ -562,62 +560,58 @@ class ApplicationMashupTemplateParser(object):
                     version=str(widget.get('version')),
                     title=str(widget.get('title')),
                     readonly=widget.get('readonly', '').lower() == 'true',
-                    layout=layout
                 )
 
-                if screenSizes is not None:
+                if layouts_container is not None:
+                    for layout_elem in self._xpath(LAYOUT_XPATH, layouts_container):
+                        x = layout_elem.get('x')
+                        y = layout_elem.get('y')
+                        widget_info.layouts[str(layout_elem.get('screensize'))] = MACDMashupResourceLayout(
+                            x=int(x) if x is not None else None,
+                            y=int(y) if y is not None else None,
+                            w=int(layout_elem.get('w', 1)),
+                            h=int(layout_elem.get('h', 1)),
+                            minimized=layout_elem.get('minimized', 'false').lower() == 'true',
+                            titlevisible=layout_elem.get('titlevisible', 'true').lower() == 'true',
+                            fulldragboard=layout_elem.get('fulldragboard', 'false').lower() == 'true',
+                            visible=layout_elem.get('visible', 'true').lower() == 'true',
+                        )
+                elif screenSizes is not None:
+                    # Legacy format: <screensizes><screensize moreOrEqual lessOrEqual id><position/><rendering/></screensize></screensizes>
                     for screenSize in screenSizes:
-                        position = self.get_xpath(POSITION_XPATH, screenSize)
-                        rendering = self.get_xpath(RENDERING_XPATH, screenSize)
-                        screen_size_info = MACDMashupResourceScreenSize(
-                            moreOrEqual=int(screenSize.get('moreOrEqual')),
-                            lessOrEqual=int(screenSize.get('lessOrEqual')),
-                            id=int(screenSize.get('id')),
-                            position=MACDMashupResourcePosition(
-                                anchor=str(position.get('anchor', 'top-left')),
-                                relx=position.get('relx', 'true').lower() == 'true',
-                                rely=position.get('rely', 'true' if layout != 1 else 'false').lower() == 'true',
-                                x=position.get('x'),
-                                y=position.get('y'),
-                                z=position.get('z'),
-                            ),
-                            rendering=MACDMashupResourceRendering(
-                                fulldragboard=rendering.get('fulldragboard', 'false').lower() == 'true',
-                                minimized=rendering.get('minimized', 'false').lower() == 'true',
-                                relwidth=rendering.get('relwidth', 'true').lower() == 'true',
-                                relheight=rendering.get('relheight', 'true' if layout != 1 else 'false').lower() == 'true',
-                                width=rendering.get('width'),
-                                height=rendering.get('height'),
-                                titlevisible=rendering.get('titlevisible', 'true').lower() == 'true',
-                            )
-                        )
-
-                        widget_info.screenSizes.append(screen_size_info)
-                else:
-                    widget_info.screenSizes = [
-                        MACDMashupResourceScreenSize(
-                            moreOrEqual=0,
-                            lessOrEqual=-1,
-                            id=0,
-                            position=MACDMashupResourcePosition(
-                                anchor=str(position.get('anchor', 'top-left')),
-                                relx=position.get('relx', 'true').lower() == 'true',
-                                rely=position.get('rely', 'true' if layout != 1 else 'false').lower() == 'true',
-                                x=position.get('x'),
-                                y=position.get('y'),
-                                z=position.get('z'),
-                            ),
-                            rendering=MACDMashupResourceRendering(
-                                fulldragboard=rendering.get('fulldragboard', 'false').lower() == 'true',
-                                minimized=rendering.get('minimized', 'false').lower() == 'true',
-                                relwidth=rendering.get('relwidth', 'true').lower() == 'true',
-                                relheight=rendering.get('relheight', 'true' if layout != 1 else 'false').lower() == 'true',
-                                width=rendering.get('width'),
-                                height=rendering.get('height'),
-                                titlevisible=rendering.get('titlevisible', 'true').lower() == 'true',
-                            )
-                        )
-                    ]
+                        legacy_position = self.get_xpath(POSITION_XPATH, screenSize)
+                        legacy_rendering = self.get_xpath(RENDERING_XPATH, screenSize)
+                        key = str(default_desktop_screen_size_id()) if tab_legacy_default_screen_sizes \
+                            else str(screenSize.get('id'))
+                        widget_info.layouts[key] = MACDMashupResourceLayout(**convert_legacy_layout(
+                            top=float(legacy_position.get('y')),
+                            left=float(legacy_position.get('x')),
+                            width=float(legacy_rendering.get('width')),
+                            height=float(legacy_rendering.get('height')),
+                            relx=legacy_position.get('relx', 'true').lower() == 'true',
+                            rely=legacy_position.get('rely', 'true').lower() == 'true',
+                            relwidth=legacy_rendering.get('relwidth', 'true').lower() == 'true',
+                            relheight=legacy_rendering.get('relheight', 'true').lower() == 'true',
+                            minimized=legacy_rendering.get('minimized', 'false').lower() == 'true',
+                            titlevisible=legacy_rendering.get('titlevisible', 'true').lower() == 'true',
+                            fulldragboard=legacy_rendering.get('fulldragboard', 'false').lower() == 'true',
+                        ))
+                elif position is not None and rendering is not None:
+                    # Legacy format: <resource ...><position/><rendering/>...</resource>
+                    key = str(default_desktop_screen_size_id()) if tab_legacy_default_screen_sizes else '0'
+                    widget_info.layouts[key] = MACDMashupResourceLayout(**convert_legacy_layout(
+                        top=float(position.get('y')),
+                        left=float(position.get('x')),
+                        width=float(rendering.get('width')),
+                        height=float(rendering.get('height')),
+                        relx=position.get('relx', 'true').lower() == 'true',
+                        rely=position.get('rely', 'true').lower() == 'true',
+                        relwidth=rendering.get('relwidth', 'true').lower() == 'true',
+                        relheight=rendering.get('relheight', 'true').lower() == 'true',
+                        minimized=rendering.get('minimized', 'false').lower() == 'true',
+                        titlevisible=rendering.get('titlevisible', 'true').lower() == 'true',
+                        fulldragboard=rendering.get('fulldragboard', 'false').lower() == 'true',
+                    ))
 
                 for prop in self._xpath(PROPERTIES_XPATH, widget):
                     prop_value = prop.get('value')
@@ -639,9 +633,6 @@ class ApplicationMashupTemplateParser(object):
             tabs.append(tab_info)
 
         self._info.tabs = tabs
-
-        if not self._info.is_valid_screen_sizes():
-            raise TemplateParseException(_("Invalid screen sizes present in the template."))
 
         self._parse_wiring_info()
 

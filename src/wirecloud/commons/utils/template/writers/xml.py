@@ -20,7 +20,8 @@ from lxml import etree
 from typing import Union, Optional
 
 from wirecloud.commons.utils.template.base import stringify_contact_info
-from wirecloud.commons.utils.template.schemas.macdschemas import MACD, MACDMashup, MACType, MACDMashupResourcePreference
+from wirecloud.commons.utils.template.schemas.macdschemas import MACD, MACDMashup, MACType, \
+    MACDMashupResourcePreference
 from wirecloud.platform.wiring.schemas import WiringOperatorPreference, WiringVisualDescription, WiringBehaviour, \
     WiringVisualDescriptionConnection, WiringConnectionHandlePositionType, WiringComponents
 
@@ -127,39 +128,18 @@ def write_mashup_tree(doc: etree.Element, resources: etree.Element, options: MAC
             if iwidget.readonly:
                 resource.set('readonly', 'true')
 
-            layout = iwidget.layout
-
-            add_attributes(iwidget, resource, ('layout',), required=True)
-
-            screen_sizes_elem = etree.SubElement(resource, 'screensizes')
-            for screenSize in iwidget.screenSizes:
-                screen_size_elem = etree.SubElement(screen_sizes_elem,
-                                                    'screensize',
-                                                    moreOrEqual=str(screenSize.moreOrEqual),
-                                                    lessOrEqual=str(screenSize.lessOrEqual),
-                                                    id=str(screenSize.id))
-
-                position = etree.SubElement(
-                    screen_size_elem,
-                    'position',
-                    anchor=screenSize.position.anchor,
-                    x=screenSize.position.x,
-                    y=screenSize.position.y,
-                    z=screenSize.position.z
-                )
-                add_attributes(screenSize.position, position, ('relx',), default='true', type='boolean')
-                add_attributes(screenSize.position, position, ('rely',),
-                               default=('true' if layout != 1 else 'false'), type='boolean')
-
-                rendering = etree.SubElement(screen_size_elem, 'rendering',
-                                             height=screenSize.rendering.height,
-                                             width=screenSize.rendering.width)
-                add_attributes(screenSize.rendering, rendering, ('minimized', 'fulldragboard'), default='false',
+            layouts_elem = etree.SubElement(resource, 'layouts')
+            for screen_size_id, layout in iwidget.layouts.items():
+                layout_elem = etree.SubElement(layouts_elem, 'layout', screensize=str(screen_size_id),
+                                               w=str(layout.w), h=str(layout.h))
+                if layout.x is not None:
+                    layout_elem.set('x', str(layout.x))
+                if layout.y is not None:
+                    layout_elem.set('y', str(layout.y))
+                add_attributes(layout, layout_elem, ('minimized', 'fulldragboard'), default='false',
                                type='boolean')
-                add_attributes(screenSize.rendering, rendering, ('relwidth', 'titlevisible'), default='true',
+                add_attributes(layout, layout_elem, ('titlevisible', 'visible'), default='true',
                                type='boolean')
-                add_attributes(screenSize.rendering, rendering, ('relheight',),
-                               default=('true' if layout != 1 else 'false'), type='boolean')
 
             add_preference_values(resource, iwidget.preferences)
 

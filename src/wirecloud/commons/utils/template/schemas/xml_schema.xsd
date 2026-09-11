@@ -791,6 +791,26 @@
                     <xs:choice minOccurs="1" maxOccurs="unbounded">
                         <xs:element name="preferencevalue" type="macd:ResourcePreferenceValue" minOccurs="0" maxOccurs="unbounded" />
                         <xs:element name="variablevalue" type="macd:ResourcePreferenceValue" minOccurs="0" maxOccurs="unbounded" />
+                        <xs:element name="layouts" minOccurs="0" maxOccurs="1">
+                            <xs:complexType>
+                                <xs:sequence>
+                                    <xs:element name="layout" minOccurs="0" maxOccurs="unbounded">
+                                        <xs:complexType>
+                                            <xs:attribute name="screensize" type="macd:Identifier" use="required" />
+                                            <xs:attribute name="x" type="xs:nonNegativeInteger" use="optional" />
+                                            <xs:attribute name="y" type="xs:nonNegativeInteger" use="optional" />
+                                            <xs:attribute name="w" type="xs:positiveInteger" use="optional" />
+                                            <xs:attribute name="h" type="xs:positiveInteger" use="optional" />
+                                            <xs:attribute name="minimized" type="xs:boolean" use="optional" />
+                                            <xs:attribute name="titlevisible" type="xs:boolean" use="optional" />
+                                            <xs:attribute name="fulldragboard" type="xs:boolean" use="optional" />
+                                            <xs:attribute name="visible" type="xs:boolean" use="optional" />
+                                        </xs:complexType>
+                                    </xs:element>
+                                </xs:sequence>
+                            </xs:complexType>
+                        </xs:element>
+                        <!-- Legacy elements, kept so old mashup templates keep parsing; converted best-effort on read -->
                         <xs:element name="screensizes" minOccurs="0" maxOccurs="1">
                             <xs:complexType>
                                 <xs:sequence>
@@ -827,6 +847,7 @@
                         </xs:annotation>
                     </xs:attribute>
                     <xs:attribute name="id" use="required" type="xs:string" />
+                    <!-- Legacy attribute, kept so old mashup templates keep parsing -->
                     <xs:attribute name="layout" type="xs:string" use="optional" />
                 </xs:complexType>
             </xs:element>

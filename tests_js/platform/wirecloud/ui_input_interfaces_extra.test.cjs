@@ -348,32 +348,6 @@ test('ParametrizableValueInputInterface covers sources, statuses and dialog laun
     assert.equal(hideable.visibilityIcon.classList.contains('visible'), false);
 });
 
-test('LayoutInputInterface parses, summarizes, disables and opens settings dialog', () => {
-    setup();
-    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/LayoutInputInterface.js');
-
-    const parsed = Wirecloud.ui.LayoutInputInterface.parse('{"type":"gridlayout","columns":2,"rows":3}');
-    assert.equal(parsed.rows, 3);
-    assert.equal(Wirecloud.ui.LayoutInputInterface.stringify(parsed), '{"type":"gridlayout","columns":2,"rows":3}');
-
-    const input = new Wirecloud.ui.LayoutInputInterface('layout', { name: 'layout' });
-    input.setValue({ type: 'columnlayout', smart: true, columns: 4, cellheight: 12, horizontalmargin: 1, verticalmargin: 1 });
-    assert.equal(input.getValue().columns, 4);
-    input.setValue({ type: 'columnlayout', smart: false, columns: 5, cellheight: 12, horizontalmargin: 1, verticalmargin: 1 });
-    assert.equal(input.summary_addon.label, '5 columns');
-
-    input.selectElement.setValue('gridlayout');
-    assert.equal(input.getValue().type, 'gridlayout');
-    input.buttonElement.click();
-    Wirecloud.ui.lastFormWindowMenu.executeOperation({ rows: 8 });
-    assert.equal(input.getValue().rows, 8);
-    assert.equal(input._checkValue({}), StyledElements.InputValidationError.NO_ERROR);
-    input._setError();
-    input.setDisabled(true);
-    input.repaint();
-    input.insertInto(document.createElement('div'));
-});
-
 test('ScreenSizesInputInterface validates, updates ranges and dispatches edit requests', () => {
     setup();
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/ScreenSizesInputInterface.js');
@@ -404,8 +378,10 @@ test('ScreenSizesInputInterface validates, updates ranges and dispatches edit re
 
     let saved = false;
     let edited = false;
-    Wirecloud.activeWorkspace.view.activeTab.setEditingInterval = () => {
+    let editedId = null;
+    Wirecloud.activeWorkspace.view.activeTab.setEditingScreenSize = (id) => {
         edited = true;
+        editedId = id;
     };
     input.setValue([
         { id: 1, name: 'Small', moreOrEqual: 0, lessOrEqual: 399 },
@@ -415,9 +391,17 @@ test('ScreenSizesInputInterface validates, updates ranges and dispatches edit re
     input.addEventListener('requestSave', () => {
         saved = true;
     });
-    input.screenSizesInputs[1].children[3].children[0].click();
+    // Row layout: name, from, to, columns, buttons
+    input.screenSizesInputs[1].children[4].children[0].click();
     assert.equal(saved, true);
     assert.equal(edited, true);
+    assert.equal(editedId, 1);
+
+    // The columns field defaults to 12 and feeds back into the value
+    assert.equal(input.getValue()[0].columns, 12);
+    input.screenSizesInputs[1].children[3].children[1].setValue(4);
+    input.screenSizesInputs[1].children[3].children[1].listeners.change();
+    assert.equal(input.getValue()[0].columns, 4);
 
     input.screenSizesInputs[1].children[0].children[1].setValue('Tiny');
     input.screenSizesInputs[1].children[0].children[1].listeners.change();

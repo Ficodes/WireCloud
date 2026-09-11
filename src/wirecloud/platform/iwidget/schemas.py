@@ -16,27 +16,34 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Wirecloud.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StringConstraints
 
-from wirecloud.platform.iwidget.models import WidgetPermissions, WidgetConfig, WidgetVariables
+from wirecloud.platform.iwidget.models import WidgetPermissions, WidgetLayout, WidgetVariables
+
+ScreenSizeKey = Annotated[str, StringConstraints(pattern=r'^\d+$')]
 
 
-class LayoutConfig(WidgetConfig):
-    action: Optional[str] = None
+class WidgetLayoutUpdate(BaseModel):          # partial update, every field optional
+    x: Optional[int] = Field(default=None, ge=0)
+    y: Optional[int] = Field(default=None, ge=0)
+    w: Optional[int] = Field(default=None, ge=1)
+    h: Optional[int] = Field(default=None, ge=1)
+    minimized: Optional[bool] = None
+    titlevisible: Optional[bool] = None
+    fulldragboard: Optional[bool] = None
+    visible: Optional[bool] = None
 
 
 class WidgetInstanceDataCreate(BaseModel):
     title: str
-    layout: int = 0
-    widget: str
-    layoutConfig: list[LayoutConfig] = []
-    icon_left: int = 0
-    icon_top: int = 0
+    widget: str                                 # vendor/name/version
+    layouts: dict[ScreenSizeKey, WidgetLayout] = {}
     read_only: bool = False
     permissions: WidgetPermissions = WidgetPermissions()
     variable_values: Optional[dict[str, WidgetVariables]] = None
+
 
 class WidgetInstanceDataPreference(BaseModel):
     name: str
@@ -49,7 +56,7 @@ class WidgetInstanceDataPreference(BaseModel):
 WidgetInstanceDataProperty = WidgetInstanceDataPreference
 
 
-class WidgetInstanceData(WidgetInstanceDataCreate):
+class WidgetInstanceData(WidgetInstanceDataCreate):   # unchanged apart from removed fields
     id: str = ''
     preferences: dict[str, WidgetInstanceDataPreference] = {}
     properties: dict[str, WidgetInstanceDataProperty] = {}
@@ -58,8 +65,7 @@ class WidgetInstanceData(WidgetInstanceDataCreate):
 class WidgetInstanceDataUpdate(BaseModel):
     id: Optional[str] = None
     tab: Optional[str] = None
-    layout: Optional[int] = None
-    layoutConfig: Optional[list[LayoutConfig]] = None
     title: Optional[str] = None
     widget: Optional[str] = None
-    move: Optional[bool] = None
+    move: Optional[bool] = None                 # viewer "move" permission toggle (unchanged behaviour)
+    layouts: Optional[dict[ScreenSizeKey, Optional[WidgetLayoutUpdate]]] = None

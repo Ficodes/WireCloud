@@ -51,11 +51,8 @@ def _widget_data(widget_id="ws-0-0"):
     return WidgetInstanceData(
         id=widget_id,
         title="Widget",
-        layout=0,
         widget="acme/widget/1.0.0",
-        layoutConfig=[],
-        icon_left=0,
-        icon_top=0,
+        layouts={"0": {"w": 1, "h": 1}},
         read_only=False,
         permissions=WidgetPermissions(),
         variable_values=None,
@@ -137,7 +134,7 @@ async def test_get_widget_instance_collection_route(app_client, db_session, monk
 
 
 async def test_create_widget_instance_collection_route(app_client, db_session, monkeypatch):
-    payload = {"title": "Widget", "layout": 0, "widget": "acme/widget/1.0.0", "layoutConfig": [], "permissions": {}, "variable_values": {}}
+    payload = {"title": "Widget", "widget": "acme/widget/1.0.0", "layouts": {"0": {"w": 1, "h": 1}}, "permissions": {}, "variable_values": {}}
 
     async def _none(*_args, **_kwargs):
         return None
@@ -201,6 +198,19 @@ async def test_create_widget_instance_collection_route(app_client, db_session, m
     created = await app_client.post("/api/workspace/507f1f77bcf86cd799439011/tab/tab-0/widget_instances/", json=payload)
     assert created.status_code == 201
     assert created.json()["id"] == "ok"
+
+
+async def test_create_widget_instance_invalid_layout_key_returns_422(app_client, db_session, monkeypatch):
+    ws = _workspace(editable=True)
+    monkeypatch.setattr(routes, "get_workspace_by_id", lambda *_args, **_kwargs: _value(ws))
+    monkeypatch.setattr(routes, "is_owner_or_has_permission", lambda *_args, **_kwargs: True)
+
+    async def _value(v):
+        return v
+
+    payload = {"title": "Widget", "widget": "acme/widget/1.0.0", "layouts": {"not-a-number": {"w": 1, "h": 1}}}
+    response = await app_client.post("/api/workspace/507f1f77bcf86cd799439011/tab/tab-0/widget_instances/", json=payload)
+    assert response.status_code == 422
 
 
 async def test_update_widget_instance_collection_route(app_client, db_session, monkeypatch):

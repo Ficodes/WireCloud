@@ -16,23 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Wirecloud.  If not, see <http://www.gnu.org/licenses/>.
 
-/* globals Wirecloud */
+import { GridStack } from 'gridstack';
+import 'gridstack/dist/gridstack.css';
 
-
-(function () {
-
-    "use strict";
-
-    /**
-     * @class Represents a size in several units.
-     */
-    const MultiValuedSize = function MultiValuedSize(inPixels, inLU) {
-        Object.defineProperties(this, {
-            inPixels: {value: inPixels},
-            inLU: {value: inLU}
-        });
-    };
-
-    Wirecloud.ui.MultiValuedSize = MultiValuedSize;
-
-})();
+window.GridStack = GridStack;

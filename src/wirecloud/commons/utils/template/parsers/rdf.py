@@ -23,7 +23,8 @@ from lxml import etree
 from pydantic import ValidationError
 
 from wirecloud.commons.utils.mimeparser import InvalidMimeType, parse_mime_type
-from wirecloud.commons.utils.template.base import is_valid_name, is_valid_vendor, is_valid_version
+from wirecloud.commons.utils.template.base import is_valid_name, is_valid_vendor, is_valid_version, \
+    convert_legacy_layout, default_desktop_screen_size_id, resolve_legacy_screen_sizes
 from wirecloud.commons.utils.template.schemas.macdschemas import *
 from wirecloud.platform.wiring.schemas import *
 from wirecloud.platform.wiring.utils import get_wiring_skeleton
@@ -640,23 +641,14 @@ class RDFTemplateParser(object):
             for preference in self._graph.objects(tab, WIRE_M['hasTabPreference']):
                 tab_info.preferences[self._get_field(DCTERMS, 'title', preference)] = self._get_field(WIRE, 'value', preference)
 
+            # Resolve (and, if 'legacy default', drop) the effective 'screenSizes' preference for
+            # this tab; legacy hasPosition/hasiWidgetRendering widget layouts must then be
+            # remapped to the new default desktop screen size instead of the old (now
+            # meaningless) screen size id.
+            tab_legacy_default_screen_sizes = resolve_legacy_screen_sizes(tab_info.preferences, self._info.preferences)
+
             for widget in self._graph.objects(tab, WIRE_M['hasiWidget']):
-                position = self._get_field(WIRE_M, 'hasPosition', widget, id_=True, required=False)
-                rendering = self._get_field(WIRE_M, 'hasiWidgetRendering', widget, id_=True, required=False)
-                screen_sizes = self._graph.objects(widget, WIRE_M['hasScreenSize'])
                 vendor = self._get_field(USDL, 'hasProvider', widget, id_=True, required=True)
-                for __ in screen_sizes:
-                    has_screen_sizes = True
-                    break
-                else:
-                    has_screen_sizes = False
-
-                screen_sizes = self._graph.objects(widget, WIRE_M['hasScreenSize'])
-
-                if has_screen_sizes:
-                    layout = int(self._get_field(WIRE_M, 'layout', widget, required=False, default='0'))
-                else:
-                    layout = int(self._get_field(WIRE_M, 'layout', rendering, default='0'))
 
                 widget_info = MACDMashupResource(
                     id=self._get_field(WIRE_M, 'iWidgetId', widget),
@@ -665,62 +657,68 @@ class RDFTemplateParser(object):
                     version=self._get_field(USDL, 'versionInfo', widget),
                     title=self._get_field(DCTERMS, 'title', widget),
                     readonly=self._get_field(WIRE_M, 'readonly', widget, required=False).lower() == 'true',
-                    layout=layout
                 )
 
-                if has_screen_sizes:
-                    for screenSize in screen_sizes:
-                        position = self._get_field(WIRE_M, 'hasPosition', screenSize, id_=True, required=False)
-                        rendering = self._get_field(WIRE_M, 'hasiWidgetRendering', screenSize, id_=True, required=False)
-                        screen_size_info = MACDMashupResourceScreenSize(
-                            moreOrEqual=int(self._get_field(WIRE_M, 'moreOrEqual', screenSize)),
-                            lessOrEqual=int(self._get_field(WIRE_M, 'lessOrEqual', screenSize)),
-                            id=int(self._get_field(WIRE_M, 'screenSizeId', screenSize)),
-                            position=MACDMashupResourcePosition(
-                                anchor=self._get_field(WIRE_M, 'anchor', position, required=False, default="top-left"),
-                                relx=self._get_field(WIRE_M, 'relx', position, required=False, default='true').lower() == 'true',
-                                rely=self._get_field(WIRE_M, 'rely', position, required=False, default=('true' if layout != 1 else 'false')).lower() == 'true',
-                                x=self._get_field(WIRE_M, 'x', position),
-                                y=self._get_field(WIRE_M, 'y', position),
-                                z=self._get_field(WIRE_M, 'z', position)
-                            ),
-                            rendering=MACDMashupResourceRendering(
-                                fulldragboard=self._get_field(WIRE_M, 'fullDragboard', rendering, required=False).lower() == 'true',
-                                minimized=self._get_field(WIRE_M, 'minimized', rendering, required=False).lower() == 'true',
-                                relwidth=self._get_field(WIRE_M, 'relwidth', rendering, required=False, default='True').lower() == 'true',
-                                relheight=self._get_field(WIRE_M, 'relheight', rendering, required=False, default=('true' if layout != 1 else 'false')).lower() == 'true',
-                                width=self._get_field(WIRE, 'renderingWidth', rendering),
-                                height=self._get_field(WIRE, 'renderingHeight', rendering),
-                                titlevisible=self._get_field(WIRE_M, 'titlevisible', rendering, default="true", required=False).lower() == 'true'
-                            )
+                layout_nodes = list(self._graph.objects(widget, WIRE_M['hasLayout']))
+                if len(layout_nodes) > 0:
+                    for layout_node in layout_nodes:
+                        screen_size_id = self._get_field(WIRE_M, 'screenSizeId', layout_node)
+                        x = self._get_field(WIRE_M, 'x', layout_node, required=False, default=None)
+                        y = self._get_field(WIRE_M, 'y', layout_node, required=False, default=None)
+                        widget_info.layouts[str(screen_size_id)] = MACDMashupResourceLayout(
+                            x=int(x) if x is not None else None,
+                            y=int(y) if y is not None else None,
+                            w=int(self._get_field(WIRE_M, 'w', layout_node, required=False, default='1')),
+                            h=int(self._get_field(WIRE_M, 'h', layout_node, required=False, default='1')),
+                            minimized=self._get_field(WIRE_M, 'minimized', layout_node, required=False).lower() == 'true',
+                            titlevisible=self._get_field(WIRE_M, 'titlevisible', layout_node, default='true', required=False).lower() == 'true',
+                            fulldragboard=self._get_field(WIRE_M, 'fullDragboard', layout_node, required=False).lower() == 'true',
+                            visible=self._get_field(WIRE_M, 'visible', layout_node, default='true', required=False).lower() == 'true',
                         )
-
-                        widget_info.screenSizes.append(screen_size_info)
                 else:
-                    screen_size_info = MACDMashupResourceScreenSize(
-                        moreOrEqual=0,
-                        lessOrEqual=-1,
-                        id=0,
-                        position=MACDMashupResourcePosition(
-                            anchor=self._get_field(WIRE_M, 'anchor', position, required=False, default="top-left"),
-                            relx=self._get_field(WIRE_M, 'relx', position, required=False, default='true').lower() == 'true',
-                            rely=self._get_field(WIRE_M, 'rely', position, required=False, default=('true' if layout != 1 else 'false')).lower() == 'true',
-                            x=self._get_field(WIRE_M, 'x', position),
-                            y=self._get_field(WIRE_M, 'y', position),
-                            z=self._get_field(WIRE_M, 'z', position)
-                        ),
-                        rendering=MACDMashupResourceRendering(
-                            fulldragboard=self._get_field(WIRE_M, 'fullDragboard', rendering, required=False).lower() == 'true',
-                            minimized=self._get_field(WIRE_M, 'minimized', rendering, required=False).lower() == 'true',
-                            relwidth=self._get_field(WIRE_M, 'relwidth', rendering, required=False, default='True').lower() == 'true',
-                            relheight=self._get_field(WIRE_M, 'relheight', rendering, required=False, default=('true' if layout != 1 else 'false')).lower() == 'true',
-                            width=self._get_field(WIRE, 'renderingWidth', rendering),
-                            height=self._get_field(WIRE, 'renderingHeight', rendering),
-                            titlevisible=self._get_field(WIRE_M, 'titlevisible', rendering, default="true", required=False).lower() == 'true'
-                        )
-                    )
-
-                    widget_info.screenSizes.append(screen_size_info)
+                    # Legacy formats, converted best-effort:
+                    #  - one or more hasScreenSize nodes, each with its own hasPosition/hasiWidgetRendering
+                    #  - a single hasPosition + hasiWidgetRendering pair directly on the widget
+                    screen_sizes = list(self._graph.objects(widget, WIRE_M['hasScreenSize']))
+                    if len(screen_sizes) > 0:
+                        for screenSize in screen_sizes:
+                            legacy_position = self._get_field(WIRE_M, 'hasPosition', screenSize, id_=True, required=False, default=None)
+                            legacy_rendering = self._get_field(WIRE_M, 'hasiWidgetRendering', screenSize, id_=True, required=False, default=None)
+                            if legacy_position is None or legacy_rendering is None:
+                                continue
+                            key = str(default_desktop_screen_size_id()) if tab_legacy_default_screen_sizes \
+                                else str(self._get_field(WIRE_M, 'screenSizeId', screenSize))
+                            widget_info.layouts[key] = MACDMashupResourceLayout(**convert_legacy_layout(
+                                top=float(self._get_field(WIRE_M, 'y', legacy_position)),
+                                left=float(self._get_field(WIRE_M, 'x', legacy_position)),
+                                width=float(self._get_field(WIRE, 'renderingWidth', legacy_rendering)),
+                                height=float(self._get_field(WIRE, 'renderingHeight', legacy_rendering)),
+                                relx=self._get_field(WIRE_M, 'relx', legacy_position, required=False, default='true').lower() == 'true',
+                                rely=self._get_field(WIRE_M, 'rely', legacy_position, required=False, default='true').lower() == 'true',
+                                relwidth=self._get_field(WIRE_M, 'relwidth', legacy_rendering, required=False, default='true').lower() == 'true',
+                                relheight=self._get_field(WIRE_M, 'relheight', legacy_rendering, required=False, default='true').lower() == 'true',
+                                minimized=self._get_field(WIRE_M, 'minimized', legacy_rendering, required=False).lower() == 'true',
+                                titlevisible=self._get_field(WIRE_M, 'titlevisible', legacy_rendering, default='true', required=False).lower() == 'true',
+                                fulldragboard=self._get_field(WIRE_M, 'fullDragboard', legacy_rendering, required=False).lower() == 'true',
+                            ))
+                    else:
+                        legacy_position = self._get_field(WIRE_M, 'hasPosition', widget, id_=True, required=False, default=None)
+                        legacy_rendering = self._get_field(WIRE_M, 'hasiWidgetRendering', widget, id_=True, required=False, default=None)
+                        if legacy_position is not None and legacy_rendering is not None:
+                            key = str(default_desktop_screen_size_id()) if tab_legacy_default_screen_sizes else '0'
+                            widget_info.layouts[key] = MACDMashupResourceLayout(**convert_legacy_layout(
+                                top=float(self._get_field(WIRE_M, 'y', legacy_position)),
+                                left=float(self._get_field(WIRE_M, 'x', legacy_position)),
+                                width=float(self._get_field(WIRE, 'renderingWidth', legacy_rendering)),
+                                height=float(self._get_field(WIRE, 'renderingHeight', legacy_rendering)),
+                                relx=self._get_field(WIRE_M, 'relx', legacy_position, required=False, default='true').lower() == 'true',
+                                rely=self._get_field(WIRE_M, 'rely', legacy_position, required=False, default='true').lower() == 'true',
+                                relwidth=self._get_field(WIRE_M, 'relwidth', legacy_rendering, required=False, default='true').lower() == 'true',
+                                relheight=self._get_field(WIRE_M, 'relheight', legacy_rendering, required=False, default='true').lower() == 'true',
+                                minimized=self._get_field(WIRE_M, 'minimized', legacy_rendering, required=False).lower() == 'true',
+                                titlevisible=self._get_field(WIRE_M, 'titlevisible', legacy_rendering, default='true', required=False).lower() == 'true',
+                                fulldragboard=self._get_field(WIRE_M, 'fullDragboard', legacy_rendering, required=False).lower() == 'true',
+                            ))
 
                 for prop in self._graph.objects(widget, WIRE_M['hasiWidgetProperty']):
                     widget_info.properties[self._get_field(DCTERMS, 'title', prop)] = MACDMashupResourceProperty(
@@ -740,9 +738,6 @@ class RDFTemplateParser(object):
             tabs.append(tab_info)
 
         self._info.tabs = tabs
-
-        if not self._info.is_valid_screen_sizes():
-            raise TemplateParseException(_("Invalid screen sizes present in the template."))
 
         self._parse_wiring_info(wiring_property='hasMashupWiring')
 

@@ -1,7 +1,8 @@
 <s:styledgui xmlns:s="http://wirecloud.conwet.fi.upm.es/StyledElements" xmlns:t="http://wirecloud.conwet.fi.upm.es/Template" xmlns="http://www.w3.org/1999/xhtml">
-<div class="fade panel panel-default">
-    <div class="wc-widget-heading panel-heading"><t:grip/><t:errorbutton aria-label="{{ trans("Error") }}" /><t:titlevisibilitybutton aria-label="{{ trans("Toggle title visibility") }}" /><h4 class="panel-title"><t:title/></h4><t:minimizebutton aria-label="{{ trans("Minimize") }}" /><t:menubutton aria-haspopup="true" aria-expanded="false" /><t:closebutton aria-label="{{ trans("Close") }}" /></div>
-    <div class="wc-widget-body"><t:iframe/></div>
-    <div class="wc-widget-footer panel-footer"><t:leftresizehandle/><t:bottomresizehandle/><t:rightresizehandle/></div>
+<div class="wc-widget grid-stack-item">
+    <div class="grid-stack-item-content fade panel panel-default">
+        <div class="wc-widget-heading panel-heading"><t:grip/><t:errorbutton aria-label="{{ trans("Error") }}" /><t:titlevisibilitybutton aria-label="{{ trans("Toggle title visibility") }}" /><h4 class="panel-title"><t:title/></h4><t:minimizebutton aria-label="{{ trans("Minimize") }}" /><t:menubutton aria-haspopup="true" aria-expanded="false" /><t:closebutton aria-label="{{ trans("Close") }}" /></div>
+        <div class="wc-widget-body"><t:iframe/></div>
+    </div>
 </div>
 </s:styledgui>

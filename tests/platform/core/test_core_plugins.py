@@ -304,6 +304,37 @@ def test_workspace_preferences_templates_extensions_and_openapi(monkeypatch):
     assert all(pref.name != "public" for pref in tab_prefs)
     assert all(pref.inheritable for pref in tab_prefs)
 
+    # The old 'initiallayout'/'baselayout' preferences and the 'layout' input field type are gone
+    assert all(pref.name not in ("initiallayout", "baselayout") for pref in workspace_prefs)
+    assert all(pref.type != "layout" for pref in workspace_prefs)
+
+    prefs_by_name = {pref.name: pref for pref in workspace_prefs}
+    sharelist_pref = prefs_by_name["sharelist"]
+    assert sharelist_pref.type == "text"
+    assert sharelist_pref.hidden is True
+
+    screen_sizes_pref = prefs_by_name["screenSizes"]
+    assert screen_sizes_pref.type == "screenSizes"
+    assert screen_sizes_pref.defaultValue == [
+        {"id": 0, "name": "Phone", "moreOrEqual": 0, "lessOrEqual": 767, "columns": 1},
+        {"id": 1, "name": "Tablet", "moreOrEqual": 768, "lessOrEqual": 1199, "columns": 6},
+        {"id": 2, "name": "Desktop", "moreOrEqual": 1200, "lessOrEqual": -1, "columns": 12},
+    ]
+
+    cellheight_pref = prefs_by_name["cellheight"]
+    assert cellheight_pref.type == "number"
+    assert cellheight_pref.defaultValue == 40
+
+    margin_pref = prefs_by_name["margin"]
+    assert margin_pref.type == "number"
+    assert margin_pref.defaultValue == 5
+
+    # Tab preferences mirror the workspace ones (minus 'public') and stay inheritable
+    tab_prefs_by_name = {pref.name: pref for pref in tab_prefs}
+    assert tab_prefs_by_name["screenSizes"].defaultValue == screen_sizes_pref.defaultValue
+    assert tab_prefs_by_name["cellheight"].defaultValue == 40
+    assert tab_prefs_by_name["margin"].defaultValue == 5
+
     assert len(plugin.get_templates("classic")) > 0
     assert len(plugin.get_templates("smartphone")) > 0
     assert plugin.get_templates("embedded") == []

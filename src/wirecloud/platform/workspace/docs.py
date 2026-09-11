@@ -41,17 +41,17 @@ workspace_data = {
             "inherit": False,
             "value": "[]"
         },
-        "initiallayout": {
-            "inherit": False,
-            "value": "null"
-        },
         "screenSizes": {
             "inherit": False,
-            "value": "[{\"moreOrEqual\": 0, \"lessOrEqual\": -1, \"name\": \"Default\", \"id\": 0}]"
+            "value": "[{\"id\": 0, \"name\": \"Phone\", \"moreOrEqual\": 0, \"lessOrEqual\": 767, \"columns\": 1}, {\"id\": 1, \"name\": \"Tablet\", \"moreOrEqual\": 768, \"lessOrEqual\": 1199, \"columns\": 6}, {\"id\": 2, \"name\": \"Desktop\", \"moreOrEqual\": 1200, \"lessOrEqual\": -1, \"columns\": 12}]"
         },
-        "baselayout": {
+        "cellheight": {
             "inherit": False,
-            "value": "{\"type\": \"columnlayout\", \"smart\": \"false\", \"columns\": 20, \"cellheight\": 12, \"horizontalmargin\": 4, \"verticalmargin\": 3}"
+            "value": "40"
+        },
+        "margin": {
+            "inherit": False,
+            "value": "5"
         }
     },
     "users": [
@@ -94,17 +94,17 @@ workspace_data = {
                     "inherit": True,
                     "value": "[]"
                 },
-                "initiallayout": {
-                    "inherit": True,
-                    "value": "null"
-                },
                 "screenSizes": {
                     "inherit": True,
-                    "value": "[{\"moreOrEqual\": 0, \"lessOrEqual\": -1, \"name\": \"Default\", \"id\": 0}]"
+                    "value": "[{\"id\": 0, \"name\": \"Phone\", \"moreOrEqual\": 0, \"lessOrEqual\": 767, \"columns\": 1}, {\"id\": 1, \"name\": \"Tablet\", \"moreOrEqual\": 768, \"lessOrEqual\": 1199, \"columns\": 6}, {\"id\": 2, \"name\": \"Desktop\", \"moreOrEqual\": 1200, \"lessOrEqual\": -1, \"columns\": 12}]"
                 },
-                "baselayout": {
+                "cellheight": {
                     "inherit": True,
-                    "value": "{\"type\": \"columnlayout\", \"smart\": \"false\", \"columns\": 20, \"cellheight\": 12, \"horizontalmargin\": 4, \"verticalmargin\": 3}"
+                    "value": "40"
+                },
+                "margin": {
+                    "inherit": True,
+                    "value": "5"
                 }
             },
             "last_modified": 1739959520701
@@ -130,17 +130,17 @@ tab_data = {
             "inherit": True,
             "value": "[]"
         },
-        "initiallayout": {
-            "inherit": True,
-            "value": "null"
-        },
         "screenSizes": {
             "inherit": True,
-            "value": "[{\"moreOrEqual\": 0, \"lessOrEqual\": -1, \"name\": \"Default\", \"id\": 0}]"
+            "value": "[{\"id\": 0, \"name\": \"Phone\", \"moreOrEqual\": 0, \"lessOrEqual\": 767, \"columns\": 1}, {\"id\": 1, \"name\": \"Tablet\", \"moreOrEqual\": 768, \"lessOrEqual\": 1199, \"columns\": 6}, {\"id\": 2, \"name\": \"Desktop\", \"moreOrEqual\": 1200, \"lessOrEqual\": -1, \"columns\": 12}]"
         },
-        "baselayout": {
+        "cellheight": {
             "inherit": True,
-            "value": "{\"type\": \"columnlayout\", \"smart\": \"false\", \"columns\": 20, \"cellheight\": 12, \"horizontalmargin\": 4, \"verticalmargin\": 3}"
+            "value": "40"
+        },
+        "margin": {
+            "inherit": True,
+            "value": "5"
         }
     },
     "last_modified": 1739962053890
@@ -250,17 +250,17 @@ create_workspace_collection_response_example = {
             "inherit": False,
             "value": "[]"
         },
-        "initiallayout": {
-            "inherit": False,
-            "value": "null"
-        },
         "screenSizes": {
             "inherit": False,
-            "value": "[{\"moreOrEqual\": 0, \"lessOrEqual\": -1, \"name\": \"Default\", \"id\": 0}]"
+            "value": "[{\"id\": 0, \"name\": \"Phone\", \"moreOrEqual\": 0, \"lessOrEqual\": 767, \"columns\": 1}, {\"id\": 1, \"name\": \"Tablet\", \"moreOrEqual\": 768, \"lessOrEqual\": 1199, \"columns\": 6}, {\"id\": 2, \"name\": \"Desktop\", \"moreOrEqual\": 1200, \"lessOrEqual\": -1, \"columns\": 12}]"
         },
-        "baselayout": {
+        "cellheight": {
             "inherit": False,
-            "value": "{\"type\": \"columnlayout\", \"smart\": \"false\", \"columns\": 20, \"cellheight\": 12, \"horizontalmargin\": 4, \"verticalmargin\": 3}"
+            "value": "40"
+        },
+        "margin": {
+            "inherit": False,
+            "value": "5"
         }
     },
     "users": [
@@ -303,17 +303,17 @@ create_workspace_collection_response_example = {
                     "inherit": True,
                     "value": "[]"
                 },
-                "initiallayout": {
-                    "inherit": True,
-                    "value": "null"
-                },
                 "screenSizes": {
                     "inherit": True,
-                    "value": "[{\"moreOrEqual\": 0, \"lessOrEqual\": -1, \"name\": \"Default\", \"id\": 0}]"
+                    "value": "[{\"id\": 0, \"name\": \"Phone\", \"moreOrEqual\": 0, \"lessOrEqual\": 767, \"columns\": 1}, {\"id\": 1, \"name\": \"Tablet\", \"moreOrEqual\": 768, \"lessOrEqual\": 1199, \"columns\": 6}, {\"id\": 2, \"name\": \"Desktop\", \"moreOrEqual\": 1200, \"lessOrEqual\": -1, \"columns\": 12}]"
                 },
-                "baselayout": {
+                "cellheight": {
                     "inherit": True,
-                    "value": "{\"type\": \"columnlayout\", \"smart\": \"false\", \"columns\": 20, \"cellheight\": 12, \"horizontalmargin\": 4, \"verticalmargin\": 3}"
+                    "value": "40"
+                },
+                "margin": {
+                    "inherit": True,
+                    "value": "5"
                 }
             },
             "last_modified": 1739896280315

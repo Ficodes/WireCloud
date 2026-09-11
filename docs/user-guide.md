@@ -68,10 +68,38 @@ The version 2 descriptor `entrypoint` is a deprecated compatibility fallback.
 1. Return to the workspace editor.
 2. Open the component sidebar.
 3. Find a widget and choose **Add to workspace**.
-4. Move and resize it on the active tab.
+4. In edit mode, drag it by its title bar and resize it from its edges or corners to place it on the active tab's grid.
 5. Open its menu to edit settings, rename it, reload it, view logs or documentation, or change its version.
 
 Preferences are the user-configurable values declared by a component. Persistent variables are component-managed values retained by WireCloud. They serve different purposes and may be reset or migrated differently when a component changes version.
+
+## Responsive layouts
+
+Each tab lays out its widgets on a grid. In edit mode, drag a widget by its title bar to move it and drag its edges or corners to resize it; the other widgets rearrange to make room.
+
+### Screen sizes
+
+A workspace or tab preference named **Screen sizes** defines one or more breakpoints, each with a name, a width range in pixels, and a number of grid columns. The defaults are:
+
+- **Phone**: 0–767 px, 1 column.
+- **Tablet**: 768–1199 px, 6 columns.
+- **Desktop**: 1200 px and above, 12 columns.
+
+A widget's layout (position, size, and visibility) is stored separately for each screen size. If a widget has no layout stored for the screen size currently active, WireCloud derives one from the layout of the nearest screen size that does have one, scaled to the new column count; that derived layout is only saved once you edit the widget at that screen size.
+
+To edit the layout for a specific screen size regardless of your current window width, open the workspace's or tab's preferences, find **Screen sizes**, and use the **edit** button next to the screen size you want. The workspace header then shows an indicator naming the screen size you are editing; use its close icon to return to editing at your actual window width.
+
+### Hiding widgets per screen size
+
+Open a widget's menu and choose **Hide for this screen size** to remove it from the layout at the screen size you are currently editing, without affecting its layout at other screen sizes. To bring it back, open the tab menu, expand **Hidden widgets**, and select the widget's title.
+
+### Minimize, title, and full dragboard
+
+The buttons on a widget's title bar minimize it to its title bar or toggle whether the title bar is shown outside edit mode. The widget's menu can switch it to **Full Dragboard**, which expands the widget to cover the visible area of the tab; choose **Exit Full Dragboard** to restore its normal layout. These settings are also stored per screen size.
+
+### Moving a widget to another tab
+
+Open the widget's menu and choose **Move to tab**, then pick the destination tab. The widget keeps its own settings and moves with the layout it would normally get on the target tab.
 
 ## Wire components
 

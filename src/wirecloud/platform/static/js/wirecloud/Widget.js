@@ -32,6 +32,19 @@
         UNLOADING: 3
     };
 
+    const default_layout = function default_layout() {
+        return {
+            x: null,
+            y: null,
+            w: 1,
+            h: 1,
+            minimized: false,
+            titlevisible: true,
+            fulldragboard: false,
+            visible: true
+        };
+    };
+
     const build_endpoints = function build_endpoints() {
         this.inputs = {};
         this.meta.inputList.forEach(function (endpoint) {
@@ -181,13 +194,6 @@
         return Promise.resolve(widget);
     };
 
-    const _setTitleVisibility = function _setTitleVisibility(widget, visibility) {
-        privates.get(widget).titlevisible = visibility;
-        privates.get(widget).currentLayoutConfiguration.titlevisible = visibility;
-        widget.dispatchEvent('change', ['titlevisible']);
-        return Promise.resolve(widget);
-    };
-
     const _loadScripts = function _loadScripts() {
         // We need to wait for the scripts to be loaded before loading the widget
         const promises = [];
@@ -243,23 +249,6 @@
             }
         });
         this.loaded_scripts = [];
-    };
-
-    // It is assumed that the layoutConfig cover every screen size from 0 to infinity without gaps or overlaps
-    // (this is guaranteed by checks in the server side code)
-    const _getCurrentLayoutConfiguration = function _getCurrentLayoutConfiguration(layoutConfig, windowSize) {
-        let currentLayoutConfiguration;
-        for (const i in layoutConfig) {
-            const isValid = (layoutConfig[i].moreOrEqual !== -1 && layoutConfig[i].lessOrEqual === -1 && layoutConfig[i].moreOrEqual <= windowSize) ||
-                (layoutConfig[i].moreOrEqual === -1 && layoutConfig[i].lessOrEqual !== -1 && layoutConfig[i].lessOrEqual >= windowSize) ||
-                (layoutConfig[i].moreOrEqual !== -1 && layoutConfig[i].lessOrEqual !== -1 && layoutConfig[i].moreOrEqual <= windowSize && layoutConfig[i].lessOrEqual >= windowSize);
-
-            if (isValid) {
-                currentLayoutConfiguration = layoutConfig[i];
-                break;
-            }
-        }
-        return currentLayoutConfiguration;
     };
 
     const clean_title = function clean_title(title) {
@@ -444,24 +433,7 @@
                 title: meta.title,
                 preferences: {},
                 properties: {},
-                layoutConfig: [{
-                    id: 0,
-                    moreOrEqual: 0,
-                    lessOrEqual: -1,
-                    anchor: 'top-left',
-                    relx: true,
-                    rely: true,
-                    left: 0,
-                    top: 0,
-                    zIndex: 0,
-                    relheight: true,
-                    relwidth: true,
-                    height: 1,
-                    width: 1,
-                    minimized: false,
-                    fulldragboard: false,
-                    titlevisible: true
-                }]
+                layouts: {}
             }, data);
 
             this.pending_events = [];
@@ -502,29 +474,12 @@
                 permissions.viewer.upgrade = false;
             }
 
-            const currentLayoutConfiguration = _getCurrentLayoutConfiguration(data.layoutConfig, window.innerWidth);
             privates.set(this, {
                 permissions: permissions,
-                position: {
-                    anchor: currentLayoutConfiguration.anchor,
-                    relx: currentLayoutConfiguration.relx,
-                    rely: currentLayoutConfiguration.rely,
-                    x: currentLayoutConfiguration.left,
-                    y: currentLayoutConfiguration.top,
-                    z: currentLayoutConfiguration.zIndex
-                },
                 meta: meta,
-                shape: {
-                    relheight: currentLayoutConfiguration.relheight,
-                    relwidth: currentLayoutConfiguration.relwidth,
-                    width: currentLayoutConfiguration.width,
-                    height: currentLayoutConfiguration.height
-                },
-                layoutConfig: data.layoutConfig,
-                currentLayoutConfiguration: currentLayoutConfiguration,
+                layouts: utils.clone(data.layouts || {}, true),
                 status: STATUS.CREATED,
                 tab: tab,
-                titlevisible: !!currentLayoutConfiguration.titlevisible,
                 on_preremovetab: on_preremovetab.bind(this)
             });
 
@@ -612,25 +567,17 @@
                     value: !!data.volatile
                 },
                 /**
+                 * Deep clone of the stored layouts, keyed by screen size id (string).
+                 *
                  * @memberOf Wirecloud.Widget#
                  * @type {Object}
                  */
-                currentLayoutConfig: {
+                layouts: {
                     get: function () {
-                        return privates.get(this).currentLayoutConfiguration;
-                    }
-                },
-                /**
-                 * @memberOf Wirecloud.Widget#
-                 * @type {Object}
-                 */
-                layoutConfig: {
-                    get: function () {
-                        return privates.get(this).layoutConfig;
+                        return utils.clone(privates.get(this).layouts, true);
                     }
                 }
             });
-            this.fulldragboard = currentLayoutConfiguration.fulldragboard;
 
             _createWrapper.call(this);
 
@@ -641,58 +588,11 @@
             Object.defineProperties(this, {
                 /**
                  * @memberOf Wirecloud.Widget#
-                 * @type {Number}
-                 */
-                layout: {
-                    writable: true,
-                    value: data.layout
-                },
-                /**
-                 * @memberOf Wirecloud.Widget#
-                 * @type {Boolean}
-                 */
-                minimized: {
-                    get: function () {
-                        return privates.get(this).currentLayoutConfiguration.minimized;
-                    },
-                    set: function (value) {
-                        privates.get(this).currentLayoutConfiguration.minimized = value;
-                    }
-                },
-                /**
-                 * @memberOf Wirecloud.Widget#
                  * @type {Object}
                  */
                 permissions: {
                     get: function () {
                         return utils.clone(privates.get(this).permissions);
-                    }
-                },
-                /**
-                 * @memberOf Wirecloud.Widget#
-                 * @type {Object}
-                 */
-                position: {
-                    get: function () {
-                        return utils.clone(privates.get(this).position);
-                    }
-                },
-                /**
-                 * @memberOf Wirecloud.Widget#
-                 * @type {Object}
-                 */
-                shape: {
-                    get: function () {
-                        return utils.clone(privates.get(this).shape);
-                    }
-                },
-                /**
-                 * @memberOf Wirecloud.Widget#
-                 * @type {Boolean}
-                 */
-                titlevisible: {
-                    get: () => {
-                        return privates.get(this).titlevisible;
                     }
                 }
             });
@@ -712,22 +612,22 @@
                 xPosition: {
                     label: utils.gettext("X-Position"),
                     description: utils.gettext("Specifies the x-coordinate at which the widget is placed"),
-                    value: data.left
+                    value: 0
                 },
                 yPosition: {
                     label: utils.gettext("Y-Position"),
                     description: utils.gettext("Specifies the y-coordinate at which the widget is placed"),
-                    value: data.top
+                    value: 0
                 },
                 zPosition: {
                     label: utils.gettext("Z-Position"),
                     description: utils.gettext("Specifies the z-coordinate at which the widget is placed"),
-                    value: data.zIndex
+                    value: 0
                 },
                 height: {
                     label: utils.gettext("Height"),
                     description: utils.gettext("Widget's height in layout cells"),
-                    value: data.height
+                    value: 0
                 },
                 visible: {
                     label: utils.gettext("Visible"),
@@ -737,7 +637,7 @@
                 width: {
                     label: utils.gettext("Width"),
                     description: utils.gettext("Widget's width in layout cells"),
-                    value: data.width
+                    value: 0
                 },
                 heightInPixels: {
                     label: utils.gettext("Height in pixels (deprecated)"),
@@ -1022,61 +922,117 @@
             }
         }
 
-        setPosition(position) {
-            utils.update(privates.get(this).position, position);
-            return this;
+        /**
+         * Returns the stored layout for the given screen size, if any.
+         *
+         * @param {String|Number} screenSizeId
+         *
+         * @returns {Object|null} a clone of the stored layout, or `null` when there
+         * is no stored layout for the given screen size.
+         */
+        getLayout(screenSizeId) {
+            const id = String(screenSizeId);
+            const layouts = privates.get(this).layouts;
+
+            return (id in layouts) ? utils.clone(layouts[id], true) : null;
         }
 
-        setLayoutPosition(layoutPosition) {
-            Wirecloud.Utils.merge(privates.get(this).currentLayoutConfiguration, {
-                anchor: layoutPosition.anchor,
-                relx: layoutPosition.relx,
-                rely: layoutPosition.rely,
-                left: layoutPosition.x,
-                top: layoutPosition.y,
-                zIndex: layoutPosition.z
-            });
-            return this;
-        }
+        /**
+         * Merges `changes` into the stored layout for the given screen size
+         * (creating it using default values when there is no stored layout yet),
+         * and optionally persists the change.
+         *
+         * @param {String|Number} screenSizeId
+         * @param {Object} changes fields to merge into the stored layout: any of
+         * `x`, `y`, `w`, `h`, `minimized`, `titlevisible`, `fulldragboard`, `visible`
+         * @param {Boolean} [persist=false] save the change on the server (ignored
+         * for volatile widgets)
+         *
+         * @returns {Promise} A promise that resolves to this widget.
+         */
+        setLayout(screenSizeId, changes, persist = false) {
+            const id = String(screenSizeId);
+            const priv = privates.get(this);
+            const current = (id in priv.layouts) ? priv.layouts[id] : default_layout();
 
-        setLayoutIndex(index) {
-            this.layout = index;
-            return this;
-        }
+            priv.layouts[id] = utils.merge(current, changes);
+            this.dispatchEvent('change', ['layouts']);
 
-        updateWindowSize(windowSize) {
-            const currentLayoutConfiguration = _getCurrentLayoutConfiguration(privates.get(this).layoutConfig, windowSize);
-            if (currentLayoutConfiguration === privates.get(this).currentLayoutConfiguration) {
-                return false;
+            if (persist && !this.volatile) {
+                const url = Wirecloud.URLs.IWIDGET_ENTRY.evaluate({
+                    workspace_id: this.tab.workspace.id,
+                    tab_id: this.tab.id,
+                    iwidget_id: this.id
+                });
+
+                const payload = {
+                    layouts: {
+                        [id]: changes
+                    }
+                };
+
+                return Wirecloud.io.makeRequest(url, {
+                    method: 'POST',
+                    requestHeaders: {'Accept': 'application/json'},
+                    contentType: 'application/json',
+                    postBody: JSON.stringify(payload)
+                }).then((response) => {
+                    if (response.status === 204) {
+                        return this;
+                    } else {
+                        return Promise.reject(new Error("Unexpected response from server"));
+                    }
+                });
             }
 
-            privates.get(this).currentLayoutConfiguration = currentLayoutConfiguration;
-
-            // Update shape, position, titlevisible and fulldragboard
-            privates.get(this).shape = {
-                relheight: currentLayoutConfiguration.relheight,
-                relwidth: currentLayoutConfiguration.relwidth,
-                height: currentLayoutConfiguration.height,
-                width: currentLayoutConfiguration.width
-            };
-
-            privates.get(this).position = {
-                anchor: currentLayoutConfiguration.anchor,
-                relx: currentLayoutConfiguration.relx,
-                rely: currentLayoutConfiguration.rely,
-                x: currentLayoutConfiguration.left,
-                y: currentLayoutConfiguration.top,
-                z: currentLayoutConfiguration.zIndex
-            };
-
-            privates.get(this).titlevisible = !!currentLayoutConfiguration.titlevisible;
-            this.fulldragboard = currentLayoutConfiguration.fulldragboard;
-
-            return true;
+            return Promise.resolve(this);
         }
 
-        getLayoutConfigBySize(size) {
-            return _getCurrentLayoutConfiguration(privates.get(this).layoutConfig, size);
+        /**
+         * Removes the stored layout for the given screen size, and optionally
+         * persists the change.
+         *
+         * @param {String|Number} screenSizeId
+         * @param {Boolean} [persist=false] save the change on the server (ignored
+         * for volatile widgets)
+         *
+         * @returns {Promise} A promise that resolves to this widget.
+         */
+        removeLayout(screenSizeId, persist = false) {
+            const id = String(screenSizeId);
+            const priv = privates.get(this);
+
+            delete priv.layouts[id];
+            this.dispatchEvent('change', ['layouts']);
+
+            if (persist && !this.volatile) {
+                const url = Wirecloud.URLs.IWIDGET_ENTRY.evaluate({
+                    workspace_id: this.tab.workspace.id,
+                    tab_id: this.tab.id,
+                    iwidget_id: this.id
+                });
+
+                const payload = {
+                    layouts: {
+                        [id]: null
+                    }
+                };
+
+                return Wirecloud.io.makeRequest(url, {
+                    method: 'POST',
+                    requestHeaders: {'Accept': 'application/json'},
+                    contentType: 'application/json',
+                    postBody: JSON.stringify(payload)
+                }).then((response) => {
+                    if (response.status === 204) {
+                        return this;
+                    } else {
+                        return Promise.reject(new Error("Unexpected response from server"));
+                    }
+                });
+            }
+
+            return Promise.resolve(this);
         }
 
         setPreferences(newValues) {
@@ -1141,67 +1097,6 @@
 
                 censor_secure_preferences.call(this, newValues);
                 return Promise.resolve(newValues);
-            }
-        }
-
-        setShape(shape) {
-            // TODO: is minimized
-            utils.update(privates.get(this).shape, shape);
-            return this;
-        }
-
-        setLayoutShape(layoutShape) {
-            Wirecloud.Utils.merge(privates.get(this).currentLayoutConfiguration, layoutShape);
-            return this;
-        }
-
-        setLayoutFulldragboard(fulldragboard) {
-            privates.get(this).currentLayoutConfiguration.fulldragboard = fulldragboard;
-            return this;
-        }
-
-        setLayoutMinimizedStatus(minimized) {
-            privates.get(this).currentLayoutConfiguration.minimized = minimized;
-            return this;
-        }
-
-        /**
-         * Set title visibility on persistence
-         *
-         * @returns {Promise}
-         */
-        setTitleVisibility(visibility, persistence) {
-            visibility = !!visibility;
-
-            if (persistence && !this.volatile) {
-                const url = Wirecloud.URLs.IWIDGET_ENTRY.evaluate({
-                    workspace_id: this.tab.workspace.id,
-                    tab_id: this.tab.id,
-                    iwidget_id: this.id
-                });
-
-                const payload = {
-                    layoutConfig: [{
-                        id: privates.get(this).currentLayoutConfiguration.id,
-                        titlevisible: visibility,
-                        action: 'update'
-                    }]
-                };
-
-                return Wirecloud.io.makeRequest(url, {
-                    method: 'POST',
-                    requestHeaders: {'Accept': 'application/json'},
-                    contentType: 'application/json',
-                    postBody: JSON.stringify(payload)
-                }).then((response) => {
-                    if (response.status === 204) {
-                        return _setTitleVisibility(this, visibility);
-                    } else {
-                        return Promise.reject(new Error("Unexpected response from server"));
-                    }
-                });
-            } else {
-                return _setTitleVisibility(this, visibility);
             }
         }
 

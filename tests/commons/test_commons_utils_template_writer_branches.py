@@ -7,10 +7,8 @@ from wirecloud.commons.utils.template.writers import xml as xml_writer
 from wirecloud.commons.utils.template.schemas.macdschemas import (
     MACDMashup,
     MACDMashupResource,
+    MACDMashupResourceLayout,
     MACDMashupResourceProperty,
-    MACDMashupResourcePosition,
-    MACDMashupResourceRendering,
-    MACDMashupResourceScreenSize,
     MACDPreference,
     MACDProperty,
     MACDWidget,
@@ -138,16 +136,10 @@ def test_xml_writer_false_paths_for_prefs_and_props():
         version="1.0.0",
         title="t",
         readonly=False,
-        layout=0,
-        screenSizes=[
-            MACDMashupResourceScreenSize(
-                id=0,
-                moreOrEqual=0,
-                lessOrEqual=-1,
-                position=MACDMashupResourcePosition(x="0", y="0", z="0"),
-                rendering=MACDMashupResourceRendering(width="1", height="1"),
-            )
-        ],
+        layouts={
+            "0": MACDMashupResourceLayout(x=0, y=0, w=1, h=1),
+            "2": MACDMashupResourceLayout(w=12, h=8, visible=False),
+        },
         properties={"p": MACDMashupResourceProperty(value=None, readonly=False)},
         preferences={},
     )
@@ -269,17 +261,7 @@ def test_rdf_writer_remaining_branch_conditions():
             "version": "1.0.0",
             "title": "Widget",
             "readonly": True,
-            "layout": 0,
-            "screenSizes": [
-                {
-                    "id": 0,
-                    "moreOrEqual": 0,
-                    "lessOrEqual": -1,
-                    "layout": 0,
-                    "position": {"x": "1", "y": "2", "z": "1"},
-                    "rendering": {"width": "1", "height": "1"},
-                }
-            ],
+            "layouts": {"0": {"x": 1, "y": 2, "w": 1, "h": 1}},
             "preferences": {"p": {"value": "v", "readonly": True, "hidden": True}},
             "properties": {"k": {"value": "x", "readonly": True}},
         }
@@ -292,17 +274,7 @@ def test_rdf_writer_remaining_branch_conditions():
             "version": "1.0.0",
             "title": "Widget2",
             "readonly": False,
-            "layout": 0,
-            "screenSizes": [
-                {
-                    "id": 0,
-                    "moreOrEqual": 0,
-                    "lessOrEqual": -1,
-                    "layout": 0,
-                    "position": {"x": "1", "y": "2", "z": "1"},
-                    "rendering": {"width": "1", "height": "1"},
-                }
-            ],
+            "layouts": {"0": {"x": 1, "y": 2, "w": 1, "h": 1}},
             "preferences": {"p2": {"value": None, "readonly": False, "hidden": False}},
             "properties": {"k2": {"value": None, "readonly": False}},
         }

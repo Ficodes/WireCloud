@@ -23,405 +23,699 @@
 
     "use strict";
 
-    const refresh_zindex = function refresh_zindex() {
-        for (let i = this.widgets.length - 1; i >= 0; i--) {
-            if (this.widgets[i] == null) {
-                this.widgets.splice(i, 1);
+    const DEFAULT_COLUMNS = 12;
+
+    const clamp = function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
+    };
+
+    const normalize_screen_size = function normalize_screen_size(screenSize) {
+        return {
+            id: screenSize.id,
+            name: screenSize.name,
+            moreOrEqual: screenSize.moreOrEqual,
+            lessOrEqual: screenSize.lessOrEqual,
+            columns: (screenSize.columns != null) ? screenSize.columns : DEFAULT_COLUMNS
+        };
+    };
+
+    /**
+     * Derives the layout for a screen size from the layout stored for another
+     * one: sizes are scaled by the column ratio, while `x`/`y` are only kept
+     * as ordering hints (`derived: true` makes the widget auto-placed in
+     * reading order, so the widgets reflow left to right instead of piling up
+     * where the scaled positions collide).
+     *
+     * Visibility is never inherited: hiding a widget is a decision taken for
+     * one specific screen size, so a screen size that has no layout of its own
+     * always shows the widget.
+     *
+     * @private
+     */
+    const scale_layout = function scale_layout(layout, sourceScreenSize, targetScreenSize) {
+        const ratio = targetScreenSize.columns / sourceScreenSize.columns;
+        const w = clamp(Math.round(layout.w * ratio), 1, targetScreenSize.columns);
+        const x = (layout.x == null) ? null : clamp(Math.round(layout.x * ratio), 0, Math.max(0, targetScreenSize.columns - w));
+
+        return {
+            x: x,
+            y: layout.y,
+            w: w,
+            h: layout.h,
+            minimized: layout.minimized,
+            titlevisible: layout.titlevisible,
+            fulldragboard: layout.fulldragboard,
+            visible: true,
+            derived: true
+        };
+    };
+
+    const default_layout_for = function default_layout_for(screenSize, cellheight) {
+        return {
+            x: null,
+            y: null,
+            w: Math.min(screenSize.columns, Math.max(1, Math.round(screenSize.columns / 3))),
+            h: Math.max(1, Math.round(300 / cellheight)),
+            minimized: false,
+            titlevisible: true,
+            fulldragboard: false,
+            visible: true
+        };
+    };
+
+    // =========================================================================
+    // EVENT HANDLERS
+    // =========================================================================
+
+    const on_grid_event = function on_grid_event() {
+        if (this.applying) {
+            return;
+        }
+
+        // Keep every view's layout in sync with what the user did on the grid
+        this.views.forEach((view) => view.syncLayoutFromNode());
+
+        if (!this.tab.workspace.editing) {
+            return;
+        }
+        schedule_persist.call(this);
+    };
+
+    /**
+     * While a widget is being dragged or resized the mouse events must keep
+     * reaching the document: any widget iframe passing under the cursor would
+     * otherwise swallow them, leaving the operation stuck half way. The class
+     * added here makes the widget contents transparent to the pointer for as
+     * long as the interaction lasts.
+     *
+     * @private
+     */
+    const on_interaction_start = function on_interaction_start() {
+        this.gridElement.classList.add('wc-dragboard-interacting');
+    };
+
+    const on_interaction_end = function on_interaction_end() {
+        this.gridElement.classList.remove('wc-dragboard-interacting');
+        on_grid_event.call(this);
+    };
+
+    /**
+     * Places (or hides) a single widget view on the grid according to a
+     * resolved layout. Must be called inside `withApplying` and a GridStack
+     * batch.
+     *
+     * @private
+     */
+    const place_view = function place_view(view, layout, role) {
+        const el = view.wrapperElement;
+
+        if (!layout.visible) {
+            if (el.gridstackNode != null) {
+                this.grid.removeWidget(el, false, false);
+            }
+            el.hidden = true;
+            view.applyLayout(layout);
+            return;
+        }
+
+        el.hidden = false;
+
+        const canMove = !layout.fulldragboard && view.model.isAllowed('move', role);
+        const canResize = !layout.fulldragboard && !layout.minimized && view.model.isAllowed('resize', role);
+        const autoPosition = layout.derived === true || layout.x == null || layout.y == null;
+
+        const nodeOpts = {
+            w: layout.w,
+            h: layout.h,
+            noMove: !canMove,
+            noResize: !canResize
+        };
+        if (!autoPosition) {
+            nodeOpts.x = layout.x;
+            nodeOpts.y = layout.y;
+        }
+
+        if (el.gridstackNode != null && autoPosition) {
+            // GridStack's update() cannot auto-place an existing node, re-add it instead
+            this.grid.removeWidget(el, false, false);
+        }
+
+        if (el.gridstackNode == null) {
+            this.grid.makeWidget(el, Object.assign({id: view.id, autoPosition: autoPosition}, nodeOpts));
+        } else {
+            this.grid.update(el, nodeOpts);
+        }
+
+        view.applyLayout(layout);
+    };
+
+    const schedule_persist = function schedule_persist() {
+        if (this._persistTimeout != null) {
+            return;
+        }
+        this._persistTimeout = setTimeout(() => {
+            this._persistTimeout = null;
+            this.persist();
+        }, 0);
+    };
+
+    const on_resize = function on_resize() {
+        if (this.grid == null || this.tab.wrapperElement.offsetWidth === 0) {
+            return;
+        }
+
+        if (this.activeScreenSize.id !== this._lastAppliedScreenSizeId) {
+            this.applyScreenSize();
+        }
+    };
+
+    const on_preferences_commit = function on_preferences_commit(preferences, modifiedValues) {
+        if ('cellheight' in modifiedValues) {
+            this.cellheight = modifiedValues.cellheight;
+            if (this.grid != null) {
+                this.grid.cellHeight(this.cellheight);
             }
         }
 
-        this.widgets.forEach((widget, index) => {
-            widget.setPosition({
-                z: index
-            }, false);
+        if ('margin' in modifiedValues) {
+            this.margin = modifiedValues.margin;
+            if (this.grid != null) {
+                this.grid.margin(this.margin);
+            }
+        }
+
+        if ('screenSizes' in modifiedValues) {
+            on_screensizes_change.call(this);
+        }
+    };
+
+    const on_screensizes_change = function on_screensizes_change() {
+        const validIds = this.screenSizes.map((screenSize) => String(screenSize.id));
+        const content = [];
+
+        this.views.forEach((view) => {
+            if (view.model.volatile) {
+                return;
+            }
+
+            const layouts = view.model.layouts;
+            const removedLayouts = {};
+            let hasRemovals = false;
+
+            Object.keys(layouts).forEach((id) => {
+                if (validIds.indexOf(id) === -1) {
+                    removedLayouts[id] = null;
+                    hasRemovals = true;
+                    view.model.removeLayout(id, false);
+                }
+            });
+
+            if (hasRemovals) {
+                content.push({id: view.id, layouts: removedLayouts});
+            }
         });
+
+        const finish = () => {
+            this.applyScreenSize();
+        };
+
+        if (content.length === 0) {
+            finish();
+            return;
+        }
+
+        const url = Wirecloud.URLs.IWIDGET_COLLECTION.evaluate({
+            workspace_id: this.tab.workspace.model.id,
+            tab_id: this.tab.model.id
+        });
+
+        Wirecloud.io.makeRequest(url, {
+            method: 'PUT',
+            requestHeaders: {'Accept': 'application/json'},
+            contentType: 'application/json',
+            postBody: JSON.stringify(content)
+        }).then(finish, finish);
+    };
+
+    const on_editmode = function on_editmode(workspace, editing) {
+        this.setEditing(editing);
     };
 
     ns.WorkspaceTabViewDragboard = class WorkspaceTabViewDragboard {
 
+        /**
+         * @name Wirecloud.ui.WorkspaceTabViewDragboard
+         *
+         * @constructor
+         * @param {Wirecloud.ui.WorkspaceTabView} tab
+         */
         constructor(tab) {
-            Object.defineProperties(this, {
-                tab: {
-                    value: tab
-                },
-                widgets: {
-                    value: []
-                }
-            });
+            this.tab = tab;
+            this.grid = null;
+            this.painted = false;
+            this.applying = false;
+            this.views = [];
+            this.forcedScreenSizeId = null;
+            this._lastAppliedScreenSizeId = null;
+            this._persistTimeout = null;
 
-            this.scrollbarSpace = 17; // TODO make this configurable?
-            // TODO or initialized with the scroll bar's real with?
-            this.dragboardWidth = 800;
-            this.dragboardHeight = 600;
-            this.customWidth = -1;
-            this.widgetToMove = null;
-            this.resetLayouts();
-            Object.defineProperties(this, {
-                layouts: {
-                    get: () => {
-                        return [
-                            this.baseLayout,
-                            this.freeLayout,
-                            this.leftLayout,
-                            this.rightLayout,
-                            this.bottomLayout,
-                            this.topLayout
-                        ];
-                    }
+            this.cellheight = this.tab.model.preferences.get('cellheight');
+            this.margin = this.tab.model.preferences.get('margin');
+
+            this.gridElement = document.createElement('div');
+            this.gridElement.className = 'grid-stack wc-dragboard';
+            this.tab.wrapperElement.appendChild(this.gridElement);
+
+            this._on_resize = on_resize.bind(this);
+            if (typeof ResizeObserver !== 'undefined') {
+                this._resizeObserver = new ResizeObserver(this._on_resize);
+                this._resizeObserver.observe(this.tab.wrapperElement);
+            } else if (typeof window !== 'undefined' && window.addEventListener) {
+                window.addEventListener('resize', this._on_resize);
+            }
+
+            this.tab.model.preferences.addEventListener('post-commit', on_preferences_commit.bind(this));
+            this.tab.workspace.addEventListener('editmode', on_editmode.bind(this));
+        }
+
+        /**
+         * Normalized, sorted (by `moreOrEqual`) list of screen sizes for this tab.
+         *
+         * @type {Array}
+         */
+        get screenSizes() {
+            const raw = this.tab.model.preferences.get('screenSizes') || [];
+
+            return raw.map(normalize_screen_size).sort((a, b) => a.moreOrEqual - b.moreOrEqual);
+        }
+
+        /**
+         * The screen size entry that applies to the current tab width (or the
+         * forced screen size, see {@link #setForcedScreenSize}).
+         *
+         * @type {Object}
+         */
+        get activeScreenSize() {
+            const screenSizes = this.screenSizes;
+
+            if (screenSizes.length === 0) {
+                return {id: 0, name: '', moreOrEqual: 0, lessOrEqual: -1, columns: DEFAULT_COLUMNS};
+            }
+
+            if (this.forcedScreenSizeId != null) {
+                const forced = screenSizes.find((screenSize) => screenSize.id === this.forcedScreenSizeId);
+                if (forced != null) {
+                    return forced;
                 }
+            }
+
+            const width = this._currentWidth();
+            for (const screenSize of screenSizes) {
+                if (width >= screenSize.moreOrEqual && (screenSize.lessOrEqual === -1 || width <= screenSize.lessOrEqual)) {
+                    return screenSize;
+                }
+            }
+
+            return screenSizes[screenSizes.length - 1];
+        }
+
+        /**
+         * List of widget views that are not visible at the current screen size.
+         *
+         * @type {Array.<Wirecloud.ui.WidgetView>}
+         */
+        get hiddenWidgets() {
+            const screenSize = this.activeScreenSize;
+
+            return this.views.filter((view) => {
+                return this.resolveLayout(view.model, screenSize).visible === false;
             });
-            if (this.tab.workspace.restricted) {
-                this.tab.wrapperElement.classList.add("fixed");
+        }
+
+        _currentWidth() {
+            const width = this.tab.wrapperElement.offsetWidth;
+            return (width > 0) ? width : window.innerWidth;
+        }
+
+        /**
+         * Overrides screen size detection so the tab is edited/rendered as if it
+         * had the given screen size, regardless of the current tab width.
+         *
+         * @param {Number|null} id `null` to go back to automatic detection.
+         */
+        setForcedScreenSize(id) {
+            this.forcedScreenSizeId = id;
+            this._lastAppliedScreenSizeId = null;
+            this.applyScreenSize();
+        }
+
+        /**
+         * Runs `fn` while suppressing dragboard persistence triggered by
+         * GridStack `change`/`dragstop`/`resizestop` events.
+         *
+         * @param {Function} fn
+         */
+        withApplying(fn) {
+            const was = this.applying;
+            this.applying = true;
+            try {
+                fn();
+            } finally {
+                this.applying = was;
             }
         }
 
         /**
-         * Gets the width of the usable dragboard area.
+         * Registers a widget view with this dragboard. The view's wrapper
+         * element is appended to the grid container (if not already) and is
+         * never re-parented afterwards, except when the widget is moved to
+         * another tab.
          *
-         * @returns The width of the usable dragboard area
+         * @param {Wirecloud.ui.WidgetView} view
          */
-        getWidth() {
-            return this.dragboardWidth;
+        addWidget(view) {
+            if (this.views.indexOf(view) === -1) {
+                this.views.push(view);
+            }
+
+            view.tab = this.tab;
+
+            if (view.wrapperElement.parentNode !== this.gridElement) {
+                this.gridElement.appendChild(view.wrapperElement);
+            }
+
+            this.refreshWidget(view);
         }
 
         /**
-         * Gets the height of the usable dragboard area.
+         * Re-places a single widget view on the grid using its resolved
+         * layout for the active screen size (other widgets are left alone,
+         * apart from the collisions GridStack resolves). Does nothing until
+         * the grid has been painted.
          *
-         * @returns The height of the usable dragboard area
+         * @param {Wirecloud.ui.WidgetView} view
          */
-        getHeight() {
-            return this.dragboardHeight;
-        }
-
-        lowerToBottom(widget) {
-
-            if (widget.position.z === 0) {
-                return this;
-            }
-
-            this.widgets.splice(widget.position.z, 1);
-            this.widgets.unshift(widget);
-            this.widgets.forEach((value, index) => {
-                value.setPosition({
-                    z: index
-                });
-            });
-
-            this.update();
-
-            return this;
-        }
-
-        lower(widget) {
-            const z = widget.position.z;
-
-            if (z === 0) {
-                return this;
-            }
-
-            const _widget = this.widgets[z - 1];
-
-            this.widgets[z - 1] = widget;
-            this.widgets[z] = _widget;
-
-            widget.setPosition({
-                z: z - 1
-            });
-            _widget.setPosition({
-                z: z
-            });
-
-            this.update([widget.id, _widget.id]);
-
-            return this;
-        }
-
-        raiseToTop(widget) {
-
-            if (widget.position.z === (this.widgets.length - 1)) {
-                return this;
-            }
-
-            this.widgets.splice(widget.position.z, 1);
-            this.widgets.push(widget);
-            this.widgets.forEach((value, index) => {
-                value.setPosition({
-                    z: index
-                });
-            });
-
-            this.update();
-
-            return this;
-        }
-
-        raise(widget) {
-            const z = widget.position.z;
-
-            if (z === (this.widgets.length - 1)) {
-                return this;
-            }
-
-            const _widget = this.widgets[z + 1];
-
-            this.widgets[z + 1] = widget;
-            this.widgets[z] = _widget;
-
-            widget.setPosition({
-                z: z + 1
-            });
-            _widget.setPosition({
-                z: z
-            });
-
-            this.update([widget.id, _widget.id]);
-
-            return this;
-        }
-
-        refreshPositionBasedOnZIndex() {
-            // Reorder widgets based on their z-index. This is used when the screen size changes
-            // and the widgets are not in the correct order.
-            this.widgets.sort((a, b) => {
-                return a.position.z - b.position.z;
-            });
-        }
-
-        paint() {
-
-            if (this.painted) {
+        refreshWidget(view) {
+            if (this.grid == null || this.views.indexOf(view) === -1) {
                 return;
             }
 
-            this._recomputeSize();
+            const screenSize = this.activeScreenSize;
+            const role = this.tab.workspace.editing ? 'editor' : 'viewer';
 
-            this.baseLayout.initialize();
-            this.freeLayout.initialize();
-            this.fulldragboardLayout.initialize();
-            this.leftLayout.initialize();
-            this.rightLayout.initialize();
-            this.bottomLayout.initialize();
-            this.topLayout.initialize();
+            this.withApplying(() => {
+                this.grid.batchUpdate();
+                try {
+                    place_view.call(this, view, this.resolveLayout(view.model, screenSize), role);
+                } finally {
+                    this.grid.batchUpdate(false);
+                }
+            });
+        }
 
-            refresh_zindex.call(this);
+        /**
+         * Fully removes a widget view from this dragboard (and from the DOM).
+         *
+         * @param {Wirecloud.ui.WidgetView} view
+         */
+        removeWidget(view) {
+            const index = this.views.indexOf(view);
+            if (index !== -1) {
+                this.views.splice(index, 1);
+            }
 
+            if (this.grid != null && view.wrapperElement.gridstackNode != null) {
+                this.grid.removeWidget(view.wrapperElement, true, false);
+            }
+        }
+
+        /**
+         * Removes a widget view from this dragboard's grid (keeping its DOM
+         * element around) and moves the underlying model to another tab; the
+         * target tab's dragboard is responsible for re-attaching the view.
+         *
+         * @param {Wirecloud.ui.WidgetView} view
+         * @param {Wirecloud.ui.WorkspaceTabView} targetTabView
+         *
+         * @returns {Promise}
+         */
+        moveWidgetToTab(view, targetTabView) {
+            const index = this.views.indexOf(view);
+            if (index !== -1) {
+                this.views.splice(index, 1);
+            }
+
+            if (this.grid != null && view.wrapperElement.gridstackNode != null) {
+                this.grid.removeWidget(view.wrapperElement, false, false);
+            }
+
+            return view.model.changeTab(targetTabView.model);
+        }
+
+        /**
+         * Resolves the effective layout a widget model should use for the
+         * given screen size: its own stored layout if present, otherwise a
+         * scaled copy of the nearest screen size (by column count) that has
+         * one, otherwise a sensible default.
+         *
+         * @param {Wirecloud.Widget} model
+         * @param {Object} screenSize
+         *
+         * @returns {Object}
+         */
+        resolveLayout(model, screenSize) {
+            const stored = model.getLayout(screenSize.id);
+            if (stored != null) {
+                return stored;
+            }
+
+            const screenSizes = this.screenSizes;
+            const index = screenSizes.findIndex((entry) => entry.id === screenSize.id);
+
+            for (let i = index + 1; i < screenSizes.length; i++) {
+                const candidate = model.getLayout(screenSizes[i].id);
+                if (candidate != null) {
+                    return scale_layout(candidate, screenSizes[i], screenSize);
+                }
+            }
+
+            for (let i = index - 1; i >= 0; i--) {
+                const candidate = model.getLayout(screenSizes[i].id);
+                if (candidate != null) {
+                    return scale_layout(candidate, screenSizes[i], screenSize);
+                }
+            }
+
+            return default_layout_for(screenSize, this.cellheight);
+        }
+
+        /**
+         * Re-applies the layout of every registered widget view for the
+         * current (or forced) screen size: sets the grid column count, hides
+         * widgets whose resolved layout is not visible, and (re)positions the
+         * remaining ones.
+         */
+        applyScreenSize() {
+            if (this.grid == null) {
+                return;
+            }
+
+            const screenSize = this.activeScreenSize;
+            const role = this.tab.workspace.editing ? 'editor' : 'viewer';
+
+            this.withApplying(() => {
+                this.grid.batchUpdate();
+
+                try {
+                    this.grid.column(screenSize.columns, 'none');
+
+                    // Detach every widget from the grid before placing them
+                    // again. Otherwise the widgets that have not been processed
+                    // yet still sit at the coordinates of the previously active
+                    // screen size, and auto placement flows around them, so the
+                    // result would depend on which screen size was active
+                    // before (making a window narrower and then wider again did
+                    // not give back the original layout).
+                    this.views.forEach((view) => {
+                        if (view.wrapperElement.gridstackNode != null) {
+                            this.grid.removeWidget(view.wrapperElement, false, false);
+                        }
+                    });
+
+                    const resolved = this.views.map((view) => ({
+                        view: view,
+                        layout: this.resolveLayout(view.model, screenSize)
+                    }));
+
+                    resolved.sort((a, b) => {
+                        const ay = (a.layout.y == null) ? Infinity : a.layout.y;
+                        const by = (b.layout.y == null) ? Infinity : b.layout.y;
+                        if (ay !== by) {
+                            return ay - by;
+                        }
+
+                        const ax = (a.layout.x == null) ? Infinity : a.layout.x;
+                        const bx = (b.layout.x == null) ? Infinity : b.layout.x;
+                        if (ax !== bx) {
+                            return ax - bx;
+                        }
+
+                        return String(a.view.id).localeCompare(String(b.view.id));
+                    });
+
+                    resolved.forEach(({view, layout}) => {
+                        place_view.call(this, view, layout, role);
+                    });
+                } finally {
+                    this.grid.batchUpdate(false);
+                }
+            });
+
+            this._lastAppliedScreenSizeId = screenSize.id;
+        }
+
+        /**
+         * Creates the underlying GridStack instance (only once) and applies
+         * the current screen size.
+         */
+        paint() {
+            if (this.painted) {
+                return;
+            }
             this.painted = true;
-        }
 
-        resetLayouts() {
-            this.painted = false;
-            this.fulldragboardLayout = new Wirecloud.ui.FullDragboardLayout(this);
-            this.baseLayout = this._buildLayoutFromPreferences();
-            this.freeLayout = new Wirecloud.ui.FreeLayout(this);
-            this.leftLayout = new Wirecloud.ui.SidebarLayout(this, {active: (this.leftLayout) ? this.leftLayout.isActive() : false});
-            this.rightLayout = new Wirecloud.ui.SidebarLayout(this, {position: "right", active: (this.rightLayout) ? this.rightLayout.isActive() : false});
-            this.bottomLayout = new Wirecloud.ui.SidebarLayout(this, {position: "bottom", active: (this.bottomLayout) ? this.bottomLayout.isActive() : false});
-            this.topLayout = new Wirecloud.ui.SidebarLayout(this, {position: "top", active: (this.topLayout) ? this.topLayout.isActive() : false});
-        }
+            this.grid = window.GridStack.init({
+                column: this.activeScreenSize.columns,
+                cellHeight: this.cellheight,
+                margin: this.margin,
+                float: false,
+                animate: true,
+                handle: '.wc-widget-heading',
+                resizable: {handles: 'e, se, s, sw, w'},
+                alwaysShowResizeHandle: 'mobile',
+                staticGrid: this.tab.workspace.model.restricted
+            }, this.gridElement);
 
-        updateWidgetScreenSize(screenSize) {
-            this.resetLayouts();
-            this.widgets.forEach((widget) => {
-                widget.updateWindowSize(screenSize);
-            });
-            this.refreshPositionBasedOnZIndex();
-            this.paint();
-        }
+            // GridStack re-orders the item elements in the DOM after every
+            // change (its internal _sortDom, meant to keep keyboard tab order in
+            // sync with the visual layout). Re-inserting a widget element
+            // reloads its <iframe>, so that behaviour must be disabled here.
+            this.grid._sortDom = () => this.grid;
 
-        updateWidgetScreenSizeWithId(id) {
-            const screenSize = this.tab.model.preferences.get('screenSizes').find((screenSize) => screenSize.id === id);
-            if (screenSize != null) {
-                let size = screenSize.moreOrEqual + (screenSize.lessOrEqual - screenSize.moreOrEqual) / 2;
-                if (screenSize.lessOrEqual === -1) {
-                    size = screenSize.moreOrEqual;
-                }
-                this.updateWidgetScreenSize(size);
-            }
+            // GridStack keeps one handler per event name (a second `on()` call
+            // for the same name replaces the first one), so the interaction
+            // handlers below also take care of the layout bookkeeping.
+            this.grid.on('change', on_grid_event.bind(this));
+            this.grid.on('dragstart', on_interaction_start.bind(this));
+            this.grid.on('resizestart', on_interaction_start.bind(this));
+            this.grid.on('dragstop', on_interaction_end.bind(this));
+            this.grid.on('resizestop', on_interaction_end.bind(this));
+
+            this.applyScreenSize();
         }
 
         /**
+         * Refreshes every widget view's move/resize permissions. Called on
+         * `editmode` changes.
          *
+         * @param {Boolean} editing
          */
-        update(ids, allLayoutConfigurations) {
-            if (this.tab.workspace.editing === false) {
-                return Promise.resolve(this);
-            }
-
-            const url = Wirecloud.URLs.IWIDGET_COLLECTION.evaluate({
-                workspace_id: this.tab.workspace.model.id,
-                tab_id: this.tab.model.id
-            });
-
-            ids = ids || Object.keys(this.tab.widgetsById);
-
-            const content = this.widgets.filter((widget) => {
-                return !widget.model.volatile && ids.indexOf(widget.id) !== -1;
-            });
-
-            if (!content.length) {
-                return Promise.resolve(this);
-            }
-
-            // We convert the content to JSON
-            const JSONcontent = content.map((widget) => {
-                return widget.toJSON('update', allLayoutConfigurations);
-            });
-
-            return Wirecloud.io.makeRequest(url, {
-                method: 'PUT',
-                requestHeaders: {'Accept': 'application/json'},
-                contentType: 'application/json',
-                postBody: JSON.stringify(JSONcontent)
-            }).then((response) => {
-                if ([204, 401, 403, 404, 500].indexOf(response.status) === -1) {
-                    return Promise.reject(utils.gettext("Unexpected response from server"));
-                } else if ([401, 403, 404, 500].indexOf(response.status) !== -1) {
-                    return Promise.reject(Wirecloud.GlobalLogManager.parseErrorResponse(response));
-                }
-
-                this.widgets.filter((widget) => {
-                    widget.persist();
-                });
-                return Promise.resolve(this);
-            });
-        }
-
-        _buildLayoutFromPreferences(description) {
-            const layoutInfo = this.tab.model.preferences.get('baselayout');
-
-            switch (layoutInfo.type) {
-            case 'columnlayout':
-                if (layoutInfo.smart) {
-                    return new Wirecloud.ui.SmartColumnLayout(this, layoutInfo.columns, layoutInfo.cellheight, layoutInfo.verticalmargin, layoutInfo.horizontalmargin);
-                } else {
-                    return new Wirecloud.ui.ColumnLayout(this, layoutInfo.columns, layoutInfo.cellheight, layoutInfo.verticalmargin, layoutInfo.horizontalmargin);
-                }
-            case 'gridlayout':
-                return new Wirecloud.ui.GridLayout(this, layoutInfo.columns, layoutInfo.rows, layoutInfo.verticalmargin, layoutInfo.horizontalmargin);
-            }
+        setEditing(editing) {
+            this.views.forEach((view) => view.updateGridPermissions());
         }
 
         /**
-         * Used by WorkspaceTabView to when the user changes the preferences
-         * for the base layout.
+         * @returns {Number} the width, in pixels, of one grid column.
          */
-        _updateBaseLayout() {
-            // Create the new Layout
-            const newBaseLayout = this._buildLayoutFromPreferences();
-            newBaseLayout.initialize();
-
-            // Change our base layout
-            const oldBaseLayout = this.baseLayout;
-            this.baseLayout = newBaseLayout;
-            oldBaseLayout.moveTo(newBaseLayout);
+        getColumnWidth() {
+            return this.gridElement.offsetWidth / this.activeScreenSize.columns;
         }
 
         /**
-         * Used by WorkspaceTabView to when the user changes the preferences
-         * for the screen sizes.
+         * @param {Number} px
+         *
+         * @returns {Number} `px` converted to grid columns (rounded, minimum 1).
          */
-        _updateScreenSizes() {
-            if (this.customWidth !== -1) {
-                this.tab.quitEditingInterval();
+        pixelsToColumns(px) {
+            const columnWidth = this.getColumnWidth();
+            if (!columnWidth) {
+                return 1;
             }
+            return Math.max(1, Math.round(px / columnWidth));
+        }
 
-            const updatedScreenSizes = this.tab.model.preferences.get('screenSizes');
-            const reqData = [];
+        /**
+         * @param {Number} px
+         *
+         * @returns {Number} `px` converted to grid rows (ceiled, minimum 1).
+         */
+        pixelsToRows(px) {
+            return Math.max(1, Math.ceil(px / this.cellheight));
+        }
 
-            this.resetLayouts();
-            this.widgets.forEach((widget) => {
-                const currentConfigs = widget.model.layoutConfig;
+        /**
+         * Parses a widget size value into grid units.
+         *
+         * @param {Number|String} value a number (old-grid cell units), a
+         * string with a `px` suffix, a string with a `%` suffix (percent of
+         * the grid width/height), or a unitless numeric string (old-grid cell
+         * units).
+         * @param {String} axis `"w"` or `"h"`
+         *
+         * @returns {Number} the value converted to grid columns (`axis ===
+         * "w"`) or grid rows (`axis === "h"`).
+         */
+        parseSize(value, axis) {
+            const screenSize = this.activeScreenSize;
 
-                const widgetReqData = {
-                    id: widget.model.id,
-                    layoutConfig: []
-                };
+            if (typeof value === 'string') {
+                const trimmed = value.trim();
 
-                let indexesToDelete = [];
-                currentConfigs.forEach((config, i) => {
-                    if (updatedScreenSizes.findIndex((screenSize) => screenSize.id === config.id) === -1) {
-                        widgetReqData.layoutConfig.push({
-                            id: config.id,
-                            action: 'delete'
-                        });
-                        indexesToDelete.push(i);
-                    }
-                });
-
-                indexesToDelete.sort((a, b) => b - a);
-
-                if (indexesToDelete.length !== currentConfigs.length) {
-                    indexesToDelete.forEach((index) => {
-                        currentConfigs.splice(index, 1);
-                    });
-                    indexesToDelete = [];
+                if (/px$/i.test(trimmed)) {
+                    const px = parseFloat(trimmed);
+                    return (axis === 'w') ? this.pixelsToColumns(px) : this.pixelsToRows(px);
                 }
 
-                const lastExistingScreenSize = currentConfigs[currentConfigs.length - 1];
-                updatedScreenSizes.forEach((screenSize) => {
-                    const currentConfig = currentConfigs.find((config) => config.id === screenSize.id);
-                    if (!currentConfig) {
-                        const newConfig = {
-                            id: screenSize.id,
-                            anchor: lastExistingScreenSize.anchor,
-                            width: lastExistingScreenSize.width,
-                            height: lastExistingScreenSize.height,
-                            relwidth: lastExistingScreenSize.relwidth,
-                            relheight: lastExistingScreenSize.relheight,
-                            left: lastExistingScreenSize.left,
-                            top: lastExistingScreenSize.top,
-                            zIndex: lastExistingScreenSize.zIndex,
-                            relx: lastExistingScreenSize.relx,
-                            rely: lastExistingScreenSize.rely,
-                            titlevisible: lastExistingScreenSize.titlevisible,
-                            fulldragboard: lastExistingScreenSize.fulldragboard,
-                            minimized: lastExistingScreenSize.minimized,
-                            moreOrEqual: screenSize.moreOrEqual,
-                            lessOrEqual: screenSize.lessOrEqual
-                        };
-
-                        currentConfigs.push(newConfig);
-
-                        const reqNewConfig = utils.clone(newConfig);
-                        reqNewConfig.action = 'update';
-
-                        widgetReqData.layoutConfig.push(reqNewConfig);
-                    } else {
-                        let requiresUpdate = false;
-                        const updatedConfig = {
-                            id: screenSize.id,
-                        };
-
-                        if (currentConfig.moreOrEqual !== screenSize.moreOrEqual) {
-                            updatedConfig.moreOrEqual = currentConfig.moreOrEqual = screenSize.moreOrEqual;
-                            requiresUpdate = true;
-                        }
-
-                        if (currentConfig.lessOrEqual !== screenSize.lessOrEqual) {
-                            updatedConfig.lessOrEqual = currentConfig.lessOrEqual = screenSize.lessOrEqual;
-                            requiresUpdate = true;
-                        }
-
-                        if (requiresUpdate) {
-                            updatedConfig.action = 'update';
-                            widgetReqData.layoutConfig.push(updatedConfig);
-                        }
+                if (/%$/.test(trimmed)) {
+                    const percent = parseFloat(trimmed) / 100;
+                    if (axis === 'w') {
+                        return Math.max(1, Math.round(percent * screenSize.columns));
                     }
-                });
 
-                indexesToDelete.forEach((index) => {
-                    currentConfigs.splice(index, 1);
-                });
+                    const gridHeight = this.gridElement.offsetHeight || this.tab.wrapperElement.offsetHeight;
+                    return this.pixelsToRows(percent * gridHeight);
+                }
 
-                // After modifying all the layoutConfig, we need to sort them by moreOrEqual and call the updateWindowSize method
-                // to refresh the current layout
-                currentConfigs.sort((a, b) => a.moreOrEqual - b.moreOrEqual);
-                widget.updateWindowSize(window.innerWidth);
+                value = parseFloat(trimmed);
+            }
 
-                reqData.push(widgetReqData);
+            // Unitless number: old layout cells (20 columns x 12px rows)
+            const n = Number(value) || 0;
+            if (axis === 'w') {
+                return Math.max(1, Math.round(n * screenSize.columns / 20));
+            }
+
+            return Math.max(1, Math.round(n * 12 / this.cellheight));
+        }
+
+        /**
+         * Persists the layout (for the active screen size) of every
+         * non-volatile, non-hidden widget currently tracked by the grid, in a
+         * single request.
+         *
+         * @returns {Promise}
+         */
+        persist() {
+            const targets = this.views.filter((view) => {
+                return !view.model.volatile && view.wrapperElement.gridstackNode != null && !view.wrapperElement.hidden;
             });
-            this.refreshPositionBasedOnZIndex();
-            this.paint();
+
+            if (targets.length === 0) {
+                return Promise.resolve(this);
+            }
+
+            const activeId = String(this.activeScreenSize.id);
+            const content = targets.map((view) => view.toJSON());
 
             const url = Wirecloud.URLs.IWIDGET_COLLECTION.evaluate({
                 workspace_id: this.tab.workspace.model.id,
@@ -432,119 +726,20 @@
                 method: 'PUT',
                 requestHeaders: {'Accept': 'application/json'},
                 contentType: 'application/json',
-                postBody: JSON.stringify(reqData)
+                postBody: JSON.stringify(content)
             }).then((response) => {
                 if ([204, 401, 403, 404, 500].indexOf(response.status) === -1) {
-                    return Promise.reject(utils.gettext("Unexpected response from server"));
+                    return Promise.reject(new Error(utils.gettext("Unexpected response from server")));
                 } else if ([401, 403, 404, 500].indexOf(response.status) !== -1) {
                     return Promise.reject(Wirecloud.GlobalLogManager.parseErrorResponse(response));
                 }
 
-                return Promise.resolve(this);
-            });
-        }
-
-        setCustomDragboardWidth(width) {
-            this.customWidth = width;
-            this.updateWidgetScreenSize(width);
-        }
-
-        restoreDragboardWidth() {
-            this.customWidth = -1;
-            this.updateWidgetScreenSize(window.innerWidth);
-        }
-
-        _addWidget(widget) {
-            const z = widget.position.z;
-
-            if (z != null) {
-                if (this.widgets[z] != null) {
-                    this.widgets.splice(z, 1, this.widgets[z], widget);
-                    this.widgets.forEach((value, index) => {
-                        // forEach skips undefined indexes
-                        value.setPosition({
-                            z: index
-                        });
-                    });
-                } else {
-                    this.widgets[z] = widget;
-                }
-            } else {
-                widget.setPosition({
-                    z: this.widgets.push(widget) - 1
+                targets.forEach((view) => {
+                    view.model.setLayout(activeId, view.currentLayout);
                 });
-            }
 
-            this.tab.appendChild(widget);
-        }
-
-        _removeWidget(widget) {
-            const z = widget.position.z;
-
-            this.widgets.splice(z, 1);
-            this.widgets.forEach((value, index) => {
-                value.setPosition({
-                    z: index
-                });
+                return this;
             });
-
-            this.tab.removeChild(widget);
-        }
-
-        // Window Resize event dispacher function
-        _notifyWindowResizeEvent() {
-            const oldWidth = this.dragboardWidth;
-            const oldHeight = this.dragboardHeight;
-            this._recomputeSize();
-            const newWidth = this.dragboardWidth;
-            const newHeight = this.dragboardHeight;
-
-            const widthChanged = oldWidth !== newWidth;
-            const heightChanged = oldHeight !== newHeight;
-            if (widthChanged || heightChanged) {
-                this._updateIWidgetSizes(widthChanged, heightChanged);
-            }
-        }
-
-        /**
-         * This function is slow. Please, only call it when really necessary.
-         *
-         * Updates the width and height info for this dragboard.
-         *
-         * @private
-         */
-        _recomputeSize() {
-            const cssStyle = document.defaultView.getComputedStyle(this.tab.wrapperElement, null);
-            if (cssStyle.getPropertyValue("display") === "none") {
-                return; // Do nothing
-            }
-
-            // Read padding values
-            this.topMargin = parseFloat(cssStyle.getPropertyValue("padding-top"));
-            this.bottomMargin = parseFloat(cssStyle.getPropertyValue("padding-bottom"));
-            this.leftMargin = parseFloat(cssStyle.getPropertyValue("padding-left"));
-            this.rightMargin = parseFloat(cssStyle.getPropertyValue("padding-right"));
-
-            this.dragboardWidth = parseInt(this.tab.wrapperElement.offsetWidth, 10) - this.leftMargin - this.rightMargin;
-            this.dragboardHeight = parseInt(this.tab.wrapperElement.parentNode.clientHeight, 10) - this.topMargin - this.bottomMargin;
-        }
-
-        /**
-         * This method forces recomputing of the iWidgets' sizes.
-         *
-         * @param {boolean} widthChanged
-         * @param {boolean} heightChanged
-         *
-         * @private
-        */
-        _updateIWidgetSizes(widthChanged, heightChanged) {
-            this.baseLayout._notifyWindowResizeEvent(widthChanged, heightChanged);
-            this.freeLayout._notifyWindowResizeEvent(widthChanged, heightChanged);
-            this.fulldragboardLayout._notifyWindowResizeEvent(widthChanged, heightChanged);
-            this.leftLayout._notifyWindowResizeEvent(widthChanged, heightChanged);
-            this.rightLayout._notifyWindowResizeEvent(widthChanged, heightChanged);
-            this.bottomLayout._notifyWindowResizeEvent(widthChanged, heightChanged);
-            this.topLayout._notifyWindowResizeEvent(widthChanged, heightChanged);
         }
 
     }

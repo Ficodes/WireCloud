@@ -172,32 +172,23 @@ def _mashup_payload():
                         "version": "1.0.0",
                         "title": "Widget instance",
                         "readonly": True,
-                        "layout": 0,
-                        "screenSizes": [
-                            {
-                                "id": 0,
-                                "moreOrEqual": 0,
-                                "lessOrEqual": -1,
-                                "layout": 0,
-                                "rendering": {
-                                    "width": "2",
-                                    "height": "3",
-                                    "minimized": True,
-                                    "fulldragboard": True,
-                                    "relwidth": True,
-                                    "relheight": True,
-                                    "titlevisible": False,
-                                },
-                                "position": {
-                                    "anchor": "top-left",
-                                    "relx": True,
-                                    "rely": True,
-                                    "x": "10",
-                                    "y": "20",
-                                    "z": "1",
-                                },
-                            }
-                        ],
+                        "layouts": {
+                            "0": {
+                                "x": 10,
+                                "y": 20,
+                                "w": 2,
+                                "h": 3,
+                                "minimized": True,
+                                "fulldragboard": True,
+                                "titlevisible": False,
+                                "visible": True,
+                            },
+                            "2": {
+                                "w": 12,
+                                "h": 8,
+                                "visible": False,
+                            },
+                        },
                         "properties": {"p1": {"readonly": True, "value": "pv"}},
                         "preferences": {"k1": {"readonly": True, "hidden": True, "value": "vv"}},
                     }
@@ -297,6 +288,7 @@ def test_xml_roundtrip_widget_operator_mashup(monkeypatch):
     operator_info = _json_info(_operator_payload())
     mashup_info = _json_info(_mashup_payload())
 
+    mashup_parsed = None
     for info in (widget_info, operator_info, mashup_info):
         xml_text = xml_writer.write_xml_description(info)
         parser = ApplicationMashupTemplateParser(xml_text)
@@ -308,7 +300,21 @@ def test_xml_roundtrip_widget_operator_mashup(monkeypatch):
         assert parsed.name == info.name
         assert parsed.version == info.version
 
+        if info is mashup_info:
+            mashup_parsed = parsed
+
     assert mashup_info.wiring.operators["1"].preferences["mode"].hidden is True
+
+    # 'layouts' round-trip through XML: omitted x/y stay None, non-default booleans survive
+    layouts = mashup_parsed.tabs[0].resources[0].layouts
+    assert layouts["0"].model_dump() == {
+        "x": 10, "y": 20, "w": 2, "h": 3,
+        "minimized": True, "titlevisible": False, "fulldragboard": True, "visible": True,
+    }
+    assert layouts["2"].model_dump() == {
+        "x": None, "y": None, "w": 12, "h": 8,
+        "minimized": False, "titlevisible": True, "fulldragboard": False, "visible": False,
+    }
 
 
 def test_rdf_roundtrip_widget_operator_mashup(monkeypatch):
@@ -322,6 +328,7 @@ def test_rdf_roundtrip_widget_operator_mashup(monkeypatch):
     operator_info = _json_info(_operator_payload())
     mashup_info = _json_info(_mashup_payload())
 
+    mashup_parsed = None
     for info in (widget_info, operator_info, mashup_info):
         rdf_text = rdf_writer.write_rdf_description(info)
         parser = RDFTemplateParser(rdf_text)
@@ -333,7 +340,21 @@ def test_rdf_roundtrip_widget_operator_mashup(monkeypatch):
         assert parsed.name == info.name
         assert parsed.version == info.version
 
+        if info is mashup_info:
+            mashup_parsed = parsed
+
     assert len(mashup_info.wiring.visualdescription.behaviours) == 1
+
+    # 'layouts' round-trip through RDF: omitted x/y stay None, non-default booleans survive
+    layouts = mashup_parsed.tabs[0].resources[0].layouts
+    assert layouts["0"].model_dump() == {
+        "x": 10, "y": 20, "w": 2, "h": 3,
+        "minimized": True, "titlevisible": False, "fulldragboard": True, "visible": True,
+    }
+    assert layouts["2"].model_dump() == {
+        "x": None, "y": None, "w": 12, "h": 8,
+        "minimized": False, "titlevisible": True, "fulldragboard": False, "visible": False,
+    }
 
 
 def test_rdf_writer_unsupported_resource_type():

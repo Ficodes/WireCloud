@@ -7,6 +7,10 @@
     flex-grow: 1;
 }
 
+.se-screen-size-columns {
+    flex-grow: 0.5;
+}
+
 .se-screen-size-name {
     margin-left: 0;
 }
