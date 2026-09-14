@@ -253,6 +253,48 @@ test('SidebarLayout toggling widget flips open/closed state and caret icon', () 
     assert.equal(icon.className, 'fas fa-caret-left');
 });
 
+test('SidebarLayout addWidget with dock_open: false initializes visually closed and collapsed', () => {
+    const tab = createTabMock();
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+
+    const view = createWidgetViewMock('w1', {dock: 'left', dock_open: false});
+    // On page load, view.layout might be null before addWidget applies it
+    view.layout = null;
+
+    dragboard.leftDock.addWidget(view, {dock: 'left', dock_mode: 'push', dock_open: false}, 'editor');
+
+    assert.equal(dragboard.leftDock.isWidgetOpen(view), false);
+    assert.equal(view.layout.dock_open, false);
+    assert.equal(view.wrapperElement.classList.contains('wc-dock-widget-closed'), true);
+    assert.equal(view.wrapperElement.classList.contains('wc-dock-widget-open'), false);
+
+    const handle = dragboard.leftDock.getHandle(view);
+    const icon = handle._icon;
+    // On left dock when closed, caret points right to expand
+    assert.equal(icon.className, 'fas fa-caret-right');
+});
+
+test('SidebarLayout addWidget with omitted dock_open defaults to closed', () => {
+    const tab = createTabMock();
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+
+    const view = createWidgetViewMock('w1', {dock: 'top'});
+    view.layout = null;
+
+    dragboard.topDock.addWidget(view, {dock: 'top', dock_mode: 'push'}, 'editor');
+
+    assert.equal(dragboard.topDock.isWidgetOpen(view), false);
+    assert.equal(view.wrapperElement.classList.contains('wc-dock-widget-closed'), true);
+    assert.equal(view.wrapperElement.classList.contains('wc-dock-widget-open'), false);
+
+    const handle = dragboard.topDock.getHandle(view);
+    const icon = handle._icon;
+    // On top dock when closed, caret points down to expand
+    assert.equal(icon.className, 'fas fa-caret-down');
+});
+
 test('SidebarLayout supports multiple widgets per side with independent dimensions', () => {
     const tab = createTabMock();
     const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);

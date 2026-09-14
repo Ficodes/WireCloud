@@ -140,35 +140,43 @@
     }
 }
 
-.wc-dock-left .wc-dock-widget-closed {
+.wc-dock-left .wc-dock-widget-closed,
+.wc-docked-left.wc-dock-widget-closed {
     transform: translateX(-100%);
 }
 
-.wc-dock-left .wc-dock-widget-open {
+.wc-dock-left .wc-dock-widget-open,
+.wc-docked-left.wc-dock-widget-open {
     transform: translateX(0);
 }
 
-.wc-dock-right .wc-dock-widget-closed {
+.wc-dock-right .wc-dock-widget-closed,
+.wc-docked-right.wc-dock-widget-closed {
     transform: translateX(100%);
 }
 
-.wc-dock-right .wc-dock-widget-open {
+.wc-dock-right .wc-dock-widget-open,
+.wc-docked-right.wc-dock-widget-open {
     transform: translateX(0);
 }
 
-.wc-dock-top .wc-dock-widget-closed {
+.wc-dock-top .wc-dock-widget-closed,
+.wc-docked-top.wc-dock-widget-closed {
     transform: translateY(-100%);
 }
 
-.wc-dock-top .wc-dock-widget-open {
+.wc-dock-top .wc-dock-widget-open,
+.wc-docked-top.wc-dock-widget-open {
     transform: translateY(0);
 }
 
-.wc-dock-bottom .wc-dock-widget-closed {
+.wc-dock-bottom .wc-dock-widget-closed,
+.wc-docked-bottom.wc-dock-widget-closed {
     transform: translateY(100%);
 }
 
-.wc-dock-bottom .wc-dock-widget-open {
+.wc-dock-bottom .wc-dock-widget-open,
+.wc-docked-bottom.wc-dock-widget-open {
     transform: translateY(0);
 }
 

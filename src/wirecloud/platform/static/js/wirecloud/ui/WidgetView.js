@@ -399,7 +399,7 @@
             if (layout.dock != null) {
                 result.dock = layout.dock;
                 result.dock_mode = layout.dock_mode || 'overlay';
-                result.dock_open = layout.dock_open !== false;
+                result.dock_open = layout.dock_open === true;
             } else if (layout.dock === null && ('dock' in layout)) {
                 result.dock = null;
             }

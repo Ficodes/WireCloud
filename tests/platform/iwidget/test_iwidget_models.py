@@ -20,7 +20,7 @@ def test_widget_models_serialization():
         "visible": True,
         "dock": None,
         "dock_mode": "overlay",
-        "dock_open": True,
+        "dock_open": False,
     }
 
     layout = models.WidgetLayout(x=2, y=3, w=6, h=4, minimized=True, titlevisible=False,

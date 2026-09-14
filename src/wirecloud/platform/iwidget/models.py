@@ -35,7 +35,7 @@ class WidgetLayout(BaseModel):
     visible: bool = True
     dock: Optional[str] = None
     dock_mode: Optional[str] = "overlay"
-    dock_open: bool = True
+    dock_open: bool = False
 
 
 class WidgetPermissionsConfig(BaseModel):

@@ -74,7 +74,7 @@
 
         isWidgetOpen(view) {
             if (view.layout == null || view.layout.dock_open == null) {
-                return true;
+                return false;
             }
             return !!view.layout.dock_open;
         }
@@ -435,6 +435,8 @@
                 view.wrapperElement.appendChild(handle);
             }
 
+            view.applyLayout(layout);
+
             const isOpen = this.isWidgetOpen(view);
             const mode = (layout && layout.dock_mode) ? layout.dock_mode : "overlay";
             view.wrapperElement.classList.toggle("wc-dock-widget-open", isOpen);
@@ -485,7 +487,6 @@
                 }
             }
 
-            view.applyLayout(layout);
             this.syncPositions();
             this.updatePushMargins();
         }

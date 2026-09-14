@@ -72,7 +72,7 @@
         if (layout.dock != null) {
             res.dock = layout.dock;
             res.dock_mode = layout.dock_mode || 'overlay';
-            res.dock_open = layout.dock_open !== false;
+            res.dock_open = layout.dock_open === true;
         }
 
         return res;
