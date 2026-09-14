@@ -726,15 +726,30 @@
                 this._dockMargins = { top: 0, bottom: 0, left: 0, right: 0 };
             }
             this._dockMargins[position] = px;
+            const marginValue = px > 0 ? px + 'px' : '';
             if (position === 'left') {
-                this.gridElement.style.marginLeft = px > 0 ? px + 'px' : '';
+                this.gridElement.style.marginLeft = marginValue;
             } else if (position === 'right') {
-                this.gridElement.style.marginRight = px > 0 ? px + 'px' : '';
+                this.gridElement.style.marginRight = marginValue;
             } else if (position === 'top') {
-                this.gridElement.style.marginTop = px > 0 ? px + 'px' : '';
+                this.gridElement.style.marginTop = marginValue;
             } else if (position === 'bottom') {
-                this.gridElement.style.marginBottom = px > 0 ? px + 'px' : '';
+                this.gridElement.style.marginBottom = marginValue;
             }
+
+            if (this._dockPushTimeout) {
+                clearTimeout(this._dockPushTimeout);
+            }
+            this._dockPushTimeout = setTimeout(() => {
+                this._dockPushTimeout = null;
+                if (this.views) {
+                    this.views.forEach((view) => {
+                        if (typeof view.repaint === 'function') {
+                            view.repaint();
+                        }
+                    });
+                }
+            }, 300);
         }
 
         columnsToPixels(cols) {

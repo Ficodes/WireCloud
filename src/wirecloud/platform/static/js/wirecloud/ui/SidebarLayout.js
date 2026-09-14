@@ -153,6 +153,9 @@
 
             this.updatePushMargins();
             view.repaint();
+            setTimeout(() => {
+                view.repaint();
+            }, 300);
 
             if (persist && !view.model.volatile) {
                 const activeId = String(this.dragboard.activeScreenSize.id);

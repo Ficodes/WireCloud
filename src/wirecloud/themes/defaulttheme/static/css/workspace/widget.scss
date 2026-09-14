@@ -257,6 +257,22 @@
     height: 8px;
 }
 
-.grid-stack.grid-stack-animate {
+.grid-stack.grid-stack-animate:not(.wc-dragboard) {
+    transition: none;
+}
+
+// Fluid animation for widgets inside the grid when pushed or resized
+.grid-stack.grid-stack-animate > .grid-stack-item:not(.wc-docked-widget):not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    transition: left 0.3s cubic-bezier(0.2, 0, 0, 1),
+                right 0.3s cubic-bezier(0.2, 0, 0, 1),
+                top 0.3s cubic-bezier(0.2, 0, 0, 1),
+                height 0.3s cubic-bezier(0.2, 0, 0, 1),
+                width 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.grid-stack.grid-stack-animate > .grid-stack-item.ui-draggable-dragging,
+.grid-stack.grid-stack-animate > .grid-stack-item.ui-resizable-resizing,
+.grid-stack.grid-stack-animate > .grid-stack-item.grid-stack-placeholder {
     transition: none !important;
 }
+

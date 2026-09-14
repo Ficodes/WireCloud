@@ -32,8 +32,18 @@
 .wc-dragboard {
     min-height: 100% !important;
     box-sizing: border-box;
-    transition: margin 0.25s ease-in-out;
+    margin: 0;
+    transition: margin 0.3s cubic-bezier(0.2, 0, 0, 1) !important;
+
+    &.wc-dragboard-interacting {
+        transition: none !important;
+    }
 }
+
+.wc-workspace-tab-content.wc-dock-interacting .wc-dragboard {
+    transition: none !important;
+}
+
 
 // =============================================================================
 // SIDEBAR DOCKS & HANDLES
@@ -93,15 +103,23 @@
 
 .wc-docked-widget {
     pointer-events: auto;
-    transition: transform 0.25s ease-in-out;
+    transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1) !important;
+    will-change: transform;
 
     &.wc-dock-widget-overlay {
         z-index: 105;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
     }
 
     &.wc-dock-widget-push {
         z-index: 95;
     }
+}
+
+.wc-dock-interacting .wc-docked-widget,
+.wc-docked-widget.ui-draggable-dragging,
+.wc-docked-widget.ui-resizable-resizing {
+    transition: none !important;
 }
 
 .wc-docked-left {
@@ -196,6 +214,7 @@
     cursor: pointer;
     z-index: 110;
     box-shadow: 2px 0 5px rgba(0, 0, 0, 0.15);
+    transition: background-color 0.15s ease, padding 0.15s ease, box-shadow 0.15s ease;
 
     &:hover {
         background-color: #e6e6e6;
@@ -220,6 +239,7 @@
     cursor: pointer;
     z-index: 110;
     box-shadow: -2px 0 5px rgba(0, 0, 0, 0.15);
+    transition: background-color 0.15s ease, padding 0.15s ease, box-shadow 0.15s ease;
 
     &:hover {
         background-color: #e6e6e6;
@@ -244,6 +264,7 @@
     cursor: pointer;
     z-index: 110;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+    transition: background-color 0.15s ease, padding 0.15s ease, box-shadow 0.15s ease;
 
     &:hover {
         background-color: #e6e6e6;
@@ -268,11 +289,12 @@
     cursor: pointer;
     z-index: 110;
     box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.15);
+    transition: background-color 0.15s ease, padding 0.15s ease, box-shadow 0.15s ease;
 
     &:hover {
         background-color: #e6e6e6;
-        padding-top: 3px;
         padding-bottom: 2px;
+        padding-top: 2px;
     }
 }
 

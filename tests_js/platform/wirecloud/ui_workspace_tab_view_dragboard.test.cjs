@@ -1866,3 +1866,39 @@ test('at most one handler is registered per GridStack event name', () => {
         assert.equal(grid.listeners[name].length, 1, `${name} must have exactly one handler`);
     });
 });
+
+test('setDockPushMargin sets explicit pixel margins and repaints views after transition', async () => {
+    const {dragboard, tab} = paintedDragboard();
+    let repainted = false;
+    const view = {
+        repaint: () => {
+            repainted = true;
+        }
+    };
+    dragboard.views.push(view);
+
+    dragboard.setDockPushMargin('left', 250);
+    assert.equal(dragboard.gridElement.style.marginLeft, '250px');
+    assert.equal(dragboard._dockMargins.left, 250);
+
+    dragboard.setDockPushMargin('right', 300);
+    assert.equal(dragboard.gridElement.style.marginRight, '300px');
+    assert.equal(dragboard._dockMargins.right, 300);
+
+    dragboard.setDockPushMargin('top', 150);
+    assert.equal(dragboard.gridElement.style.marginTop, '150px');
+    assert.equal(dragboard._dockMargins.top, 150);
+
+    dragboard.setDockPushMargin('bottom', 100);
+    assert.equal(dragboard.gridElement.style.marginBottom, '100px');
+    assert.equal(dragboard._dockMargins.bottom, 100);
+
+    dragboard.setDockPushMargin('left', 0);
+    assert.equal(dragboard.gridElement.style.marginLeft, '');
+    assert.equal(dragboard._dockMargins.left, 0);
+
+    assert.equal(repainted, false, 'repaint is debounced to after the 300ms animation');
+    await wait(350);
+    assert.equal(repainted, true, 'repaint called after animation settles');
+});
+
