@@ -23,8 +23,11 @@
 // its own) must not capture the pointer: an iframe under the cursor would
 // swallow the mousemove/mouseup events and the operation would stay stuck.
 // The class is toggled by WorkspaceTabViewDragboard on the grid element.
-.wc-dragboard-interacting .wc-widget-body {
-    pointer-events: none;
+.wc-dragboard-interacting .wc-widget-body,
+.wc-dock-interacting .wc-widget-body,
+.wc-dragboard-interacting iframe,
+.wc-dock-interacting iframe {
+    pointer-events: none !important;
 }
 
 // `.grid-stack-item-content` (== `contentElement`) is the actual panel:
@@ -217,7 +220,8 @@
     margin: -10px 0 0 -2px;
 }
 
-.grid-stack > .grid-stack-item > .ui-resizable-s::after {
+.grid-stack > .grid-stack-item > .ui-resizable-s::after,
+.grid-stack > .grid-stack-item > .ui-resizable-n::after {
     top: 50%;
     left: 50%;
     width: 20px;
@@ -237,4 +241,22 @@
     bottom: 4px;
     width: 8px;
     height: 8px;
+}
+
+.grid-stack > .grid-stack-item > .ui-resizable-ne::after {
+    right: 4px;
+    top: 4px;
+    width: 8px;
+    height: 8px;
+}
+
+.grid-stack > .grid-stack-item > .ui-resizable-nw::after {
+    left: 4px;
+    top: 4px;
+    width: 8px;
+    height: 8px;
+}
+
+.grid-stack.grid-stack-animate {
+    transition: none !important;
 }

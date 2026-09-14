@@ -120,10 +120,16 @@
      */
     const on_interaction_start = function on_interaction_start() {
         this.gridElement.classList.add('wc-dragboard-interacting');
+        if (this.tab && this.tab.wrapperElement) {
+            this.tab.wrapperElement.classList.add('wc-dragboard-interacting');
+        }
     };
 
     const on_interaction_end = function on_interaction_end() {
         this.gridElement.classList.remove('wc-dragboard-interacting');
+        if (this.tab && this.tab.wrapperElement) {
+            this.tab.wrapperElement.classList.remove('wc-dragboard-interacting');
+        }
         on_grid_event.call(this);
     };
 

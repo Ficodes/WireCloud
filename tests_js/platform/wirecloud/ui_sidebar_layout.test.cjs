@@ -443,7 +443,7 @@ test('SidebarLayout sets gs-resize-handles attribute and engine constraints lock
     const viewLeft = createWidgetViewMock('wLeft', {dock: 'left', w: 4, h: 6});
     dragboard.dockWidget(viewLeft, 'left', 'overlay', false);
 
-    assert.equal(viewLeft.wrapperElement.getAttribute('gs-resize-handles'), 'e,se,s');
+    assert.equal(viewLeft.wrapperElement.getAttribute('gs-resize-handles'), 'n,ne,e,se,s');
 
     // Check engine constraint for left dock
     const leftDock = dragboard.leftDock;
@@ -458,7 +458,7 @@ test('SidebarLayout sets gs-resize-handles attribute and engine constraints lock
     // Right dock handles and constraint
     const viewRight = createWidgetViewMock('wRight', {dock: 'right', w: 5, h: 4});
     dragboard.dockWidget(viewRight, 'right', 'overlay', false);
-    assert.equal(viewRight.wrapperElement.getAttribute('gs-resize-handles'), 'w,sw,s');
+    assert.equal(viewRight.wrapperElement.getAttribute('gs-resize-handles'), 'n,nw,w,sw,s');
 
     const rightDock = dragboard.rightDock;
     const rightNode = { x: 0, y: 2, w: 5, h: 4 };
@@ -468,12 +468,17 @@ test('SidebarLayout sets gs-resize-handles attribute and engine constraints lock
     // Top dock handles and constraint
     const viewTop = createWidgetViewMock('wTop', {dock: 'top', w: 4, h: 4});
     dragboard.dockWidget(viewTop, 'top', 'overlay', false);
-    assert.equal(viewTop.wrapperElement.getAttribute('gs-resize-handles'), 's,se,e');
+    assert.equal(viewTop.wrapperElement.getAttribute('gs-resize-handles'), 'e,se,s,sw,w');
 
     const topDock = dragboard.topDock;
     const topNode = { x: 2, y: 5, w: 4, h: 4 };
     topDock.grid.engine.nodeBoundFix(topNode, false);
     assert.equal(topNode.y, 0, 'Top dock nodeBoundFix forces y to 0');
+
+    // Bottom dock handles
+    const viewBottom = createWidgetViewMock('wBottom', {dock: 'bottom', w: 4, h: 4});
+    dragboard.dockWidget(viewBottom, 'bottom', 'overlay', false);
+    assert.equal(viewBottom.wrapperElement.getAttribute('gs-resize-handles'), 'e,ne,n,nw,w');
 
     // Undock removes gs-resize-handles
     dragboard.undockWidget(viewLeft, false);

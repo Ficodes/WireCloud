@@ -290,11 +290,11 @@
 
             if (this.vertical) {
                 gridOpts.resizable = {
-                    handles: (this.position === "left") ? "e, se, s" : "w, sw, s"
+                    handles: (this.position === "left") ? "n, ne, e, se, s" : "n, nw, w, sw, s"
                 };
             } else {
                 gridOpts.resizable = {
-                    handles: (this.position === "top") ? "s, se, e" : "n, ne, e"
+                    handles: (this.position === "top") ? "e, se, s, sw, w" : "e, ne, n, nw, w"
                 };
             }
 
@@ -425,9 +425,9 @@
 
             view.wrapperElement.classList.add("wc-docked-widget", "wc-docked-" + this.position);
 
-            const handles = (this.position === "left") ? "e,se,s" :
-                            (this.position === "right") ? "w,sw,s" :
-                            (this.position === "top") ? "s,se,e" : "n,ne,e";
+            const handles = (this.position === "left") ? "n,ne,e,se,s" :
+                            (this.position === "right") ? "n,nw,w,sw,s" :
+                            (this.position === "top") ? "e,se,s,sw,w" : "e,ne,n,nw,w";
             view.wrapperElement.setAttribute("gs-resize-handles", handles);
 
             const handle = this._getOrCreateHandle(view);
