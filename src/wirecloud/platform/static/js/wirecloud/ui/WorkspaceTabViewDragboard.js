@@ -57,7 +57,7 @@
         const w = clamp(Math.round(layout.w * ratio), 1, targetScreenSize.columns);
         const x = (layout.x == null) ? null : clamp(Math.round(layout.x * ratio), 0, Math.max(0, targetScreenSize.columns - w));
 
-        return {
+        const res = {
             x: x,
             y: layout.y,
             w: w,
@@ -68,6 +68,14 @@
             visible: true,
             derived: true
         };
+
+        if (layout.dock != null) {
+            res.dock = layout.dock;
+            res.dock_mode = layout.dock_mode || 'overlay';
+            res.dock_open = layout.dock_open !== false;
+        }
+
+        return res;
     };
 
     const default_layout_for = function default_layout_for(screenSize, cellheight) {
@@ -128,6 +136,31 @@
      */
     const place_view = function place_view(view, layout, role) {
         const el = view.wrapperElement;
+
+        if (layout.dock && this.docks && this.docks[layout.dock]) {
+            if (el.gridstackNode != null && el.parentNode === this.gridElement) {
+                this.grid.removeWidget(el, false, false);
+            }
+            Object.keys(this.docks).forEach((pos) => {
+                if (pos !== layout.dock && this.docks[pos].views.includes(view)) {
+                    this.docks[pos].removeWidget(view);
+                }
+            });
+            this.docks[layout.dock].addWidget(view, layout, role);
+            return;
+        }
+
+        if (this.docks) {
+            Object.keys(this.docks).forEach((pos) => {
+                if (this.docks[pos].views.includes(view)) {
+                    this.docks[pos].removeWidget(view);
+                }
+            });
+        }
+
+        if (el.parentNode !== this.gridElement) {
+            this.gridElement.appendChild(el);
+        }
 
         if (!layout.visible) {
             if (el.gridstackNode != null) {
@@ -286,6 +319,27 @@
             this.gridElement.className = 'grid-stack wc-dragboard';
             this.tab.wrapperElement.appendChild(this.gridElement);
 
+            if (Wirecloud.ui.SidebarLayout) {
+                this.topDock = new Wirecloud.ui.SidebarLayout(this, {position: 'top'});
+                this.bottomDock = new Wirecloud.ui.SidebarLayout(this, {position: 'bottom'});
+                this.leftDock = new Wirecloud.ui.SidebarLayout(this, {position: 'left'});
+                this.rightDock = new Wirecloud.ui.SidebarLayout(this, {position: 'right'});
+
+                this.docks = {
+                    top: this.topDock,
+                    bottom: this.bottomDock,
+                    left: this.leftDock,
+                    right: this.rightDock
+                };
+
+                this.tab.wrapperElement.appendChild(this.topDock.container);
+                this.tab.wrapperElement.appendChild(this.bottomDock.container);
+                this.tab.wrapperElement.appendChild(this.leftDock.container);
+                this.tab.wrapperElement.appendChild(this.rightDock.container);
+            } else {
+                this.docks = null;
+            }
+
             this._on_resize = on_resize.bind(this);
             if (typeof ResizeObserver !== 'undefined') {
                 this._resizeObserver = new ResizeObserver(this._on_resize);
@@ -400,7 +454,8 @@
 
             view.tab = this.tab;
 
-            if (view.wrapperElement.parentNode !== this.gridElement) {
+            const layout = this.resolveLayout(view.model, this.activeScreenSize);
+            if (!layout.dock && view.wrapperElement.parentNode !== this.gridElement) {
                 this.gridElement.appendChild(view.wrapperElement);
             }
 
@@ -444,6 +499,14 @@
                 this.views.splice(index, 1);
             }
 
+            if (this.docks) {
+                Object.values(this.docks).forEach((dock) => {
+                    if (dock.views.includes(view)) {
+                        dock.removeWidget(view);
+                    }
+                });
+            }
+
             if (this.grid != null && view.wrapperElement.gridstackNode != null) {
                 this.grid.removeWidget(view.wrapperElement, true, false);
             }
@@ -463,6 +526,14 @@
             const index = this.views.indexOf(view);
             if (index !== -1) {
                 this.views.splice(index, 1);
+            }
+
+            if (this.docks) {
+                Object.values(this.docks).forEach((dock) => {
+                    if (dock.views.includes(view)) {
+                        dock.removeWidget(view);
+                    }
+                });
             }
 
             if (this.grid != null && view.wrapperElement.gridstackNode != null) {
@@ -526,6 +597,12 @@
             this.withApplying(() => {
                 this.grid.batchUpdate();
 
+                if (this.docks) {
+                    Object.values(this.docks).forEach((dock) => {
+                        dock.updateScreenSize(screenSize);
+                    });
+                }
+
                 try {
                     this.grid.column(screenSize.columns, 'none');
 
@@ -537,7 +614,7 @@
                     // before (making a window narrower and then wider again did
                     // not give back the original layout).
                     this.views.forEach((view) => {
-                        if (view.wrapperElement.gridstackNode != null) {
+                        if (view.wrapperElement.gridstackNode != null && view.wrapperElement.parentNode === this.gridElement) {
                             this.grid.removeWidget(view.wrapperElement, false, false);
                         }
                     });
@@ -611,6 +688,12 @@
             this.grid.on('dragstop', on_interaction_end.bind(this));
             this.grid.on('resizestop', on_interaction_end.bind(this));
 
+            if (this.docks) {
+                Object.values(this.docks).forEach((dock) => {
+                    dock.paint();
+                });
+            }
+
             this.applyScreenSize();
         }
 
@@ -622,6 +705,105 @@
          */
         setEditing(editing) {
             this.views.forEach((view) => view.updateGridPermissions());
+            if (this.docks) {
+                Object.values(this.docks).forEach((dock) => {
+                    dock.updatePermissions();
+                    if (editing) {
+                        dock.openAll(false);
+                    }
+                });
+            }
+        }
+
+        setDockPushMargin(position, px) {
+            if (!this._dockMargins) {
+                this._dockMargins = { top: 0, bottom: 0, left: 0, right: 0 };
+            }
+            this._dockMargins[position] = px;
+            if (position === 'left') {
+                this.gridElement.style.marginLeft = px > 0 ? px + 'px' : '';
+            } else if (position === 'right') {
+                this.gridElement.style.marginRight = px > 0 ? px + 'px' : '';
+            } else if (position === 'top') {
+                this.gridElement.style.marginTop = px > 0 ? px + 'px' : '';
+            } else if (position === 'bottom') {
+                this.gridElement.style.marginBottom = px > 0 ? px + 'px' : '';
+            }
+        }
+
+        columnsToPixels(cols) {
+            return cols * this.getColumnWidth();
+        }
+
+        _on_dock_change(dock) {
+            if (this.applying) {
+                return;
+            }
+            dock.views.forEach((view) => view.syncLayoutFromNode());
+            if (!this.tab.workspace.editing) {
+                return;
+            }
+            schedule_persist.call(this);
+        }
+
+        _on_interaction_start() {
+            on_interaction_start.call(this);
+        }
+
+        _on_interaction_end() {
+            on_interaction_end.call(this);
+        }
+
+        dockWidget(view, position, mode = 'overlay', persist = true) {
+            const activeId = String(this.activeScreenSize.id);
+            const current = this.resolveLayout(view.model, this.activeScreenSize);
+            const updated = Object.assign({}, current, {
+                dock: position,
+                dock_mode: mode,
+                dock_open: true
+            });
+            const role = this.tab.workspace.editing ? 'editor' : 'viewer';
+
+            this.withApplying(() => {
+                place_view.call(this, view, updated, role);
+            });
+
+            if (persist && !view.model.volatile) {
+                return view.model.setLayout(activeId, view.currentLayout, true);
+            }
+            return Promise.resolve(view);
+        }
+
+        undockWidget(view, persist = true) {
+            const activeId = String(this.activeScreenSize.id);
+            const current = this.resolveLayout(view.model, this.activeScreenSize);
+            const updated = Object.assign({}, current, {
+                dock: null
+            });
+            const role = this.tab.workspace.editing ? 'editor' : 'viewer';
+
+            this.withApplying(() => {
+                place_view.call(this, view, updated, role);
+            });
+
+            if (persist && !view.model.volatile) {
+                return view.model.setLayout(activeId, view.currentLayout, true);
+            }
+            return Promise.resolve(view);
+        }
+
+        setWidgetDockMode(view, mode, persist = true) {
+            if (this.docks && view.layout && view.layout.dock && this.docks[view.layout.dock]) {
+                return this.docks[view.layout.dock].setWidgetMode(view, mode, persist);
+            }
+            return Promise.resolve(view);
+        }
+
+        toggleWidgetDockOpen(view, persist = true) {
+            if (this.docks && view.layout && view.layout.dock && this.docks[view.layout.dock]) {
+                return this.docks[view.layout.dock].toggleWidget(view, persist);
+            }
+            return Promise.resolve(view);
         }
 
         /**

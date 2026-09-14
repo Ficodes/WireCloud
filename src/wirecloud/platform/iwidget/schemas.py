@@ -34,6 +34,9 @@ class WidgetLayoutUpdate(BaseModel):          # partial update, every field opti
     titlevisible: Optional[bool] = None
     fulldragboard: Optional[bool] = None
     visible: Optional[bool] = None
+    dock: Optional[str] = None
+    dock_mode: Optional[str] = None
+    dock_open: Optional[bool] = None
 
 
 class WidgetInstanceDataCreate(BaseModel):

@@ -1,0 +1,541 @@
+// -*- coding: utf-8 -*-
+// Copyright (c) 2026 Future Internet Consulting and Development Solutions S.L.
+
+// This file is part of Wirecloud.
+
+// Wirecloud is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Wirecloud is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+
+// You should have received a copy of the GNU Affero General Public License
+// along with Wirecloud.  If not, see <http://www.gnu.org/licenses/>.
+
+/* globals Wirecloud */
+
+
+(function (ns, utils) {
+
+    "use strict";
+
+    const ICON = Object.freeze({
+        "right": "right",
+        "left": "left",
+        "top": "up",
+        "bottom": "down"
+    });
+    const OPPOSITE = Object.freeze({
+        "right": "left",
+        "left": "right",
+        "bottom": "up",
+        "top": "down"
+    });
+    const POSITIONS = Object.freeze(["top", "right", "bottom", "left"]);
+
+    ns.SidebarLayout = class SidebarLayout {
+
+        /**
+         * @name Wirecloud.ui.SidebarLayout
+         *
+         * @constructor
+         * @param {Wirecloud.ui.WorkspaceTabViewDragboard} dragboard
+         * @param {Object} options
+         */
+        constructor(dragboard, options) {
+            options = utils.merge({
+                position: "left"
+            }, options);
+
+            if (POSITIONS.indexOf(options.position) === -1) {
+                throw new TypeError("Invalid position option: " + options.position);
+            }
+
+            this.dragboard = dragboard;
+            this.position = options.position;
+            this.vertical = (options.position === "right" || options.position === "left");
+            this.views = [];
+            this.handles = new Map();
+            this.grid = null;
+            this.painted = false;
+
+            this.container = document.createElement("div");
+            this.container.className = "wc-dock wc-dock-" + this.position + " hidden";
+            this.container.setAttribute("data-dock", this.position);
+
+            this.gridElement = document.createElement("div");
+            this.gridElement.className = "grid-stack wc-dock-grid wc-dock-grid-" + this.position;
+            this.container.appendChild(this.gridElement);
+        }
+
+        isWidgetOpen(view) {
+            if (view.layout == null || view.layout.dock_open == null) {
+                return true;
+            }
+            return !!view.layout.dock_open;
+        }
+
+        _getOrCreateHandle(view) {
+            if (this.handles.has(view)) {
+                return this.handles.get(view);
+            }
+
+            const handle = document.createElement("div");
+            handle.className = "wc-sidebar-" + this.position + "-handle";
+            handle.setAttribute("role", "button");
+            handle.setAttribute("aria-label", utils.interpolate(
+                utils.gettext("Toggle %(position)s sidebar"),
+                {position: this.position},
+                true
+            ));
+
+            const icon = document.createElement("i");
+            icon.setAttribute("aria-hidden", "true");
+            handle.appendChild(icon);
+            handle._icon = icon;
+
+            handle.addEventListener("click", (event) => {
+                event.stopPropagation();
+                this.toggleWidget(view, true);
+            });
+
+            this.handles.set(view, handle);
+            this._updateHandleIcon(view);
+
+            return handle;
+        }
+
+        _updateHandleIcon(view) {
+            const handle = this.handles.get(view);
+            if (!handle) {
+                return;
+            }
+            const icon = handle._icon || (handle.querySelector ? handle.querySelector("i") : null);
+            if (!icon) {
+                return;
+            }
+            const isOpen = this.isWidgetOpen(view);
+            const caret = isOpen ? ICON[this.position] : OPPOSITE[this.position];
+            icon.className = "fas fa-caret-" + caret;
+        }
+
+        getHandle(view) {
+            return this.handles.get(view);
+        }
+
+        toggleWidget(view, persist = true) {
+            const isOpen = this.isWidgetOpen(view);
+            return this.setWidgetOpen(view, !isOpen, persist);
+        }
+
+        openWidget(view, persist = true) {
+            return this.setWidgetOpen(view, true, persist);
+        }
+
+        closeWidget(view, persist = true) {
+            return this.setWidgetOpen(view, false, persist);
+        }
+
+        setWidgetOpen(view, open, persist = true) {
+            open = !!open;
+
+            if (view.layout != null) {
+                view.layout.dock_open = open;
+            }
+
+            view.wrapperElement.classList.toggle("wc-dock-widget-open", open);
+            view.wrapperElement.classList.toggle("wc-dock-widget-closed", !open);
+            this._updateHandleIcon(view);
+
+            this.updatePushMargins();
+            view.repaint();
+
+            if (persist && !view.model.volatile) {
+                const activeId = String(this.dragboard.activeScreenSize.id);
+                return view.model.setLayout(activeId, view.currentLayout, true);
+            }
+
+            return Promise.resolve(view);
+        }
+
+        openAll(persist = false) {
+            this.views.forEach((view) => this.openWidget(view, persist));
+        }
+
+        closeAll(persist = false) {
+            this.views.forEach((view) => this.closeWidget(view, persist));
+        }
+
+        setWidgetMode(view, mode, persist = true) {
+            if (mode !== "overlay" && mode !== "push") {
+                mode = "overlay";
+            }
+
+            if (view.layout != null) {
+                view.layout.dock_mode = mode;
+            }
+
+            view.wrapperElement.classList.toggle("wc-dock-widget-push", mode === "push");
+            view.wrapperElement.classList.toggle("wc-dock-widget-overlay", mode === "overlay");
+
+            this.updatePushMargins();
+
+            if (persist && !view.model.volatile) {
+                const activeId = String(this.dragboard.activeScreenSize.id);
+                return view.model.setLayout(activeId, view.currentLayout, true);
+            }
+
+            return Promise.resolve(view);
+        }
+
+        updatePushMargins() {
+            if (this.views.length === 0) {
+                this.dragboard.setDockPushMargin(this.position, 0);
+                return;
+            }
+
+            const openPushViews = this.views.filter((v) => {
+                return this.isWidgetOpen(v) && v.layout && v.layout.dock_mode === "push";
+            });
+
+            if (openPushViews.length === 0) {
+                this.dragboard.setDockPushMargin(this.position, 0);
+                return;
+            }
+
+            let maxDimension = 0;
+            if (this.vertical) {
+                openPushViews.forEach((v) => {
+                    const px = (v.wrapperElement && v.wrapperElement.offsetWidth > 0)
+                        ? v.wrapperElement.offsetWidth
+                        : this.dragboard.columnsToPixels(v.layout.w || 4);
+                    if (px > maxDimension) {
+                        maxDimension = px;
+                    }
+                });
+            } else {
+                openPushViews.forEach((v) => {
+                    const px = (v.wrapperElement && v.wrapperElement.offsetHeight > 0)
+                        ? v.wrapperElement.offsetHeight
+                        : (v.layout.h || 4) * (this.dragboard.cellheight || 40);
+                    if (px > maxDimension) {
+                        maxDimension = px;
+                    }
+                });
+            }
+
+            this.dragboard.setDockPushMargin(this.position, maxDimension);
+        }
+
+        _constrainNode(node) {
+            if (node == null) {
+                return;
+            }
+            const columns = this.grid ? this.grid.getColumn() : (this.dragboard.activeScreenSize.columns || 12);
+            if (this.position === "left") {
+                node.x = 0;
+            } else if (this.position === "right") {
+                node.x = Math.max(0, columns - (node.w || 1));
+            } else if (this.position === "top" || this.position === "bottom") {
+                node.y = 0;
+            }
+        }
+
+        _constrainCoord(o, node) {
+            if (o == null) {
+                return;
+            }
+            const columns = this.grid ? this.grid.getColumn() : (this.dragboard.activeScreenSize.columns || 12);
+            const w = (o.w != null) ? o.w : (node ? node.w : 1);
+            if (this.position === "left") {
+                o.x = 0;
+            } else if (this.position === "right") {
+                o.x = Math.max(0, columns - w);
+            } else if (this.position === "top" || this.position === "bottom") {
+                o.y = 0;
+            }
+        }
+
+        paint() {
+            if (this.painted || this.views.length === 0) {
+                return;
+            }
+            this._initGrid();
+        }
+
+        _initGrid() {
+            if (this.painted) {
+                return;
+            }
+            this.painted = true;
+
+            const columns = this.dragboard.activeScreenSize.columns || 12;
+            const cellHeight = this.dragboard.cellheight || 40;
+            const margin = this.dragboard.margin || 5;
+
+            const gridOpts = {
+                column: columns,
+                cellHeight: cellHeight,
+                margin: margin,
+                float: true,
+                animate: true,
+                handle: ".wc-widget-heading",
+                alwaysShowResizeHandle: "mobile",
+                staticGrid: this.dragboard.tab.workspace.model.restricted
+            };
+
+            if (this.vertical) {
+                gridOpts.resizable = {
+                    handles: (this.position === "left") ? "e, se, s" : "w, sw, s"
+                };
+            } else {
+                gridOpts.resizable = {
+                    handles: (this.position === "top") ? "s, se, e" : "n, ne, e"
+                };
+            }
+
+            this.grid = window.GridStack.init(gridOpts, this.gridElement);
+
+            this.grid._sortDom = () => this.grid;
+
+            if (this.grid.engine) {
+                const engine = this.grid.engine;
+                if (typeof engine.nodeBoundFix === "function") {
+                    const origNodeBoundFix = engine.nodeBoundFix.bind(engine);
+                    engine.nodeBoundFix = (node, resizing) => {
+                        origNodeBoundFix(node, resizing);
+                        this._constrainNode(node);
+                        return engine;
+                    };
+                }
+                if (typeof engine.moveNode === "function") {
+                    const origMoveNode = engine.moveNode.bind(engine);
+                    engine.moveNode = (node, o) => {
+                        if (o) {
+                            this._constrainCoord(o, node);
+                        }
+                        return origMoveNode(node, o);
+                    };
+                }
+                if (typeof engine.moveNodeCheck === "function") {
+                    const origMoveNodeCheck = engine.moveNodeCheck.bind(engine);
+                    engine.moveNodeCheck = (node, o) => {
+                        if (o) {
+                            this._constrainCoord(o, node);
+                        }
+                        return origMoveNodeCheck(node, o);
+                    };
+                }
+            }
+
+            this.grid.on("change", () => {
+                this.syncPositions();
+                this.dragboard._on_dock_change(this);
+                this.updatePushMargins();
+            });
+            this.grid.on("dragstart", () => {
+                this.container.classList.add("wc-dock-interacting");
+                this.dragboard._on_interaction_start(this);
+            });
+            this.grid.on("resizestart", () => {
+                this.container.classList.add("wc-dock-interacting");
+                this.dragboard._on_interaction_start(this);
+            });
+            this.grid.on("dragstop", () => {
+                this.container.classList.remove("wc-dock-interacting");
+                this.dragboard._on_interaction_end();
+                this.syncPositions();
+                this.views.forEach((v) => v.syncLayoutFromNode());
+                this.updatePushMargins();
+                if (this.dragboard.tab.workspace.editing) {
+                    this.dragboard.persist();
+                }
+            });
+            this.grid.on("resizestop", () => {
+                this.container.classList.remove("wc-dock-interacting");
+                this.dragboard._on_interaction_end();
+                this.syncPositions();
+                this.views.forEach((v) => v.syncLayoutFromNode());
+                this.updatePushMargins();
+                if (this.dragboard.tab.workspace.editing) {
+                    this.dragboard.persist();
+                }
+            });
+        }
+
+        syncPositions() {
+            if (this.grid == null) {
+                return;
+            }
+
+            const columns = this.grid.getColumn();
+            this.dragboard.withApplying(() => {
+                this.views.forEach((view) => {
+                    const node = view.wrapperElement.gridstackNode;
+                    if (node == null || node._moving || node._resizing) {
+                        return;
+                    }
+
+                    let needsUpdate = false;
+                    const updates = {};
+
+                    if (this.position === "left") {
+                        if (node.x !== 0) {
+                            updates.x = 0;
+                            needsUpdate = true;
+                        }
+                    } else if (this.position === "right") {
+                        const targetX = Math.max(0, columns - node.w);
+                        if (node.x !== targetX) {
+                            updates.x = targetX;
+                            needsUpdate = true;
+                        }
+                    } else if (this.position === "top" || this.position === "bottom") {
+                        if (node.y !== 0) {
+                            updates.y = 0;
+                            needsUpdate = true;
+                        }
+                    }
+
+                    if (needsUpdate) {
+                        this.grid.update(view.wrapperElement, updates);
+                    }
+                });
+            });
+        }
+
+        addWidget(view, layout, role) {
+            if (this.views.indexOf(view) === -1) {
+                this.views.push(view);
+            }
+
+            if (this.dragboard.painted && !this.painted) {
+                this._initGrid();
+            }
+
+            this.container.classList.remove("hidden");
+
+            if (view.wrapperElement.parentNode !== this.gridElement) {
+                this.gridElement.appendChild(view.wrapperElement);
+            }
+
+            view.wrapperElement.classList.add("wc-docked-widget", "wc-docked-" + this.position);
+
+            const handles = (this.position === "left") ? "e,se,s" :
+                            (this.position === "right") ? "w,sw,s" :
+                            (this.position === "top") ? "s,se,e" : "n,ne,e";
+            view.wrapperElement.setAttribute("gs-resize-handles", handles);
+
+            const handle = this._getOrCreateHandle(view);
+            if (handle.parentNode !== view.wrapperElement) {
+                view.wrapperElement.appendChild(handle);
+            }
+
+            const isOpen = this.isWidgetOpen(view);
+            const mode = (layout && layout.dock_mode) ? layout.dock_mode : "overlay";
+            view.wrapperElement.classList.toggle("wc-dock-widget-open", isOpen);
+            view.wrapperElement.classList.toggle("wc-dock-widget-closed", !isOpen);
+            view.wrapperElement.classList.toggle("wc-dock-widget-push", mode === "push");
+            view.wrapperElement.classList.toggle("wc-dock-widget-overlay", mode === "overlay");
+
+            this._updateHandleIcon(view);
+
+            if (this.grid != null) {
+                const columns = this.grid.getColumn();
+                const canMove = view.model.isAllowed("move", role);
+                const canResize = !layout.minimized && view.model.isAllowed("resize", role);
+
+                let x = layout.x;
+                let y = layout.y;
+                const w = Math.min(layout.w || (this.vertical ? 4 : 3), columns);
+                const h = layout.h || (this.vertical ? 6 : 4);
+
+                if (this.position === "left") {
+                    x = 0;
+                } else if (this.position === "right") {
+                    x = Math.max(0, columns - w);
+                } else if (this.position === "top" || this.position === "bottom") {
+                    y = 0;
+                }
+
+                const nodeOpts = {
+                    w: w,
+                    h: h,
+                    noMove: !canMove,
+                    noResize: !canResize
+                };
+                if (x != null) {
+                    nodeOpts.x = x;
+                }
+                if (y != null) {
+                    nodeOpts.y = y;
+                }
+
+                if (view.wrapperElement.gridstackNode == null) {
+                    this.grid.makeWidget(view.wrapperElement, Object.assign({
+                        id: view.id,
+                        autoPosition: (x == null || (this.vertical && y == null) || (!this.vertical && x == null))
+                    }, nodeOpts));
+                } else {
+                    this.grid.update(view.wrapperElement, nodeOpts);
+                }
+            }
+
+            view.applyLayout(layout);
+            this.syncPositions();
+            this.updatePushMargins();
+        }
+
+        removeWidget(view) {
+            const idx = this.views.indexOf(view);
+            if (idx !== -1) {
+                this.views.splice(idx, 1);
+            }
+
+            const handle = this.handles.get(view);
+            if (handle) {
+                handle.remove();
+                this.handles.delete(view);
+            }
+
+            view.wrapperElement.removeAttribute("gs-resize-handles");
+            view.wrapperElement.classList.remove(
+                "wc-docked-widget", "wc-docked-left", "wc-docked-right", "wc-docked-top", "wc-docked-bottom",
+                "wc-dock-widget-open", "wc-dock-widget-closed", "wc-dock-widget-push", "wc-dock-widget-overlay"
+            );
+
+            if (this.grid != null && view.wrapperElement.gridstackNode != null) {
+                this.grid.removeWidget(view.wrapperElement, false, false);
+            }
+
+            if (this.views.length === 0) {
+                this.container.classList.add("hidden");
+            }
+
+            this.updatePushMargins();
+        }
+
+        updateScreenSize(screenSize) {
+            if (this.grid == null) {
+                return;
+            }
+
+            this.grid.column(screenSize.columns, "none");
+            this.syncPositions();
+            this.updatePushMargins();
+        }
+
+        updatePermissions() {
+            if (this.grid == null) {
+                return;
+            }
+            this.views.forEach((view) => view.updateGridPermissions());
+        }
+
+    };
+
+})(Wirecloud.ui, Wirecloud.Utils);

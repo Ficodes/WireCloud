@@ -25,7 +25,12 @@ const installGridStackMock = () => {
             this.column_ = options.column || 12;
             this.cellHeight_ = typeof options.cellHeight === 'number' ? options.cellHeight : 40;
             this.margin_ = typeof options.margin === 'number' ? options.margin : 5;
-            this.engine = {nodes: []};
+            this.engine = {
+                nodes: [],
+                nodeBoundFix: (node, resizing) => this.engine,
+                moveNode: (node, o) => true,
+                moveNodeCheck: (node, o) => true,
+            };
             this.listeners = {};
             this.calls = [];
             this.batching = false;

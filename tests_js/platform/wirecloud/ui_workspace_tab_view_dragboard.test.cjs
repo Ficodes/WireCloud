@@ -241,6 +241,7 @@ const setup = () => {
 
     delete global.ResizeObserver;
 
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/SidebarLayout.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceTabViewDragboard.js');
 
     return {GridStack};

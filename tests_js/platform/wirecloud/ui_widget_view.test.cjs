@@ -699,6 +699,22 @@ test('applyLayout: when not minimized, updates the grid height to layout.h', () 
     assert.deepEqual(call.opts, { h: 7 });
 });
 
+test('applyLayout: updates the node.grid if different from dragboard.grid (docked widget)', () => {
+    setup();
+    const mainGrid = makeGrid();
+    const dockGrid = makeGrid();
+    const dragboard = makeDragboard({ grid: mainGrid });
+    const view = createWidgetView({ tab: makeTab({ dragboard }) });
+    view.wrapperElement.gridstackNode = { x: 0, y: 0, w: 4, h: 1, grid: dockGrid };
+
+    view.applyLayout({ x: 0, y: 0, w: 4, h: 8, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+
+    // dockGrid must receive the updates, not mainGrid
+    assert.equal(mainGrid.calls.length, 0);
+    assert.ok(dockGrid.calls.some((c) => c.el === view.wrapperElement && c.opts.h === 8));
+    assert.ok(dockGrid.calls.some((c) => c.el === view.wrapperElement && 'noMove' in c.opts));
+});
+
 test('applyLayout: does not touch the grid when there is no gridstack node yet', () => {
     setup();
     const grid = makeGrid();

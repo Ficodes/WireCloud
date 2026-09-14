@@ -124,6 +124,83 @@
             });
             items.push(movesubmenu);
 
+            if (typeof this.widget.dockTo === 'function') {
+                const isDocked = (typeof this.widget.isDocked === 'function')
+                    ? this.widget.isDocked()
+                    : (this.widget.layout != null && !!this.widget.layout.dock);
+                const currentDock = (isDocked && this.widget.layout) ? this.widget.layout.dock : null;
+                const currentMode = (isDocked && this.widget.layout && this.widget.layout.dock_mode) ? this.widget.layout.dock_mode : 'overlay';
+
+                if (isDocked) {
+                    item = new se.MenuItem(utils.gettext("Snap to grid"), () => {
+                        this.widget.undock(true);
+                    });
+                    item.addIconClass("fas fa-th");
+                    item.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
+                    items.push(item);
+
+                    const moveDockSubmenu = new se.SubMenuItem(utils.gettext("Move to sidebar"), {iconClass: 'fas fa-columns'});
+                    moveDockSubmenu.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
+
+                    const dockOptions = [
+                        {id: 'left', label: utils.gettext("Left sidebar"), icon: 'fas fa-caret-square-left'},
+                        {id: 'right', label: utils.gettext("Right sidebar"), icon: 'fas fa-caret-square-right'},
+                        {id: 'top', label: utils.gettext("Top sidebar"), icon: 'fas fa-caret-square-up'},
+                        {id: 'bottom', label: utils.gettext("Bottom sidebar"), icon: 'fas fa-caret-square-down'},
+                    ];
+                    dockOptions.forEach((opt) => {
+                        if (opt.id !== currentDock) {
+                            moveDockSubmenu.append(new se.MenuItem(opt.label, () => {
+                                this.widget.dockTo(opt.id, currentMode, true);
+                            }, {iconClass: opt.icon}));
+                        }
+                    });
+                    items.push(moveDockSubmenu);
+
+                    const modeSubmenu = new se.SubMenuItem(utils.gettext("Sidebar display mode"), {iconClass: 'fas fa-sliders-h'});
+                    modeSubmenu.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
+
+                    const overlayItem = new se.MenuItem(utils.gettext("Show on top of content (overlay)"), () => {
+                        this.widget.setDockMode('overlay', true);
+                    });
+                    if (currentMode === 'overlay') {
+                        overlayItem.addIconClass("fas fa-check");
+                    }
+                    modeSubmenu.append(overlayItem);
+
+                    const pushItem = new se.MenuItem(utils.gettext("Push main content"), () => {
+                        this.widget.setDockMode('push', true);
+                    });
+                    if (currentMode === 'push') {
+                        pushItem.addIconClass("fas fa-check");
+                    }
+                    modeSubmenu.append(pushItem);
+
+                    items.push(modeSubmenu);
+                } else {
+                    const dockSubmenu = new se.SubMenuItem(utils.gettext("Dock to sidebar"), {iconClass: 'fas fa-columns'});
+                    dockSubmenu.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
+
+                    dockSubmenu.append(new se.MenuItem(utils.gettext("Left sidebar"), () => {
+                        this.widget.dockTo('left', 'overlay', true);
+                    }, {iconClass: 'fas fa-caret-square-left'}));
+
+                    dockSubmenu.append(new se.MenuItem(utils.gettext("Right sidebar"), () => {
+                        this.widget.dockTo('right', 'overlay', true);
+                    }, {iconClass: 'fas fa-caret-square-right'}));
+
+                    dockSubmenu.append(new se.MenuItem(utils.gettext("Top sidebar"), () => {
+                        this.widget.dockTo('top', 'overlay', true);
+                    }, {iconClass: 'fas fa-caret-square-up'}));
+
+                    dockSubmenu.append(new se.MenuItem(utils.gettext("Bottom sidebar"), () => {
+                        this.widget.dockTo('bottom', 'overlay', true);
+                    }, {iconClass: 'fas fa-caret-square-down'}));
+
+                    items.push(dockSubmenu);
+                }
+            }
+
             return items;
         }
 

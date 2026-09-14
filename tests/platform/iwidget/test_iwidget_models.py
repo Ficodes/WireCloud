@@ -18,10 +18,13 @@ def test_widget_models_serialization():
         "titlevisible": True,
         "fulldragboard": False,
         "visible": True,
+        "dock": None,
+        "dock_mode": "overlay",
+        "dock_open": True,
     }
 
     layout = models.WidgetLayout(x=2, y=3, w=6, h=4, minimized=True, titlevisible=False,
-                                 fulldragboard=True, visible=False)
+                                 fulldragboard=True, visible=False, dock="left", dock_mode="push", dock_open=False)
     assert layout.model_dump() == {
         "x": 2,
         "y": 3,
@@ -31,6 +34,9 @@ def test_widget_models_serialization():
         "titlevisible": False,
         "fulldragboard": True,
         "visible": False,
+        "dock": "left",
+        "dock_mode": "push",
+        "dock_open": False,
     }
 
     instance = models.WidgetInstance(id="ws-0-0", layouts={"0": models.WidgetLayout(w=2, h=3)})

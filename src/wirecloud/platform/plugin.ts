@@ -217,6 +217,7 @@ const get_scripts: (view: string) => string[] = (view: string): string[] => {
                 'js/wirecloud/ui/WorkspaceTabView.js',
                 'js/wirecloud/ui/WorkspaceTabViewMenuItems.js',
                 'js/wirecloud/vendor/gridstack.js',
+                'js/wirecloud/ui/SidebarLayout.js',
                 'js/wirecloud/ui/WorkspaceTabViewDragboard.js',
                 'js/wirecloud/ui/MyResourcesView.js',
                 'js/wirecloud/ui/MarketplaceView.js',

@@ -36,7 +36,8 @@
             marginBottom = parseFloat(style.marginBottom) || 0;
         }
 
-        const cellHeightPx = (dragboard.grid != null && dragboard.grid.getCellHeight(true)) || dragboard.cellheight || 1;
+        const grid = (this.wrapperElement && this.wrapperElement.gridstackNode && this.wrapperElement.gridstackNode.grid) || dragboard.grid;
+        const cellHeightPx = (grid != null && grid.getCellHeight(true)) || dragboard.cellheight || 1;
         const headingHeight = (heading != null) ? heading.offsetHeight : 0;
 
         return Math.max(1, Math.ceil((headingHeight + marginTop + marginBottom) / cellHeightPx));
@@ -384,7 +385,7 @@
             const node = this.wrapperElement.gridstackNode || {};
             const layout = this.layout || {};
 
-            return {
+            const result = {
                 x: (node.x != null) ? node.x : layout.x,
                 y: (node.y != null) ? node.y : layout.y,
                 w: (node.w != null) ? node.w : layout.w,
@@ -394,6 +395,16 @@
                 fulldragboard: !!layout.fulldragboard,
                 visible: layout.visible !== false
             };
+
+            if (layout.dock != null) {
+                result.dock = layout.dock;
+                result.dock_mode = layout.dock_mode || 'overlay';
+                result.dock_open = layout.dock_open !== false;
+            } else if (layout.dock === null && ('dock' in layout)) {
+                result.dock = null;
+            }
+
+            return result;
         }
 
         get canMove() {
@@ -436,13 +447,14 @@
             update_buttons.call(this);
             update_tab_fulldragboard_class(this);
 
-            if (this.wrapperElement.gridstackNode != null && this.tab.dragboard.grid != null) {
+            const grid = (this.wrapperElement.gridstackNode && this.wrapperElement.gridstackNode.grid) || this.tab.dragboard.grid;
+            if (this.wrapperElement.gridstackNode != null && grid != null) {
                 this.tab.dragboard.withApplying(() => {
                     if (layout.minimized) {
                         const rows = compute_minimized_rows.call(this);
-                        this.tab.dragboard.grid.update(this.wrapperElement, {h: rows, noResize: true});
+                        grid.update(this.wrapperElement, {h: rows, noResize: true});
                     } else {
-                        this.tab.dragboard.grid.update(this.wrapperElement, {h: layout.h});
+                        grid.update(this.wrapperElement, {h: layout.h});
                     }
                 });
             }
@@ -485,13 +497,14 @@
          */
         updateGridPermissions() {
             const dragboard = this.tab.dragboard;
+            const grid = (this.wrapperElement.gridstackNode && this.wrapperElement.gridstackNode.grid) || dragboard.grid;
 
-            if (dragboard.grid == null || this.wrapperElement.gridstackNode == null) {
+            if (grid == null || this.wrapperElement.gridstackNode == null) {
                 return;
             }
 
             dragboard.withApplying(() => {
-                dragboard.grid.update(this.wrapperElement, {
+                grid.update(this.wrapperElement, {
                     noMove: !this.canMove,
                     noResize: !this.canResize
                 });
@@ -599,6 +612,60 @@
          */
         moveToTab(tabView) {
             return this.tab.dragboard.moveWidgetToTab(this, tabView);
+        }
+
+        /**
+         * @returns {Boolean} whether this widget view is currently docked onto a side
+         */
+        isDocked() {
+            return !!(this.layout && this.layout.dock);
+        }
+
+        /**
+         * Docks this widget onto one of the sides ('left', 'right', 'top', 'bottom').
+         *
+         * @param {String} position
+         * @param {String} [mode='overlay'] 'overlay' or 'push'
+         * @param {Boolean} [persist=true]
+         *
+         * @returns {Promise}
+         */
+        dockTo(position, mode = 'overlay', persist = true) {
+            return this.tab.dragboard.dockWidget(this, position, mode, persist);
+        }
+
+        /**
+         * Undocks this widget, returning it to the main grid.
+         *
+         * @param {Boolean} [persist=true]
+         *
+         * @returns {Promise}
+         */
+        undock(persist = true) {
+            return this.tab.dragboard.undockWidget(this, persist);
+        }
+
+        /**
+         * Sets the display mode ('overlay' or 'push') for this docked widget.
+         *
+         * @param {String} mode
+         * @param {Boolean} [persist=true]
+         *
+         * @returns {Promise}
+         */
+        setDockMode(mode, persist = true) {
+            return this.tab.dragboard.setWidgetDockMode(this, mode, persist);
+        }
+
+        /**
+         * Toggles the open/closed state of this docked widget.
+         *
+         * @param {Boolean} [persist=true]
+         *
+         * @returns {Promise}
+         */
+        toggleDockOpen(persist = true) {
+            return this.tab.dragboard.toggleWidgetDockOpen(this, persist);
         }
 
         /**

@@ -33,6 +33,9 @@ class WidgetLayout(BaseModel):
     titlevisible: bool = True
     fulldragboard: bool = False
     visible: bool = True
+    dock: Optional[str] = None
+    dock_mode: Optional[str] = "overlay"
+    dock_open: bool = True
 
 
 class WidgetPermissionsConfig(BaseModel):

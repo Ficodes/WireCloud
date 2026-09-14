@@ -173,13 +173,15 @@ def test_update_layouts_merge_and_delete():
     assert iwidget.layouts["0"].model_dump() == {
         "x": 1, "y": 2, "w": 6, "h": 4,
         "minimized": False, "titlevisible": True, "fulldragboard": False, "visible": True,
+        "dock": None, "dock_mode": "overlay", "dock_open": True,
     }
 
     # A new key creates a fresh WidgetLayout() merged with the given changes
-    utils.update_layouts(iwidget, {"1": WidgetLayoutUpdate(w=2, h=3, visible=False)})
+    utils.update_layouts(iwidget, {"1": WidgetLayoutUpdate(w=2, h=3, visible=False, dock="right")})
     assert iwidget.layouts["1"].model_dump() == {
         "x": None, "y": None, "w": 2, "h": 3,
         "minimized": False, "titlevisible": True, "fulldragboard": False, "visible": False,
+        "dock": "right", "dock_mode": "overlay", "dock_open": True,
     }
 
     # None deletes the stored layout
