@@ -389,12 +389,15 @@ class WirecloudCorePlugin(WirecloudPlugin):
                 name='screenSizes', label=_('Screen sizes'), type='screenSizes',
                 description=_('Responsive breakpoints of the dashboard. Each screen size covers a range of widths in '
                               'pixels and defines the number of grid columns used when the dashboard is displayed at '
-                              'that width. Widgets can have a different layout for each screen size.'),
+                              'that width. An optional positive row count creates a fixed grid that fills the available '
+                              'height and preserves empty rows; zero keeps the vertical layout unbounded and compacted. '
+                              'Widgets can have a different layout for each screen size.'),
                 defaultValue=[dict(screen_size) for screen_size in DEFAULT_SCREEN_SIZES]
             ),
             PreferenceKey(
                 name='cellheight', label=_('Cell height'), type='number',
-                description=_('Height in pixels of a grid row.'), defaultValue=40
+                description=_('Height in pixels of a grid row when the active screen size has no fixed row count.'),
+                defaultValue=40
             ),
             PreferenceKey(
                 name='margin', label=_('Widget margin'), type='number',

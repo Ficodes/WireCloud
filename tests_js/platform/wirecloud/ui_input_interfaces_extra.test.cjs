@@ -391,8 +391,8 @@ test('ScreenSizesInputInterface validates, updates ranges and dispatches edit re
     input.addEventListener('requestSave', () => {
         saved = true;
     });
-    // Row layout: name, from, to, columns, buttons
-    input.screenSizesInputs[1].children[4].children[0].click();
+    // Row layout: name, from, to, columns, rows, buttons
+    input.screenSizesInputs[1].children[5].children[0].click();
     assert.equal(saved, true);
     assert.equal(edited, true);
     assert.equal(editedId, 1);
@@ -402,6 +402,12 @@ test('ScreenSizesInputInterface validates, updates ranges and dispatches edit re
     input.screenSizesInputs[1].children[3].children[1].setValue(4);
     input.screenSizesInputs[1].children[3].children[1].listeners.change();
     assert.equal(input.getValue()[0].columns, 4);
+
+    // The optional rows field defaults to the unbounded mode (0)
+    assert.equal(input.getValue()[0].rows, 0);
+    input.screenSizesInputs[1].children[4].children[1].setValue(6);
+    input.screenSizesInputs[1].children[4].children[1].listeners.change();
+    assert.equal(input.getValue()[0].rows, 6);
 
     input.screenSizesInputs[1].children[0].children[1].setValue('Tiny');
     input.screenSizesInputs[1].children[0].children[1].listeners.change();

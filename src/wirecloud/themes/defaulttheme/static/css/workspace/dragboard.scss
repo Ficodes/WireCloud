@@ -38,6 +38,13 @@
     &.wc-dragboard-interacting {
         transition: none !important;
     }
+
+    // Fixed-row layouts get their exact height from GridStack. In particular,
+    // this lets top/bottom push docks reduce the available space without the
+    // normal 100% minimum making the grid overflow its tab.
+    &.wc-dragboard-fixed-rows {
+        min-height: 0 !important;
+    }
 }
 
 .wc-workspace-tab-content.wc-dock-interacting .wc-dragboard {

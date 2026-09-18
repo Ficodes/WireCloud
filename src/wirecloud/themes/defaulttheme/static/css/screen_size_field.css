@@ -7,7 +7,7 @@
     flex-grow: 1;
 }
 
-.se-screen-size-columns {
+.se-screen-size-columns, .se-screen-size-rows {
     flex-grow: 0.5;
 }
 

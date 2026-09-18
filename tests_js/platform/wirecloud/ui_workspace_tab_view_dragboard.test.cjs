@@ -432,6 +432,30 @@ test('screenSizes preserves an explicit columns value', () => {
     assert.equal(dragboard.screenSizes[0].columns, 4);
 });
 
+test('screenSizes normalizes missing rows to the unbounded vertical mode', () => {
+    const {dragboard} = createDragboard({
+        preferenceValues: {
+            screenSizes: [
+                {id: 0, name: 'A', moreOrEqual: 0, lessOrEqual: -1, columns: 4},
+            ],
+        },
+    });
+
+    assert.equal(dragboard.screenSizes[0].rows, 0);
+});
+
+test('screenSizes preserves a positive fixed row count', () => {
+    const {dragboard} = createDragboard({
+        preferenceValues: {
+            screenSizes: [
+                {id: 0, name: 'A', moreOrEqual: 0, lessOrEqual: -1, columns: 4, rows: 6},
+            ],
+        },
+    });
+
+    assert.equal(dragboard.screenSizes[0].rows, 6);
+});
+
 test('screenSizes sorts entries by moreOrEqual ascending regardless of input order', () => {
     const {dragboard} = createDragboard({
         preferenceValues: {
@@ -494,7 +518,7 @@ test('activeScreenSize returns the last entry when width matches none (gap in ra
 test('activeScreenSize returns a synthetic default entry when screenSizes is empty', () => {
     const {dragboard} = createDragboard({preferenceValues: {screenSizes: []}});
 
-    assert.deepEqual(dragboard.activeScreenSize, {id: 0, name: '', moreOrEqual: 0, lessOrEqual: -1, columns: 12});
+    assert.deepEqual(dragboard.activeScreenSize, {id: 0, name: '', moreOrEqual: 0, lessOrEqual: -1, columns: 12, rows: 0});
 });
 
 test('activeScreenSize honours a forced screen size regardless of width', () => {
@@ -678,6 +702,20 @@ test('resolveLayout falls back to the nearest SMALLER screen size when no larger
     assert.equal(resolved.h, 3);
 });
 
+test('resolveLayout scales and clamps y/h between fixed-row screen sizes', () => {
+    const screenSizes = [
+        {id: 0, name: 'Small', moreOrEqual: 0, lessOrEqual: 799, columns: 4, rows: 4},
+        {id: 1, name: 'Large', moreOrEqual: 800, lessOrEqual: -1, columns: 8, rows: 8},
+    ];
+    const {dragboard} = createDragboard({offsetWidth: 400, preferenceValues: {screenSizes}});
+    const model = createWidgetModel({layouts: {1: {x: 4, y: 4, w: 4, h: 4}}});
+
+    const resolved = dragboard.resolveLayout(model, dragboard.screenSizes[0]);
+
+    assert.equal(resolved.y, 2);
+    assert.equal(resolved.h, 2);
+});
+
 test('resolveLayout uses default_layout_for when the widget has no stored layout at all', () => {
     const {dragboard} = createDragboard({preferenceValues: {cellheight: 40}});
     const model = createWidgetModel({});
@@ -751,7 +789,76 @@ test('paint() initializes GridStack with the expected options and target element
         resizable: {handles: 'e, se, s, sw, w'},
         alwaysShowResizeHandle: 'mobile',
         staticGrid: false,
+        row: 0,
+        minRow: 0,
+        maxRow: 0,
     });
+});
+
+test('paint() creates a fixed grid whose rows fill the available height', () => {
+    const screenSizes = [
+        {id: 0, name: 'Fixed', moreOrEqual: 0, lessOrEqual: -1, columns: 4, rows: 6},
+    ];
+    const {dragboard} = createDragboard({
+        offsetWidth: 800,
+        offsetHeight: 600,
+        preferenceValues: {cellheight: 40, screenSizes},
+    });
+
+    dragboard.paint();
+
+    assert.equal(dragboard.grid.opts.row, 6);
+    assert.equal(dragboard.grid.opts.minRow, 6);
+    assert.equal(dragboard.grid.opts.maxRow, 6);
+    assert.equal(dragboard.grid.getCellHeight(true), 100);
+    assert.equal(dragboard.grid.opts.float, true);
+    assert.equal(dragboard.grid.engine.float, true);
+    assert.equal(dragboard.gridElement.classList.contains('wc-dragboard-fixed-rows'), true);
+});
+
+test('a height-only resize recalculates fixed-row cell height', () => {
+    let observedCallback = null;
+    global.ResizeObserver = class {
+        constructor(callback) { observedCallback = callback; }
+        observe() {}
+        disconnect() {}
+    };
+    const screenSizes = [
+        {id: 0, name: 'Fixed', moreOrEqual: 0, lessOrEqual: -1, columns: 4, rows: 5},
+    ];
+    const {dragboard, tab} = paintedDragboard({
+        offsetWidth: 800,
+        offsetHeight: 500,
+        preferenceValues: {screenSizes},
+    });
+
+    tab.wrapperElement.offsetHeight = 750;
+    observedCallback();
+
+    assert.equal(dragboard.grid.getCellHeight(true), 150);
+    delete global.ResizeObserver;
+});
+
+test('switching from fixed rows to columns-only removes the row limit', () => {
+    const screenSizes = [
+        {id: 0, name: 'Fluid', moreOrEqual: 0, lessOrEqual: 499, columns: 2, rows: 0},
+        {id: 1, name: 'Fixed', moreOrEqual: 500, lessOrEqual: -1, columns: 4, rows: 5},
+    ];
+    const {dragboard, tab} = paintedDragboard({
+        offsetWidth: 800,
+        offsetHeight: 500,
+        preferenceValues: {cellheight: 40, screenSizes},
+    });
+    assert.equal(dragboard.grid.engine.maxRow, 5);
+
+    tab.wrapperElement.offsetWidth = 400;
+    dragboard.applyScreenSize();
+
+    assert.equal(dragboard.grid.engine.maxRow, 0);
+    assert.equal(dragboard.grid.getCellHeight(true), 40);
+    assert.equal(dragboard.grid.opts.float, false);
+    assert.equal(dragboard.grid.engine.float, false);
+    assert.equal(dragboard.gridElement.classList.contains('wc-dragboard-fixed-rows'), false);
 });
 
 test('paint() passes tab.workspace.model.restricted as staticGrid', () => {
@@ -1518,6 +1625,15 @@ test('pixelsToRows ceils and enforces a minimum of 1', () => {
     assert.equal(dragboard.pixelsToRows(1), 1);
 });
 
+test('pixelsToRows uses the fitted cell height in fixed-row mode', () => {
+    const screenSizes = [
+        {id: 0, name: 'Fixed', moreOrEqual: 0, lessOrEqual: -1, columns: 4, rows: 5},
+    ];
+    const {dragboard} = createDragboard({offsetWidth: 800, offsetHeight: 500, preferenceValues: {screenSizes}});
+
+    assert.equal(dragboard.pixelsToRows(201), 3);
+});
+
 test('parseSize("Npx", "w") converts pixels to columns', () => {
     const {dragboard} = createDragboard({offsetWidth: 1200});
     dragboard.gridElement.offsetWidth = 1200; // columnWidth = 100
@@ -1901,4 +2017,3 @@ test('setDockPushMargin sets explicit pixel margins and repaints views after tra
     await wait(350);
     assert.equal(repainted, true, 'repaint called after animation settles');
 });
-

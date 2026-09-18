@@ -35,16 +35,20 @@
             name: screenSize.name,
             moreOrEqual: screenSize.moreOrEqual,
             lessOrEqual: screenSize.lessOrEqual,
-            columns: (screenSize.columns != null) ? screenSize.columns : DEFAULT_COLUMNS
+            columns: (screenSize.columns != null) ? screenSize.columns : DEFAULT_COLUMNS,
+            // `0` is the backwards-compatible, unbounded vertical layout.
+            // Positive values turn the screen size into a fixed rows x columns grid.
+            rows: (Number.isInteger(screenSize.rows) && screenSize.rows > 0) ? screenSize.rows : 0
         };
     };
 
     /**
      * Derives the layout for a screen size from the layout stored for another
-     * one: sizes are scaled by the column ratio, while `x`/`y` are only kept
-     * as ordering hints (`derived: true` makes the widget auto-placed in
-     * reading order, so the widgets reflow left to right instead of piling up
-     * where the scaled positions collide).
+     * one: horizontal dimensions are scaled by the column ratio, and vertical
+     * dimensions are also scaled when both screen sizes have fixed row counts.
+     * `x`/`y` are only kept as ordering hints (`derived: true` makes the widget
+     * auto-placed in reading order, so the widgets reflow left to right instead
+     * of piling up where the scaled positions collide).
      *
      * Visibility is never inherited: hiding a widget is a decision taken for
      * one specific screen size, so a screen size that has no layout of its own
@@ -57,11 +61,19 @@
         const w = clamp(Math.round(layout.w * ratio), 1, targetScreenSize.columns);
         const x = (layout.x == null) ? null : clamp(Math.round(layout.x * ratio), 0, Math.max(0, targetScreenSize.columns - w));
 
+        let h = layout.h;
+        let y = layout.y;
+        if (targetScreenSize.rows > 0) {
+            const rowRatio = sourceScreenSize.rows > 0 ? targetScreenSize.rows / sourceScreenSize.rows : 1;
+            h = clamp(Math.round(layout.h * rowRatio), 1, targetScreenSize.rows);
+            y = (layout.y == null) ? null : clamp(Math.round(layout.y * rowRatio), 0, Math.max(0, targetScreenSize.rows - h));
+        }
+
         const res = {
             x: x,
-            y: layout.y,
+            y: y,
             w: w,
-            h: layout.h,
+            h: h,
             minimized: layout.minimized,
             titlevisible: layout.titlevisible,
             fulldragboard: layout.fulldragboard,
@@ -83,7 +95,7 @@
             x: null,
             y: null,
             w: Math.min(screenSize.columns, Math.max(1, Math.round(screenSize.columns / 3))),
-            h: Math.max(1, Math.round(300 / cellheight)),
+            h: Math.min(screenSize.rows || Infinity, Math.max(1, Math.round(300 / cellheight))),
             minimized: false,
             titlevisible: true,
             fulldragboard: false,
@@ -225,6 +237,11 @@
 
         if (this.activeScreenSize.id !== this._lastAppliedScreenSizeId) {
             this.applyScreenSize();
+        } else if (this.activeScreenSize.rows > 0) {
+            // A fixed-row grid has to react to height-only changes too. There
+            // is no need to re-place the widgets when the breakpoint did not
+            // change; updating the cell height is enough.
+            this._applyGridGeometry(this.activeScreenSize);
         }
     };
 
@@ -232,7 +249,7 @@
         if ('cellheight' in modifiedValues) {
             this.cellheight = modifiedValues.cellheight;
             if (this.grid != null) {
-                this.grid.cellHeight(this.cellheight);
+                this._applyGridGeometry(this.activeScreenSize);
             }
         }
 
@@ -379,7 +396,7 @@
             const screenSizes = this.screenSizes;
 
             if (screenSizes.length === 0) {
-                return {id: 0, name: '', moreOrEqual: 0, lessOrEqual: -1, columns: DEFAULT_COLUMNS};
+                return {id: 0, name: '', moreOrEqual: 0, lessOrEqual: -1, columns: DEFAULT_COLUMNS, rows: 0};
             }
 
             if (this.forcedScreenSizeId != null) {
@@ -415,6 +432,63 @@
         _currentWidth() {
             const width = this.tab.wrapperElement.offsetWidth;
             return (width > 0) ? width : window.innerWidth;
+        }
+
+        /**
+         * Height available to the central grid, excluding space pushed in by
+         * top and bottom docks.
+         *
+         * @returns {Number} pixels
+         */
+        _availableGridHeight() {
+            const wrapper = this.tab.wrapperElement;
+            let height = wrapper.clientHeight || wrapper.offsetHeight || window.innerHeight || 0;
+            if (this._dockMargins) {
+                height -= (this._dockMargins.top || 0) + (this._dockMargins.bottom || 0);
+            }
+            return Math.max(0, height);
+        }
+
+        /**
+         * Effective row height for a screen size. Fixed-row layouts divide
+         * the visible tab height evenly; columns-only layouts retain the
+         * configured pixel cell height.
+         *
+         * @param {Object} [screenSize]
+         * @returns {Number} pixels
+         */
+        getCellHeight(screenSize = this.activeScreenSize) {
+            if (screenSize.rows > 0) {
+                const availableHeight = this._availableGridHeight();
+                if (availableHeight > 0) {
+                    return availableHeight / screenSize.rows;
+                }
+            }
+            return this.cellheight;
+        }
+
+        /**
+         * Applies the vertical constraint and row height for a screen size.
+         * `row: 0` removes a previous fixed-row constraint. Fixed-row layouts
+         * also enable GridStack's float mode so explicit empty rows are not
+         * compacted away.
+         *
+         * @param {Object} screenSize
+         */
+        _applyGridGeometry(screenSize) {
+            if (this.grid == null) {
+                return;
+            }
+            if (screenSize.rows > 0) {
+                this.gridElement.classList.add('wc-dragboard-fixed-rows');
+            } else {
+                this.gridElement.classList.remove('wc-dragboard-fixed-rows');
+            }
+            this.grid.updateOptions({
+                row: screenSize.rows || 0,
+                cellHeight: this.getCellHeight(screenSize),
+                float: screenSize.rows > 0
+            });
         }
 
         /**
@@ -583,7 +657,7 @@
                 }
             }
 
-            return default_layout_for(screenSize, this.cellheight);
+            return default_layout_for(screenSize, this.getCellHeight(screenSize));
         }
 
         /**
@@ -601,6 +675,11 @@
             const role = this.tab.workspace.editing ? 'editor' : 'viewer';
 
             this.withApplying(() => {
+                // GridStack temporarily enables floating while a batch is in
+                // progress and restores the value captured at batch start.
+                // Apply the screen-size mode first so the correct value is
+                // captured and retained when the batch finishes.
+                this._applyGridGeometry(screenSize);
                 this.grid.batchUpdate();
 
                 if (this.docks) {
@@ -667,17 +746,23 @@
             }
             this.painted = true;
 
-            this.grid = window.GridStack.init({
+            const screenSize = this.activeScreenSize;
+            const gridOptions = {
                 column: this.activeScreenSize.columns,
-                cellHeight: this.cellheight,
+                cellHeight: this.getCellHeight(screenSize),
                 margin: this.margin,
-                float: false,
+                float: screenSize.rows > 0,
                 animate: true,
                 handle: '.wc-widget-heading',
                 resizable: {handles: 'e, se, s, sw, w'},
                 alwaysShowResizeHandle: 'mobile',
                 staticGrid: this.tab.workspace.model.restricted
-            }, this.gridElement);
+            };
+            if (screenSize.rows > 0) {
+                gridOptions.row = screenSize.rows;
+            }
+
+            this.grid = window.GridStack.init(gridOptions, this.gridElement);
 
             // GridStack re-orders the item elements in the DOM after every
             // change (its internal _sortDom, meant to keep keyboard tab order in
@@ -735,6 +820,10 @@
                 this.gridElement.style.marginTop = marginValue;
             } else if (position === 'bottom') {
                 this.gridElement.style.marginBottom = marginValue;
+            }
+
+            if ((position === 'top' || position === 'bottom') && this.grid != null && this.activeScreenSize.rows > 0) {
+                this._applyGridGeometry(this.activeScreenSize);
             }
 
             if (this._dockPushTimeout) {
@@ -853,7 +942,7 @@
          * @returns {Number} `px` converted to grid rows (ceiled, minimum 1).
          */
         pixelsToRows(px) {
-            return Math.max(1, Math.ceil(px / this.cellheight));
+            return Math.max(1, Math.ceil(px / this.getCellHeight()));
         }
 
         /**
@@ -898,7 +987,7 @@
                 return Math.max(1, Math.round(n * screenSize.columns / 20));
             }
 
-            return Math.max(1, Math.round(n * 12 / this.cellheight));
+            return Math.max(1, Math.round(n * 12 / this.getCellHeight(screenSize)));
         }
 
         /**

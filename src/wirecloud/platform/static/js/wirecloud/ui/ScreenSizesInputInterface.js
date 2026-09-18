@@ -65,7 +65,8 @@
                 name: "Default-" + (maxId + 1),
                 moreOrEqual: (screenSizes.length > 0) ? screenSizes[screenSizes.length - 1].lessOrEqual + 1 : 0,
                 lessOrEqual: -1,
-                columns: 12
+                columns: 12,
+                rows: 0
             };
 
             this.highestIdUsed = newScreenSize.id;
@@ -124,6 +125,9 @@
             const ids = new Set();
             for (let i = 0; i < screenSizes.length; i++) {
                 if (!Number.isInteger(screenSizes[i].columns) || screenSizes[i].columns < 1) {
+                    return se.InputValidationError.SCREEN_SIZES_ERROR;
+                }
+                if (screenSizes[i].rows != null && (!Number.isInteger(screenSizes[i].rows) || screenSizes[i].rows < 0)) {
                     return se.InputValidationError.SCREEN_SIZES_ERROR;
                 }
                 if (ids.has(screenSizes[i].id)) {
@@ -301,6 +305,35 @@
                 columnsContainer.appendChild(columnsAddon);
                 columnsContainer.appendChild(columnsInput);
 
+                const rowsAddon = new se.Addon({
+                    text: utils.gettext('Rows:'),
+                    title: utils.gettext('Number of grid rows. Positive values fill the available height and preserve empty rows; use 0 for an unbounded, vertically compacted layout.')
+                });
+                rowsAddon.setDisabled(!this.enabledStatus);
+
+                const rowsVal = ('rows' in screenSize) ? screenSize.rows : 0;
+                const rowsInput = new se.NumericField({
+                    name: 'rows',
+                    initialValue: rowsVal,
+                    min: 0,
+                    max: 100,
+                    inc: 1
+                });
+
+                if (rowsVal !== screenSize.rows) {
+                    this.on_valueChange(screenSize.id, 'rows', rowsVal);
+                    screenSize.rows = rowsVal;
+                }
+
+                rowsInput.setDisabled(!this.enabledStatus);
+                rowsInput.addEventListener('change', () => {
+                    this.on_valueChange(screenSize.id, 'rows', rowsInput.getValue());
+                });
+
+                const rowsContainer = new se.Container({class: 'se-input-group se-screen-size-rows'});
+                rowsContainer.appendChild(rowsAddon);
+                rowsContainer.appendChild(rowsInput);
+
                 const deleteButton = new se.Button({
                     class: 'btn-danger',
                     iconClass: 'fas fa-trash'
@@ -329,6 +362,7 @@
                 screenSizeContainer.appendChild(fromContainer);
                 screenSizeContainer.appendChild(toContainer);
                 screenSizeContainer.appendChild(columnsContainer);
+                screenSizeContainer.appendChild(rowsContainer);
                 screenSizeContainer.appendChild(buttonContainer);
 
                 this.screenSizesInputs[screenSize.id] = screenSizeContainer;

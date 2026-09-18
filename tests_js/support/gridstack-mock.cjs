@@ -27,6 +27,8 @@ const installGridStackMock = () => {
             this.margin_ = typeof options.margin === 'number' ? options.margin : 5;
             this.engine = {
                 nodes: [],
+                maxRow: options.row || options.maxRow || 0,
+                float: !!options.float,
                 nodeBoundFix: (node, resizing) => this.engine,
                 moveNode: (node, o) => true,
                 moveNodeCheck: (node, o) => true,
@@ -131,6 +133,25 @@ const installGridStackMock = () => {
             return this;
         }
 
+        updateOptions(options) {
+            this._record('updateOptions', [options]);
+            if (options.cellHeight != null) {
+                this.cellHeight(options.cellHeight);
+            }
+            if (options.row !== undefined) {
+                this.opts.row = options.row;
+                this.opts.minRow = options.row;
+                this.opts.maxRow = options.row;
+                this.engine.maxRow = options.row;
+            }
+            if (options.float !== undefined) {
+                this.opts.float = options.float;
+                this.engine.float = options.float;
+            }
+            Object.assign(this.opts, options);
+            return this;
+        }
+
         getMargin() {
             return this.margin_;
         }
@@ -140,8 +161,12 @@ const installGridStackMock = () => {
             if (flag) {
                 this.batching = true;
                 this.dirty = [];
+                this.engine._prevFloat = this.engine.float;
+                this.engine.float = true;
             } else {
                 this.batching = false;
+                this.engine.float = this.engine._prevFloat;
+                delete this.engine._prevFloat;
                 const nodes = this.dirty;
                 this.dirty = [];
                 if (nodes.length > 0) {
