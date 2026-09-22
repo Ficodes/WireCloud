@@ -121,10 +121,37 @@
     height: var(--wc-dock-height) !important;
 }
 
+// Keep the dock's GridStack gutter on the inner edge of left/top widgets.
+// For right/bottom widgets, move the item through that gutter so the visible
+// panel reaches the outer workspace edge.
+.wc-docked-left:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    left: calc(var(--wc-dock-left) - var(--wc-dock-margin-left, 0px)) !important;
+}
+
+.wc-docked-right:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    left: calc(var(--wc-dock-left) - var(--wc-dock-margin-right, 0px)) !important;
+}
+
+.wc-docked-top:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    top: calc(var(--wc-dock-top) - var(--wc-dock-margin-top, 0px)) !important;
+}
+
+.wc-docked-bottom:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    position: fixed !important;
+    top: auto !important;
+    bottom: var(--wc-dock-bottom, 0px) !important;
+}
+
 .wc-docked-widget {
     &.wc-dock-widget-overlay {
         z-index: 105;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+
+        // GridStack's item wrapper includes the configured margin, whereas
+        // the content is the visible widget panel. Shadow the panel so the
+        // gutter does not become part of the shadow's box.
+        & > .grid-stack-item-content {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+        }
     }
 
     &.wc-dock-widget-push {
@@ -312,6 +339,25 @@
         padding-bottom: 2px;
         padding-top: 2px;
     }
+}
+
+// Once the widget is expanded, align the handle with the visible
+// GridStack content (which is inset by its item margin). A retracted widget
+// keeps the handle at the item's outer edge so it remains fully visible.
+.wc-docked-left.wc-dock-widget-open .wc-sidebar-left-handle {
+    left: calc(100% - var(--wc-dock-margin-right, 0px));
+}
+
+.wc-docked-right.wc-dock-widget-open .wc-sidebar-right-handle {
+    right: calc(100% - var(--wc-dock-margin-left, 0px));
+}
+
+.wc-docked-top.wc-dock-widget-open .wc-sidebar-top-handle {
+    top: calc(100% - var(--wc-dock-margin-bottom, 0px));
+}
+
+.wc-docked-bottom.wc-dock-widget-open .wc-sidebar-bottom-handle {
+    bottom: calc(100% - var(--wc-dock-margin-top, 0px));
 }
 
 .wc-editing-screen-size {

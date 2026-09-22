@@ -262,6 +262,9 @@
             if (this.grid != null) {
                 this.grid.margin(this.margin);
             }
+            if (this.docks) {
+                Object.values(this.docks).forEach((dock) => dock.setMargin(this.margin));
+            }
         }
 
         if ('screenSizes' in modifiedValues) {
@@ -817,6 +820,9 @@
         }
 
         setDockPushMargin(position, px) {
+            if (position === 'bottom') {
+                px = 0;
+            }
             if (!this._dockMargins) {
                 this._dockMargins = { top: 0, bottom: 0, left: 0, right: 0 };
             }
@@ -879,6 +885,9 @@
         }
 
         dockWidget(view, position, mode = 'overlay', persist = true) {
+            if (position === 'bottom') {
+                mode = 'overlay';
+            }
             const activeId = String(this.activeScreenSize.id);
             const current = this.resolveLayout(view.model, this.activeScreenSize);
             const updated = Object.assign({}, current, {

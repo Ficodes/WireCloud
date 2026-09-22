@@ -151,32 +151,34 @@
                     dockOptions.forEach((opt) => {
                         if (opt.id !== currentDock) {
                             moveDockSubmenu.append(new se.MenuItem(opt.label, () => {
-                                this.widget.dockTo(opt.id, currentMode, true);
+                                this.widget.dockTo(opt.id, opt.id === 'bottom' ? 'overlay' : currentMode, true);
                             }, {iconClass: opt.icon}));
                         }
                     });
                     items.push(moveDockSubmenu);
 
-                    const modeSubmenu = new se.SubMenuItem(utils.gettext("Sidebar display mode"), {iconClass: 'fas fa-sliders-h'});
-                    modeSubmenu.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
+                    if (currentDock !== 'bottom') {
+                        const modeSubmenu = new se.SubMenuItem(utils.gettext("Sidebar display mode"), {iconClass: 'fas fa-sliders-h'});
+                        modeSubmenu.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
 
-                    const overlayItem = new se.MenuItem(utils.gettext("Show on top of content (overlay)"), () => {
-                        this.widget.setDockMode('overlay', true);
-                    });
-                    if (currentMode === 'overlay') {
-                        overlayItem.addIconClass("fas fa-check");
+                        const overlayItem = new se.MenuItem(utils.gettext("Show on top of content (overlay)"), () => {
+                            this.widget.setDockMode('overlay', true);
+                        });
+                        if (currentMode === 'overlay') {
+                            overlayItem.addIconClass("fas fa-check");
+                        }
+                        modeSubmenu.append(overlayItem);
+
+                        const pushItem = new se.MenuItem(utils.gettext("Push main content"), () => {
+                            this.widget.setDockMode('push', true);
+                        });
+                        if (currentMode === 'push') {
+                            pushItem.addIconClass("fas fa-check");
+                        }
+                        modeSubmenu.append(pushItem);
+
+                        items.push(modeSubmenu);
                     }
-                    modeSubmenu.append(overlayItem);
-
-                    const pushItem = new se.MenuItem(utils.gettext("Push main content"), () => {
-                        this.widget.setDockMode('push', true);
-                    });
-                    if (currentMode === 'push') {
-                        pushItem.addIconClass("fas fa-check");
-                    }
-                    modeSubmenu.append(pushItem);
-
-                    items.push(modeSubmenu);
                 } else {
                     const dockSubmenu = new se.SubMenuItem(utils.gettext("Dock to sidebar"), {iconClass: 'fas fa-columns'});
                     dockSubmenu.setDisabled(!this.widget.model.isAllowed('move', 'editor'));

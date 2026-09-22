@@ -1465,8 +1465,13 @@ test('post-commit cellheight change before paint() only updates the local value'
     assert.equal(dragboard.grid, null);
 });
 
-test('post-commit margin change updates dragboard.margin and calls grid.margin', () => {
+test('post-commit margin change updates the main grid and painted dock grids', () => {
     const {dragboard, tab} = paintedDragboard({preferenceValues: {margin: 5}});
+    const view = createWidgetView(createWidgetModel({
+        id: 'docked',
+        layouts: {'2': {x: 0, y: 0, w: 4, h: 4, dock: 'left'}}
+    }), {tab});
+    dragboard.addWidget(view);
 
     tab.model.preferences._values.margin = 20;
     tab.model.preferences._trigger('post-commit', {margin: 20});
@@ -1474,6 +1479,9 @@ test('post-commit margin change updates dragboard.margin and calls grid.margin',
     assert.equal(dragboard.margin, 20);
     const call = dragboard.grid.calls.find((c) => c.name === 'margin' && c.args[0] === 20);
     assert.ok(call != null);
+    const dockCall = dragboard.leftDock.grid.calls.find((c) => c.name === 'margin' && c.args[0] === 20);
+    assert.ok(dockCall != null);
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-margin-left'), '20px');
 });
 
 test('post-commit with unrelated keys does not touch cellheight/margin/screenSizes handling', () => {
@@ -2006,8 +2014,8 @@ test('setDockPushMargin sets explicit pixel margins and repaints views after tra
     assert.equal(dragboard._dockMargins.top, 150);
 
     dragboard.setDockPushMargin('bottom', 100);
-    assert.equal(dragboard.gridElement.style.marginBottom, '100px');
-    assert.equal(dragboard._dockMargins.bottom, 100);
+    assert.equal(dragboard.gridElement.style.marginBottom, '');
+    assert.equal(dragboard._dockMargins.bottom, 0, 'bottom docks are overlay-only');
 
     dragboard.setDockPushMargin('left', 0);
     assert.equal(dragboard.gridElement.style.marginLeft, '');

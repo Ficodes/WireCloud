@@ -174,7 +174,7 @@
         }
 
         setWidgetMode(view, mode, persist = true) {
-            if (mode !== "overlay" && mode !== "push") {
+            if (this.position === "bottom" || (mode !== "overlay" && mode !== "push")) {
                 mode = "overlay";
             }
 
@@ -196,6 +196,14 @@
         }
 
         updatePushMargins() {
+            // A bottom dock is fixed to the visible workspace edge. Pushing
+            // the main grid from there would both shrink the content and
+            // create vertical scroll overflow, so it is always overlay-only.
+            if (this.position === "bottom") {
+                this.dragboard.setDockPushMargin(this.position, 0);
+                return;
+            }
+
             if (this.views.length === 0) {
                 this.dragboard.setDockPushMargin(this.position, 0);
                 return;
@@ -494,7 +502,12 @@
             view.applyLayout(layout);
 
             const isOpen = this.isWidgetOpen(view);
-            const mode = (layout && layout.dock_mode) ? layout.dock_mode : "overlay";
+            const mode = this.position === "bottom"
+                ? "overlay"
+                : ((layout && layout.dock_mode) ? layout.dock_mode : "overlay");
+            if (view.layout != null) {
+                view.layout.dock_mode = mode;
+            }
             view.wrapperElement.classList.toggle("wc-dock-widget-open", isOpen);
             view.wrapperElement.classList.toggle("wc-dock-widget-closed", !isOpen);
             view.wrapperElement.classList.toggle("wc-dock-widget-push", mode === "push");
@@ -557,14 +570,44 @@
             const margins = this.dragboard._dockMargins || {top: 0, right: 0, bottom: 0, left: 0};
             const width = this.dragboard.tab.wrapperElement.clientWidth ||
                 this.dragboard.tab.wrapperElement.offsetWidth || window.innerWidth;
+            const height = this.dragboard.tab.wrapperElement.clientHeight ||
+                this.dragboard.tab.wrapperElement.offsetHeight || window.innerHeight;
+            const workspaceRect = this.dragboard.tab.wrapperElement.getBoundingClientRect();
             const columnWidth = width / this.grid.getColumn();
             const cellHeight = this.grid.getCellHeight(true);
             const style = view.wrapperElement.style;
+            const uniformMargin = this.grid.getMargin();
+            const marginUnit = this.grid.opts.marginUnit || "px";
+            const cssMargin = (side) => {
+                const value = this.grid.opts["margin" + side] ?? uniformMargin ?? 0;
+                return (typeof value === "number") ? value + marginUnit : value;
+            };
 
-            style.setProperty("--wc-dock-left", (node.x * columnWidth - margins.left) + "px");
-            style.setProperty("--wc-dock-top", (node.y * cellHeight - margins.top) + "px");
+            const fixedOffsetLeft = this.position === "bottom" ? workspaceRect.left : 0;
+            style.setProperty("--wc-dock-left", (fixedOffsetLeft + node.x * columnWidth - margins.left) + "px");
+            const top = this.position === "bottom"
+                ? workspaceRect.top + height - node.h * cellHeight
+                : node.y * cellHeight - margins.top;
+            style.setProperty("--wc-dock-top", Math.max(-margins.top, top) + "px");
+            if (this.position === "bottom") {
+                // Bottom docks use fixed positioning so scrolling the main
+                // grid cannot move them. Keep them above the workspace tab
+                // bar when it is visible, or at the viewport edge otherwise.
+                const visibleBottom = Math.min(window.innerHeight, workspaceRect.bottom);
+                style.setProperty("--wc-dock-bottom", (window.innerHeight - visibleBottom) + "px");
+            } else {
+                style.removeProperty("--wc-dock-bottom");
+            }
             style.setProperty("--wc-dock-width", (node.w * columnWidth) + "px");
             style.setProperty("--wc-dock-height", (node.h * cellHeight) + "px");
+            // Dock nodes deliberately live under the main grid element to
+            // preserve iframe/custom-element state. Copy the owning dock
+            // grid's margins onto the node instead of inheriting the main
+            // grid's --gs-item-margin-* custom properties.
+            style.setProperty("--wc-dock-margin-top", cssMargin("Top"));
+            style.setProperty("--wc-dock-margin-right", cssMargin("Right"));
+            style.setProperty("--wc-dock-margin-bottom", cssMargin("Bottom"));
+            style.setProperty("--wc-dock-margin-left", cssMargin("Left"));
         }
 
         updateWidgetPositions() {
@@ -613,8 +656,13 @@
 
             view.wrapperElement.style.removeProperty("--wc-dock-left");
             view.wrapperElement.style.removeProperty("--wc-dock-top");
+            view.wrapperElement.style.removeProperty("--wc-dock-bottom");
             view.wrapperElement.style.removeProperty("--wc-dock-width");
             view.wrapperElement.style.removeProperty("--wc-dock-height");
+            view.wrapperElement.style.removeProperty("--wc-dock-margin-top");
+            view.wrapperElement.style.removeProperty("--wc-dock-margin-right");
+            view.wrapperElement.style.removeProperty("--wc-dock-margin-bottom");
+            view.wrapperElement.style.removeProperty("--wc-dock-margin-left");
 
             if (this.views.length === 0) {
                 this.container.classList.add("hidden");
@@ -632,6 +680,15 @@
             this.syncPositions();
             this.updateWidgetPositions();
             this.updatePushMargins();
+        }
+
+        setMargin(margin) {
+            if (this.grid == null) {
+                return;
+            }
+
+            this.grid.margin(margin);
+            this.updateWidgetPositions();
         }
 
         updatePermissions() {

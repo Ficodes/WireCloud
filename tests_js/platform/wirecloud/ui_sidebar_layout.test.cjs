@@ -393,6 +393,27 @@ test('Multiple push widgets on the same side use the maximum width for margin', 
     assert.equal(dragboard.gridElement.style.marginLeft, '300px');
 });
 
+test('Bottom dock is overlay-only and never pushes the main content', () => {
+    const tab = createTabMock();
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+
+    const view = createWidgetViewMock('bottom', {
+        dock: 'bottom', dock_mode: 'push', dock_open: true, w: 4, h: 4
+    });
+    dragboard.addWidget(view);
+
+    assert.equal(view.layout.dock_mode, 'overlay');
+    assert.equal(view.wrapperElement.classList.contains('wc-dock-widget-overlay'), true);
+    assert.equal(view.wrapperElement.classList.contains('wc-dock-widget-push'), false);
+    assert.equal(dragboard.gridElement.style.marginBottom, '');
+
+    dragboard.bottomDock.setWidgetMode(view, 'push', false);
+
+    assert.equal(view.layout.dock_mode, 'overlay');
+    assert.equal(dragboard.gridElement.style.marginBottom, '');
+});
+
 test('Dragboard dockWidget and undockWidget transition widget between main grid and dock', () => {
     const tab = createTabMock();
     const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
@@ -415,6 +436,20 @@ test('Dragboard dockWidget and undockWidget transition widget between main grid 
     assert.ok(dragboard.gridElement.childNodes.includes(view.wrapperElement));
 });
 
+test('Dragboard normalizes a bottom push request to overlay', () => {
+    const tab = createTabMock();
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+
+    const view = createWidgetViewMock('w1', {dock: null, w: 4, h: 4});
+    dragboard.addWidget(view);
+    dragboard.dockWidget(view, 'bottom', 'push', false);
+
+    assert.equal(view.layout.dock, 'bottom');
+    assert.equal(view.layout.dock_mode, 'overlay');
+    assert.equal(dragboard.gridElement.style.marginBottom, '');
+});
+
 test('Dock transitions keep live iframe content under one stable DOM parent', () => {
     const tab = createTabMock();
     const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
@@ -434,6 +469,7 @@ test('Dock transitions keep live iframe content under one stable DOM parent', ()
     assert.equal(view.wrapperElement.parentNode, wrapperParent);
     assert.equal(iframe.parentNode, iframeParent);
     assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-width'), '400px');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-margin-left'), '5px');
 
     dragboard.undockWidget(view, false);
 
@@ -442,6 +478,22 @@ test('Dock transitions keep live iframe content under one stable DOM parent', ()
     assert.equal(iframe.runtimeState.value, 'still-running');
     assert.equal(iframe.getAttribute('src'), null);
     assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-width'), '');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-margin-left'), '');
+});
+
+test('Docked widgets use their dock grid margin instead of inheriting the main grid margin', () => {
+    const tab = createTabMock();
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+
+    const view = createWidgetViewMock('w1', {dock: 'left', w: 4, h: 4});
+    dragboard.addWidget(view);
+    dragboard.leftDock.setMargin(17);
+
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-margin-top'), '17px');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-margin-right'), '17px');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-margin-bottom'), '17px');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-margin-left'), '17px');
 });
 
 test('Docked widgets follow window width changes inside the same breakpoint', () => {
@@ -461,6 +513,63 @@ test('Docked widgets follow window width changes inside the same breakpoint', ()
     assert.equal(dragboard.activeScreenSize.id, 2);
     assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-left'), '960px');
     assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-width'), '480px');
+});
+
+test('Top and bottom docked widgets are anchored to their respective workspace edges', () => {
+    const tab = createTabMock();
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+
+    const topView = createWidgetViewMock('top', {dock: 'top', w: 4, h: 4});
+    const bottomView = createWidgetViewMock('bottom', {dock: 'bottom', w: 4, h: 4});
+    dragboard.addWidget(topView);
+    dragboard.addWidget(bottomView);
+
+    assert.equal(topView.wrapperElement.style.getPropertyValue('--wc-dock-top'), '0px');
+    assert.equal(bottomView.wrapperElement.style.getPropertyValue('--wc-dock-top'), '640px');
+    assert.equal(bottomView.wrapperElement.style.getPropertyValue('--wc-dock-height'), '160px');
+});
+
+test('Bottom docked widgets follow workspace height changes', () => {
+    const tab = createTabMock();
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+
+    const view = createWidgetViewMock('bottom', {dock: 'bottom', w: 4, h: 4});
+    dragboard.addWidget(view);
+
+    tab.wrapperElement.offsetHeight = 1000;
+    dragboard._on_resize();
+
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-top'), '840px');
+});
+
+test('Bottom docked widgets use fixed viewport-relative coordinates', () => {
+    const tab = createTabMock();
+    tab.wrapperElement.getBoundingClientRect = () => ({left: 100, top: 50, right: 1300, bottom: 850});
+    window.innerHeight = 900;
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+
+    const view = createWidgetViewMock('bottom', {dock: 'bottom', x: 0, w: 4, h: 4});
+    dragboard.addWidget(view);
+
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-left'), '100px');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-top'), '690px');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-bottom'), '50px');
+});
+
+test('Bottom docked widgets stop at the viewport edge when the workspace extends below it', () => {
+    const tab = createTabMock();
+    tab.wrapperElement.getBoundingClientRect = () => ({left: 0, top: 50, right: 1200, bottom: 1050});
+    window.innerHeight = 900;
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+
+    const view = createWidgetViewMock('bottom', {dock: 'bottom', x: 0, w: 4, h: 4});
+    dragboard.addWidget(view);
+
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-bottom'), '0px');
 });
 
 test('Dock drag and resize coordinates are translated from the stable parent', () => {
@@ -557,6 +666,28 @@ test('WidgetViewMenuItems: docked widget provides Snap to grid, Move to sidebar,
 
     modeSubmenu.children[1].run();
     assert.deepEqual(newMode, {mode: 'push', persist: true});
+});
+
+test('WidgetViewMenuItems: bottom dock omits display mode and moving there forces overlay', () => {
+    const tab = createTabMock();
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+
+    const bottomView = createWidgetViewMock('bottom', {dock: 'bottom', dock_mode: 'overlay'});
+    bottomView.tab = tab;
+    tab.dragboard = dragboard;
+    let menu = new Wirecloud.ui.WidgetViewMenuItems(bottomView).build();
+    assert.equal(menu.some((item) => item.label === 'Sidebar display mode'), false);
+
+    let dockedTo = null;
+    const leftView = createWidgetViewMock('left', {dock: 'left', dock_mode: 'push'});
+    leftView.tab = tab;
+    leftView.dockTo = (position, mode, persist) => { dockedTo = {position, mode, persist}; };
+    menu = new Wirecloud.ui.WidgetViewMenuItems(leftView).build();
+    const moveDockSubmenu = menu.find((item) => item.label === 'Move to sidebar');
+    moveDockSubmenu.children.find((item) => item.label === 'Bottom sidebar').run();
+
+    assert.deepEqual(dockedTo, {position: 'bottom', mode: 'overlay', persist: true});
 });
 
 test('SidebarLayout sets gs-resize-handles attribute and engine constraints lock coordinates', () => {
