@@ -217,6 +217,7 @@ test('SidebarLayout addWidget attaches widget and toggle handle with caret icon'
     assert.equal(view.wrapperElement.classList.contains('wc-docked-widget'), true);
     assert.equal(view.wrapperElement.classList.contains('wc-docked-left'), true);
     assert.equal(view.wrapperElement.classList.contains('wc-dock-widget-open'), true);
+    assert.equal(view.wrapperElement.parentNode, dragboard.gridElement);
 
     const handle = dragboard.leftDock.getHandle(view);
     assert.ok(handle != null);
@@ -406,12 +407,93 @@ test('Dragboard dockWidget and undockWidget transition widget between main grid 
     // Dock to left
     dragboard.dockWidget(view, 'left', 'overlay', false);
     assert.ok(dragboard.leftDock.views.includes(view));
-    assert.equal(view.wrapperElement.parentNode, dragboard.leftDock.gridElement);
+    assert.equal(view.wrapperElement.parentNode, dragboard.gridElement);
 
     // Undock back to main grid
     dragboard.undockWidget(view, false);
     assert.equal(dragboard.leftDock.views.includes(view), false);
     assert.ok(dragboard.gridElement.childNodes.includes(view.wrapperElement));
+});
+
+test('Dock transitions keep live iframe content under one stable DOM parent', () => {
+    const tab = createTabMock();
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+
+    const view = createWidgetViewMock('w1', {dock: null, w: 4, h: 4});
+    const iframe = document.createElement('iframe');
+    iframe.runtimeState = {value: 'still-running'};
+    view.model.wrapperElement = iframe;
+    view.wrapperElement.appendChild(iframe);
+    dragboard.addWidget(view);
+
+    const wrapperParent = view.wrapperElement.parentNode;
+    const iframeParent = iframe.parentNode;
+
+    dragboard.dockWidget(view, 'left', 'overlay', false);
+    assert.equal(view.wrapperElement.parentNode, wrapperParent);
+    assert.equal(iframe.parentNode, iframeParent);
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-width'), '400px');
+
+    dragboard.undockWidget(view, false);
+
+    assert.equal(view.wrapperElement.parentNode, wrapperParent);
+    assert.equal(iframe.parentNode, view.wrapperElement);
+    assert.equal(iframe.runtimeState.value, 'still-running');
+    assert.equal(iframe.getAttribute('src'), null);
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-width'), '');
+});
+
+test('Docked widgets follow window width changes inside the same breakpoint', () => {
+    const tab = createTabMock();
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+
+    const view = createWidgetViewMock('w1', {dock: 'right', w: 4, h: 4});
+    dragboard.addWidget(view);
+
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-left'), '800px');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-width'), '400px');
+
+    tab.wrapperElement.offsetWidth = 1440;
+    dragboard._on_resize();
+
+    assert.equal(dragboard.activeScreenSize.id, 2);
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-left'), '960px');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-dock-width'), '480px');
+});
+
+test('Dock drag and resize coordinates are translated from the stable parent', () => {
+    const tab = createTabMock();
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+
+    const view = createWidgetViewMock('w1', {dock: 'left', w: 4, h: 4});
+    dragboard.addWidget(view);
+    const dock = dragboard.leftDock;
+
+    dragboard.gridElement.getBoundingClientRect = () => ({left: 300, right: 1500, top: 100, bottom: 900});
+    dock.gridElement.getBoundingClientRect = () => ({left: 0, right: 1200, top: 0, bottom: 800});
+
+    dock.grid._onStartMoving(
+        view.wrapperElement,
+        {type: 'dragstart'},
+        {position: {left: -300, top: -100}},
+        view.wrapperElement.gridstackNode,
+        100,
+        40
+    );
+    assert.deepEqual(dock.grid.lastStartMovingArgs[2].position, {left: 0, top: 0});
+
+    dock.grid._dragOrResize(
+        view.wrapperElement,
+        {type: 'drag'},
+        {position: {left: -200, top: -20}},
+        view.wrapperElement.gridstackNode,
+        100,
+        40
+    );
+    assert.deepEqual(dock.grid.lastDragOrResizeArgs[2].position, {left: 100, top: 80});
 });
 
 test('WidgetViewMenuItems: undocked widget provides Dock to sidebar submenu', () => {
@@ -553,4 +635,3 @@ test('SidebarLayout drag and resize events toggle wc-dock-interacting and sync l
     assert.equal(view.layout.y, 6, 'view layout synced from node y');
     assert.equal(persistCalled, true, 'dragboard.persist was triggered');
 });
-

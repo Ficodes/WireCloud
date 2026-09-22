@@ -81,7 +81,19 @@ class FakeElement extends FakeNode {
         this.parentElement = null;
         this.childNodes = [];
         this.attributes = {};
-        this.style = {};
+        this.style = {
+            setProperty(name, value) {
+                this[name] = String(value);
+            },
+            getPropertyValue(name) {
+                return this[name] || '';
+            },
+            removeProperty(name) {
+                const previous = this[name] || '';
+                delete this[name];
+                return previous;
+            }
+        };
         this.dataset = {};
         this.listeners = {};
         this.scrollLeft = 0;

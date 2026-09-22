@@ -305,6 +305,23 @@
 
             this.grid._sortDom = () => this.grid;
 
+            // Docked widgets remain children of the main grid to keep their
+            // live content connected. GridStack's drag/resize adapters report
+            // positions relative to that DOM parent, so translate them into
+            // this dock grid's coordinate system before its engine uses them.
+            if (typeof this.grid._onStartMoving === "function") {
+                const originalOnStartMoving = this.grid._onStartMoving.bind(this.grid);
+                this.grid._onStartMoving = (element, event, ui, ...args) => {
+                    return originalOnStartMoving(element, event, this._toDockCoordinates(element, event, ui), ...args);
+                };
+            }
+            if (typeof this.grid._dragOrResize === "function") {
+                const originalDragOrResize = this.grid._dragOrResize.bind(this.grid);
+                this.grid._dragOrResize = (element, event, ui, ...args) => {
+                    return originalDragOrResize(element, event, this._toDockCoordinates(element, event, ui), ...args);
+                };
+            }
+
             if (this.grid.engine) {
                 const engine = this.grid.engine;
                 if (typeof engine.nodeBoundFix === "function") {
@@ -337,8 +354,15 @@
 
             this.grid.on("change", () => {
                 this.syncPositions();
+                this.updateWidgetPositions();
                 this.dragboard._on_dock_change(this);
                 this.updatePushMargins();
+            });
+            this.grid.on("drag resize", (event, element) => {
+                const view = this.views.find((candidate) => candidate.wrapperElement === element);
+                if (view != null) {
+                    this.updateWidgetPosition(view);
+                }
             });
             this.grid.on("dragstart", () => {
                 this.container.classList.add("wc-dock-interacting");
@@ -353,6 +377,7 @@
                 this.dragboard._on_interaction_end();
                 this.syncPositions();
                 this.views.forEach((v) => v.syncLayoutFromNode());
+                this.updateWidgetPositions();
                 this.updatePushMargins();
                 if (this.dragboard.tab.workspace.editing) {
                     this.dragboard.persist();
@@ -363,10 +388,34 @@
                 this.dragboard._on_interaction_end();
                 this.syncPositions();
                 this.views.forEach((v) => v.syncLayoutFromNode());
+                this.updateWidgetPositions();
                 this.updatePushMargins();
                 if (this.dragboard.tab.workspace.editing) {
                     this.dragboard.persist();
                 }
+            });
+        }
+
+        _toDockCoordinates(element, event, ui) {
+            if (ui == null || ui.position == null || element.parentElement == null) {
+                return ui;
+            }
+
+            const parentRect = element.parentElement.getBoundingClientRect();
+            const dockRect = this.gridElement.getBoundingClientRect();
+            const resizing = event && event.type && event.type.indexOf("resize") === 0;
+            const transform = resizing ? element.ddElement?.ddResizable?.rectScale :
+                element.ddElement?.ddDraggable?.dragTransform;
+            const xScale = transform?.xScale ?? transform?.x ?? 1;
+            const yScale = transform?.yScale ?? transform?.y ?? 1;
+            const rtl = this.grid && this.grid.opts.rtl === true;
+            const xOffset = rtl ? dockRect.right - parentRect.right : parentRect.left - dockRect.left;
+
+            return Object.assign({}, ui, {
+                position: Object.assign({}, ui.position, {
+                    left: ui.position.left + xOffset * xScale,
+                    top: ui.position.top + (parentRect.top - dockRect.top) * yScale
+                })
             });
         }
 
@@ -416,15 +465,19 @@
                 this.views.push(view);
             }
 
+            // The main dragboard is the permanent DOM parent for live widget
+            // content. GridStack can manage an element owned by another
+            // container, which lets docking change layout ownership without
+            // disconnecting iframes or custom elements from the document.
+            if (view.wrapperElement.parentNode == null) {
+                this.dragboard.gridElement.appendChild(view.wrapperElement);
+            }
+
             if (this.dragboard.painted && !this.painted) {
                 this._initGrid();
             }
 
             this.container.classList.remove("hidden");
-
-            if (view.wrapperElement.parentNode !== this.gridElement) {
-                this.gridElement.appendChild(view.wrapperElement);
-            }
 
             view.wrapperElement.classList.add("wc-docked-widget", "wc-docked-" + this.position);
 
@@ -491,7 +544,31 @@
             }
 
             this.syncPositions();
+            this.updateWidgetPosition(view);
             this.updatePushMargins();
+        }
+
+        updateWidgetPosition(view) {
+            const node = view.wrapperElement.gridstackNode;
+            if (node == null || node.grid !== this.grid) {
+                return;
+            }
+
+            const margins = this.dragboard._dockMargins || {top: 0, right: 0, bottom: 0, left: 0};
+            const width = this.dragboard.tab.wrapperElement.clientWidth ||
+                this.dragboard.tab.wrapperElement.offsetWidth || window.innerWidth;
+            const columnWidth = width / this.grid.getColumn();
+            const cellHeight = this.grid.getCellHeight(true);
+            const style = view.wrapperElement.style;
+
+            style.setProperty("--wc-dock-left", (node.x * columnWidth - margins.left) + "px");
+            style.setProperty("--wc-dock-top", (node.y * cellHeight - margins.top) + "px");
+            style.setProperty("--wc-dock-width", (node.w * columnWidth) + "px");
+            style.setProperty("--wc-dock-height", (node.h * cellHeight) + "px");
+        }
+
+        updateWidgetPositions() {
+            this.views.forEach((view) => this.updateWidgetPosition(view));
         }
 
         removeWidget(view) {
@@ -512,9 +589,32 @@
                 "wc-dock-widget-open", "wc-dock-widget-closed", "wc-dock-widget-push", "wc-dock-widget-overlay"
             );
 
-            if (this.grid != null && view.wrapperElement.gridstackNode != null) {
-                this.grid.removeWidget(view.wrapperElement, false, false);
+            if (this.grid != null && view.wrapperElement.gridstackNode != null &&
+                    view.wrapperElement.gridstackNode.grid === this.grid) {
+                const element = view.wrapperElement;
+                const node = element.gridstackNode;
+
+                // GridStack's public removeWidget() ignores external items.
+                // Docked widgets deliberately remain children of the stable
+                // main grid, so remove the node directly from this dock engine.
+                if (element.parentNode === this.gridElement) {
+                    this.grid.removeWidget(element, false, false);
+                } else {
+                    if (typeof this.grid._removeDD === "function") {
+                        this.grid._removeDD(element);
+                    }
+                    delete element.gridstackNode;
+                    this.grid.engine.removeNode(node, false, false);
+                    if (typeof this.grid._updateContainerHeight === "function") {
+                        this.grid._updateContainerHeight();
+                    }
+                }
             }
+
+            view.wrapperElement.style.removeProperty("--wc-dock-left");
+            view.wrapperElement.style.removeProperty("--wc-dock-top");
+            view.wrapperElement.style.removeProperty("--wc-dock-width");
+            view.wrapperElement.style.removeProperty("--wc-dock-height");
 
             if (this.views.length === 0) {
                 this.container.classList.add("hidden");
@@ -530,6 +630,7 @@
 
             this.grid.column(screenSize.columns, "none");
             this.syncPositions();
+            this.updateWidgetPositions();
             this.updatePushMargins();
         }
 

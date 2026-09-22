@@ -114,13 +114,14 @@
     // GridStack (re)writes left/top/width/height on the item (either as
     // inline styles or as dynamically injected per-node rules when
     // `styleInHead` is used); beat those with !important so the widget
-    // always fills the tab regardless of its grid position/size.
+    // always fills the tab regardless of its grid position/size. Full
+    // dragboard is a background mode, so keep it below the other widgets.
     position: absolute !important;
     left: 0px !important;
     top: 0px !important;
     width: 100% !important;
     height: 100% !important;
-    z-index: 20 !important;
+    z-index: 0 !important;
 
     & > .grid-stack-item-content {
         @include z-depth(0);
@@ -144,6 +145,13 @@
 
     & > .grid-stack {
         position: static;
+
+        // Positioned GridStack items otherwise share the same stacking level
+        // as the full-dragboard widget, making their DOM order decide which
+        // one is visible. Keep every regular widget above the background.
+        & > .wc-widget:not(.wc-widget-fulldragboard):not(.wc-docked-widget):not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+            z-index: 1;
+        }
     }
 }
 
@@ -275,4 +283,3 @@
 .grid-stack.grid-stack-animate > .grid-stack-item.grid-stack-placeholder {
     transition: none !important;
 }
-

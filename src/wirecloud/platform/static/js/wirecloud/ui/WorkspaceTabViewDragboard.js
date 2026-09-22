@@ -156,7 +156,7 @@
         const el = view.wrapperElement;
 
         if (layout.dock && this.docks && this.docks[layout.dock]) {
-            if (el.gridstackNode != null && el.parentNode === this.gridElement) {
+            if (el.gridstackNode != null && el.gridstackNode.grid === this.grid) {
                 this.grid.removeWidget(el, false, false);
             }
             Object.keys(this.docks).forEach((pos) => {
@@ -176,12 +176,8 @@
             });
         }
 
-        if (el.parentNode !== this.gridElement) {
-            this.gridElement.appendChild(el);
-        }
-
         if (!layout.visible) {
-            if (el.gridstackNode != null) {
+            if (el.gridstackNode != null && el.gridstackNode.grid === this.grid) {
                 this.grid.removeWidget(el, false, false);
             }
             el.hidden = true;
@@ -235,13 +231,21 @@
             return;
         }
 
-        if (this.activeScreenSize.id !== this._lastAppliedScreenSizeId) {
+        const screenSize = this.activeScreenSize;
+        if (screenSize.id !== this._lastAppliedScreenSizeId) {
             this.applyScreenSize();
-        } else if (this.activeScreenSize.rows > 0) {
+        } else if (screenSize.rows > 0) {
             // A fixed-row grid has to react to height-only changes too. There
             // is no need to re-place the widgets when the breakpoint did not
             // change; updating the cell height is enough.
-            this._applyGridGeometry(this.activeScreenSize);
+            this._applyGridGeometry(screenSize);
+        }
+
+        // Dock widgets keep the main grid as their stable DOM parent, so their
+        // pixel geometry must follow every container resize, including width
+        // changes that stay inside the same responsive breakpoint.
+        if (this.docks) {
+            Object.values(this.docks).forEach((dock) => dock.updateWidgetPositions());
         }
     };
 
@@ -521,9 +525,8 @@
 
         /**
          * Registers a widget view with this dragboard. The view's wrapper
-         * element is appended to the grid container (if not already) and is
-         * never re-parented afterwards, except when the widget is moved to
-         * another tab.
+         * element is appended to the main grid once and keeps that DOM parent
+         * while dock and screen-size layouts change.
          *
          * @param {Wirecloud.ui.WidgetView} view
          */
@@ -534,8 +537,11 @@
 
             view.tab = this.tab;
 
-            const layout = this.resolveLayout(view.model, this.activeScreenSize);
-            if (!layout.dock && view.wrapperElement.parentNode !== this.gridElement) {
+            // Keep the live widget under one stable DOM parent for its entire
+            // lifetime. Dock GridStacks manage the same element as an external
+            // item, so changing layouts never reparents its iframe/custom
+            // element and therefore cannot reset widget state.
+            if (view.wrapperElement.parentNode !== this.gridElement) {
                 this.gridElement.appendChild(view.wrapperElement);
             }
 
@@ -587,8 +593,11 @@
                 });
             }
 
-            if (this.grid != null && view.wrapperElement.gridstackNode != null) {
+            if (this.grid != null && view.wrapperElement.gridstackNode != null &&
+                    view.wrapperElement.gridstackNode.grid === this.grid) {
                 this.grid.removeWidget(view.wrapperElement, true, false);
+            } else if (view.wrapperElement.parentNode != null) {
+                view.wrapperElement.remove();
             }
         }
 
@@ -699,7 +708,8 @@
                     // before (making a window narrower and then wider again did
                     // not give back the original layout).
                     this.views.forEach((view) => {
-                        if (view.wrapperElement.gridstackNode != null && view.wrapperElement.parentNode === this.gridElement) {
+                        if (view.wrapperElement.gridstackNode != null &&
+                                view.wrapperElement.gridstackNode.grid === this.grid) {
                             this.grid.removeWidget(view.wrapperElement, false, false);
                         }
                     });
@@ -824,6 +834,10 @@
 
             if ((position === 'top' || position === 'bottom') && this.grid != null && this.activeScreenSize.rows > 0) {
                 this._applyGridGeometry(this.activeScreenSize);
+            }
+
+            if (this.docks) {
+                Object.values(this.docks).forEach((dock) => dock.updateWidgetPositions());
             }
 
             if (this._dockPushTimeout) {

@@ -43,6 +43,16 @@
             this._unload();
         }
 
+        /**
+         * Opts this custom element into state-preserving DOM moves. Without
+         * this callback, browsers invoke disconnectedCallback() followed by
+         * connectedCallback() even when an ancestor is moved atomically with
+         * moveBefore(). disconnectedCallback() unloads the widget and clears
+         * its shadow root, so changing between dock and grid layouts would
+         * otherwise leave version 2 widgets blank.
+         */
+        connectedMoveCallback() {}
+
         load(codeurl, baseurl) {
             if (!this.hasShadowDOM) {
                 throw new Error('Cannot load widget: widget is not attached to the DOM');

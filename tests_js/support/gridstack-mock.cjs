@@ -32,6 +32,10 @@ const installGridStackMock = () => {
                 nodeBoundFix: (node, resizing) => this.engine,
                 moveNode: (node, o) => true,
                 moveNodeCheck: (node, o) => true,
+                removeNode: (node) => {
+                    this.engine.nodes = this.engine.nodes.filter((candidate) => candidate !== node);
+                    return this.engine;
+                },
             };
             this.listeners = {};
             this.calls = [];
@@ -57,6 +61,7 @@ const installGridStackMock = () => {
             }
             const node = Object.assign({id: el.getAttribute && el.getAttribute('gs-id'), w: 1, h: 1, noMove: false, noResize: false}, opts || {});
             node.el = el;
+            node.grid = this;
             if (node.x == null || node.y == null || node.autoPosition) {
                 node.autoPosition = true;
                 this._autoPosition(node);
@@ -193,6 +198,18 @@ const installGridStackMock = () => {
 
         getGridItems() {
             return this.engine.nodes.map((node) => node.el);
+        }
+
+        _onStartMoving(...args) {
+            this._record('_onStartMoving', args);
+            this.lastStartMovingArgs = args;
+            return this;
+        }
+
+        _dragOrResize(...args) {
+            this._record('_dragOrResize', args);
+            this.lastDragOrResizeArgs = args;
+            return this;
         }
 
         setStatic(value) {
