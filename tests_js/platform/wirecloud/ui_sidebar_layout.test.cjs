@@ -740,6 +740,36 @@ test('SidebarLayout sets gs-resize-handles attribute and engine constraints lock
     assert.equal(viewLeft.wrapperElement.getAttribute('gs-resize-handles'), null);
 });
 
+test('Bottom dock allows its north handle to resize through the visible workspace height', () => {
+    const tab = createTabMock();
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+
+    const view = createWidgetViewMock('bottom', {dock: 'bottom', w: 4, h: 4});
+    dragboard.dockWidget(view, 'bottom', 'overlay', false);
+
+    let resizeOptions = null;
+    view.wrapperElement.ddElement = {
+        ddResizable: {
+            rectScale: {xScale: 1, yScale: 1},
+            updateOption(options) {
+                resizeOptions = options;
+            }
+        }
+    };
+
+    dragboard.bottomDock.grid._onStartMoving(
+        view.wrapperElement,
+        {type: 'resizestart'},
+        {position: {left: 0, top: 0}},
+        view.wrapperElement.gridstackNode,
+        100,
+        40
+    );
+
+    assert.deepEqual(resizeOptions, {maxHeightMoveUp: 800});
+});
+
 test('SidebarLayout drag and resize events toggle wc-dock-interacting and sync layout', () => {
     const tab = createTabMock();
     const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);

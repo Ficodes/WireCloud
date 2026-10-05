@@ -117,6 +117,13 @@
     height: 100%;
 }
 
+// Bottom docks use row 0 internally, but their placement preview belongs at
+// the opposite visual edge of the dock grid.
+.wc-dock-grid-bottom > .grid-stack-placeholder {
+    top: auto !important;
+    bottom: 0;
+}
+
 .wc-docked-widget {
     pointer-events: auto;
     transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1) !important;

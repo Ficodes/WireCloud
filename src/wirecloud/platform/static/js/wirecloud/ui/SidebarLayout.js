@@ -320,7 +320,31 @@
             if (typeof this.grid._onStartMoving === "function") {
                 const originalOnStartMoving = this.grid._onStartMoving.bind(this.grid);
                 this.grid._onStartMoving = (element, event, ui, ...args) => {
-                    return originalOnStartMoving(element, event, this._toDockCoordinates(element, event, ui), ...args);
+                    const result = originalOnStartMoving(
+                        element,
+                        event,
+                        this._toDockCoordinates(element, event, ui),
+                        ...args
+                    );
+
+                    // Bottom widgets are logically kept at row 0, although
+                    // they are rendered against the lower workspace edge.
+                    // GridStack consequently limits a north resize to the
+                    // current height. Replace that limit with the available
+                    // workspace height so the visible top edge can move.
+                    if (this.position === "bottom" && event?.type === "resizestart") {
+                        const node = element.gridstackNode;
+                        const cellHeight = args[2] || this.grid.getCellHeight(true);
+                        const workspaceHeight = this.dragboard.tab.wrapperElement.clientHeight ||
+                            this.dragboard.tab.wrapperElement.offsetHeight || window.innerHeight;
+                        const availableRows = Math.max(node?.h || 1, Math.floor(workspaceHeight / cellHeight));
+                        const maxRows = node?.maxH ? Math.min(node.maxH, availableRows) : availableRows;
+                        element.ddElement?.ddResizable?.updateOption({
+                            maxHeightMoveUp: maxRows * cellHeight
+                        });
+                    }
+
+                    return result;
                 };
             }
             if (typeof this.grid._dragOrResize === "function") {
