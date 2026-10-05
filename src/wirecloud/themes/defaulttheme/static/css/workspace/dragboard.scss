@@ -130,6 +130,18 @@
     will-change: transform;
 }
 
+// Left, right and top docks live inside the main grid so widget content keeps
+// its stable DOM parent. When a push dock animates that grid's margin, animate
+// the inverse coordinate correction with the same timing. The two movements
+// cancel visually, leaving every other dock stationary while only the main
+// content moves. Bottom docks are fixed to the viewport and need no correction.
+.wc-docked-widget:not(.wc-docked-bottom) {
+    transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1),
+                left 0.3s cubic-bezier(0.2, 0, 0, 1),
+                top 0.3s cubic-bezier(0.2, 0, 0, 1) !important;
+    will-change: transform, left, top;
+}
+
 .wc-docked-widget:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
     left: var(--wc-dock-left) !important;
     top: var(--wc-dock-top) !important;
