@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Wirecloud.  If not, see <http://www.gnu.org/licenses/>.
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 from typing import Optional, Annotated, Any
 from datetime import datetime, timezone
 
@@ -27,6 +27,7 @@ from wirecloud.platform.iwidget.models import WidgetInstance
 from wirecloud.platform.preferences.schemas import WorkspacePreference
 from wirecloud.platform.wiring.schemas import Wiring, WiringOperatorPreference, WiringOperator
 from wirecloud.platform.wiring.utils import get_wiring_skeleton
+from wirecloud.platform.workspace.layout_migration import migrate_workspace_document
 
 IntegerStr = Annotated[str, StringConstraints(pattern=r'^\d+$')]
 
@@ -110,6 +111,11 @@ class Workspace(BaseModel, populate_by_name=True):
     groups: list[WorkspaceAccessPermissions] = []
     tabs: dict[str, Tab] = {}
     preferences: list[DBWorkspacePreference] = []
+
+    @model_validator(mode='before')
+    @classmethod
+    def migrate_legacy_layouts(cls, data):
+        return migrate_workspace_document(data)
 
     async def is_editable_by(self, db: DBSession, user: UserAll) -> bool:
         if user.is_superuser or self.creator == user.id:

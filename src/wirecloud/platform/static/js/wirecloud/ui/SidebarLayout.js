@@ -607,8 +607,13 @@
                 return (typeof value === "number") ? value + marginUnit : value;
             };
 
-            const fixedOffsetLeft = this.position === "bottom" ? workspaceRect.left : 0;
-            style.setProperty("--wc-dock-left", (fixedOffsetLeft + node.x * columnWidth - margins.left) + "px");
+            const fixedPositioned = this.position === "bottom";
+            const fixedOffsetLeft = fixedPositioned ? workspaceRect.left : 0;
+            // Absolute docks are children of the pushed main grid and must
+            // cancel its offset. Bottom docks are fixed to the viewport, so
+            // their coordinates must never include that compensation.
+            const pushOffsetLeft = fixedPositioned ? 0 : margins.left;
+            style.setProperty("--wc-dock-left", (fixedOffsetLeft + node.x * columnWidth - pushOffsetLeft) + "px");
             const top = this.position === "bottom"
                 ? workspaceRect.top + height - node.h * cellHeight
                 : node.y * cellHeight - margins.top;

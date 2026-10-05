@@ -414,13 +414,14 @@ def test_rdf_parser_workspace_legacy_position_rendering(monkeypatch):
     parser._graph.add((position, rdf_parser.WIRE_M["z"], rdflib.Literal("1")))
     parser._graph.add((rendering, rdf_parser.WIRE["renderingWidth"], rdflib.Literal("6")))
     parser._graph.add((rendering, rdf_parser.WIRE["renderingHeight"], rdflib.Literal("4")))
+    parser._graph.add((rendering, rdf_parser.WIRE_M["layout"], rdflib.Literal("3")))
 
     parser._parse_workspace_info()
 
     from wirecloud.commons.utils.template.base import convert_legacy_layout, default_desktop_screen_size_id
 
     expected = convert_legacy_layout(top=8, left=10, width=6, height=4, relx=True, rely=True,
-                                     relwidth=True, relheight=True)
+                                     relwidth=True, relheight=True, layout=3)
     desktop_id = str(default_desktop_screen_size_id())
     layouts = parser._info.tabs[0].resources[0].layouts
     assert set(layouts) == {desktop_id}
@@ -655,7 +656,8 @@ def test_xml_parser_extra_branches_and_getters(monkeypatch):
         f'<mashup xmlns="{WIRECLOUD_TEMPLATE_NS}" vendor="acme" name="m" version="1.0.0">'
         "<details/>"
         "<structure><tab name='t'><resource id='r' vendor='acme' name='w' version='1.0.0' title='t'>"
-        "<layouts><layout screensize='0' x='1' y='2' w='3' h='4' visible='false'/></layouts>"
+        "<layouts><layout screensize='0' x='1' y='2' w='3' h='4' visible='false' "
+        "dock='bottom' dockmode='overlay' dockopen='true'/></layouts>"
         "</resource></tab></structure>"
         "</mashup>"
     )
@@ -665,6 +667,9 @@ def test_xml_parser_extra_branches_and_getters(monkeypatch):
     new_layout = parser_new_layouts._info.tabs[0].resources[0].layouts["0"]
     assert new_layout.x == 1 and new_layout.y == 2 and new_layout.w == 3 and new_layout.h == 4
     assert new_layout.visible is False
+    assert new_layout.dock == "bottom"
+    assert new_layout.dock_mode == "overlay"
+    assert new_layout.dock_open is True
 
     parser_err = ApplicationMashupTemplateParser(f'<widget xmlns="{WIRECLOUD_TEMPLATE_NS}" vendor="acme" name="w" version="1.0.0"><details/></widget>')
     parser_err._parsed = False

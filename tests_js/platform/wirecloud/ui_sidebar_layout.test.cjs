@@ -530,6 +530,27 @@ test('Top and bottom docked widgets are anchored to their respective workspace e
     assert.equal(bottomView.wrapperElement.style.getPropertyValue('--wc-dock-height'), '160px');
 });
 
+test('Fixed bottom docks ignore push margins from other sidebars', () => {
+    const tab = createTabMock();
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+
+    const bottomView = createWidgetViewMock('bottom', {dock: 'bottom', x: 3, w: 4, h: 4});
+    dragboard.addWidget(bottomView);
+    assert.equal(bottomView.wrapperElement.style.getPropertyValue('--wc-dock-left'), '300px');
+
+    dragboard.setDockPushMargin('left', 250);
+    dragboard.setDockPushMargin('right', 180);
+    dragboard.setDockPushMargin('top', 120);
+
+    assert.equal(
+        bottomView.wrapperElement.style.getPropertyValue('--wc-dock-left'),
+        '300px',
+        'fixed positioning is already viewport-relative and needs no main-grid compensation'
+    );
+    assert.equal(bottomView.wrapperElement.style.getPropertyValue('--wc-dock-top'), '640px');
+});
+
 test('Bottom docked widgets follow workspace height changes', () => {
     const tab = createTabMock();
     const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);

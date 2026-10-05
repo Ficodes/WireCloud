@@ -2,11 +2,103 @@
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
+import json
 
 import pytest
 from bson import ObjectId
 
 from wirecloud.platform.workspace import docs, models, schemas
+
+
+def test_workspace_model_lazily_migrates_legacy_widget_layouts():
+    raw_workspace = {
+        "_id": ObjectId(),
+        "name": "legacy",
+        "title": "Legacy",
+        "creator": ObjectId(),
+        "preferences": [
+            {"name": "baselayout", "value": "{}", "inherit": False},
+            {"name": "screenSizes", "value": json.dumps([
+                {"id": 0, "moreOrEqual": 0, "lessOrEqual": -1}
+            ]), "inherit": False},
+        ],
+        "tabs": {
+            "tab-0": {
+                "id": "tab-0",
+                "name": "main",
+                "title": "Main",
+                "widgets": {
+                    "tab-0-0": {
+                        "id": "tab-0-0",
+                        "layout": 5,
+                        "positions": {"configurations": [{
+                            "id": 0,
+                            "widget": {
+                                "top": 10, "left": 5, "width": 10, "height": 20,
+                                "relx": True, "rely": True,
+                                "relwidth": True, "relheight": True,
+                            },
+                        }]},
+                    },
+                    "tab-0-1": {
+                        "id": "tab-0-1",
+                        "layout": 4,
+                        "layouts": {"2": {"x": 3, "w": 2, "h": 2}},
+                    },
+                },
+            },
+        },
+    }
+
+    workspace = models.Workspace.model_validate(raw_workspace)
+    tab = workspace.tabs["tab-0"]
+    widget = tab.widgets["tab-0-0"]
+
+    # The old all-width screen size maps to the new desktop entry (id 2), while the old top
+    # sidebar index becomes a retracted overlay dock instead of silently becoming a grid item.
+    assert set(widget.layouts) == {"2"}
+    assert widget.layouts["2"].dock == "top"
+    assert widget.layouts["2"].dock_mode == "overlay"
+    assert widget.layouts["2"].dock_open is False
+    mixed_widget = tab.widgets["tab-0-1"].layouts["2"]
+    assert mixed_widget.x == 3
+    assert mixed_widget.y is None
+    assert mixed_widget.dock == "bottom"
+    assert {preference.name for preference in workspace.preferences} == set()
+
+    dumped_widget = workspace.model_dump()["tabs"]["tab-0"]["widgets"]["tab-0-0"]
+    assert "positions" not in dumped_widget
+    assert "layout" not in dumped_widget
+
+
+def test_workspace_model_preserves_modern_single_screen_size():
+    screen_sizes = [{
+        "id": 9, "name": "All", "moreOrEqual": 0, "lessOrEqual": -1,
+        "columns": 8, "rows": 6,
+    }]
+    workspace = models.Workspace.model_validate({
+        "_id": ObjectId(),
+        "name": "modern",
+        "title": "Modern",
+        "creator": ObjectId(),
+        "preferences": [{
+            "name": "screenSizes", "value": json.dumps(screen_sizes), "inherit": False,
+        }],
+        "tabs": {"tab-0": {
+            "id": "tab-0", "name": "main", "title": "Main",
+            "widgets": {"tab-0-0": {
+                "id": "tab-0-0", "layout": 0,
+                "positions": {"configurations": [{
+                    "id": 9,
+                    "widget": {"top": 0, "left": 0, "width": 4, "height": 4},
+                }]},
+            }},
+        }},
+    })
+
+    assert len(workspace.preferences) == 1
+    assert json.loads(workspace.preferences[0].value) == screen_sizes
+    assert set(workspace.tabs["tab-0"].widgets["tab-0-0"].layouts) == {"9"}
 
 
 def test_workspace_docs_constants_present():

@@ -203,6 +203,20 @@ def test_convert_legacy_layout():
     assert mixed["w"] == max(1, round(250 / 100))
     assert mixed["h"] == max(1, round(80 * 12 / 40))
 
+    # Old sidebar layout indexes retain their docking semantics. They start retracted, matching
+    # the legacy sidebar's initial state; the old free layout (1) remains an ordinary grid item.
+    docked = template_base.convert_legacy_layout(
+        top=0, left=0, width=4, height=4, relx=True, rely=True,
+        relwidth=True, relheight=True, layout=4,
+    )
+    assert docked["dock"] == "bottom"
+    assert docked["dock_mode"] == "overlay"
+    assert docked["dock_open"] is False
+    assert "dock" not in template_base.convert_legacy_layout(
+        top=0, left=0, width=4, height=4, relx=True, rely=True,
+        relwidth=True, relheight=True, layout=1,
+    )
+
 
 def test_json_template_parser_errors_and_getters():
     with pytest.raises(ValueError):
@@ -523,6 +537,9 @@ def test_macdschemas_validators_and_layouts():
         "titlevisible": True,
         "fulldragboard": False,
         "visible": True,
+        "dock": None,
+        "dock_mode": "overlay",
+        "dock_open": False,
     }
 
     with pytest.raises(ValidationError):

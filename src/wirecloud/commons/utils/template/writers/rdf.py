@@ -251,6 +251,10 @@ def write_mashup_resources_graph(graph: rdflib.Graph, resource_uri: rdflib.URIRe
                 graph.add((layout_node, WIRE_M['titlevisible'], rdflib.Literal(str(layout.titlevisible).lower())))
                 graph.add((layout_node, WIRE_M['fullDragboard'], rdflib.Literal(str(layout.fulldragboard).lower())))
                 graph.add((layout_node, WIRE_M['visible'], rdflib.Literal(str(layout.visible).lower())))
+                if layout.dock is not None:
+                    graph.add((layout_node, WIRE_M['dock'], rdflib.Literal(layout.dock)))
+                    graph.add((layout_node, WIRE_M['dockMode'], rdflib.Literal(layout.dock_mode or 'overlay')))
+                    graph.add((layout_node, WIRE_M['dockOpen'], rdflib.Literal(str(layout.dock_open).lower())))
 
             # iWidget preferences
             for pref_name, pref in iwidget.preferences.items():

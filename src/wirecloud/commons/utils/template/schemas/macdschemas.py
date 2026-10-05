@@ -268,6 +268,9 @@ class MACDMashupResourceLayout(BaseModel):
     titlevisible: bool = True
     fulldragboard: bool = False
     visible: bool = True
+    dock: Optional[str] = None
+    dock_mode: Optional[str] = "overlay"
+    dock_open: bool = False
 
 
 class MACDMashupResource(BaseModel):

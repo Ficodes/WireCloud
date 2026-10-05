@@ -137,7 +137,9 @@ def test_xml_writer_false_paths_for_prefs_and_props():
         title="t",
         readonly=False,
         layouts={
-            "0": MACDMashupResourceLayout(x=0, y=0, w=1, h=1),
+            "0": MACDMashupResourceLayout(
+                x=0, y=0, w=1, h=1, dock="left", dock_mode="push", dock_open=True
+            ),
             "2": MACDMashupResourceLayout(w=12, h=8, visible=False),
         },
         properties={"p": MACDMashupResourceProperty(value=None, readonly=False)},
@@ -148,6 +150,9 @@ def test_xml_writer_false_paths_for_prefs_and_props():
 
     xml_text2 = xml_writer.write_xml_description(mashup)
     assert "<resource" in xml_text2
+    assert 'dock="left"' in xml_text2
+    assert 'dockmode="push"' in xml_text2
+    assert 'dockopen="true"' in xml_text2
 
 
 def test_xml_writer_remaining_helper_branches():

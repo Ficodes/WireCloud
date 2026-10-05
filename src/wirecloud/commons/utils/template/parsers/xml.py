@@ -575,6 +575,9 @@ class ApplicationMashupTemplateParser(object):
                             titlevisible=layout_elem.get('titlevisible', 'true').lower() == 'true',
                             fulldragboard=layout_elem.get('fulldragboard', 'false').lower() == 'true',
                             visible=layout_elem.get('visible', 'true').lower() == 'true',
+                            dock=layout_elem.get('dock'),
+                            dock_mode=layout_elem.get('dockmode', 'overlay'),
+                            dock_open=layout_elem.get('dockopen', 'false').lower() == 'true',
                         )
                 elif screenSizes is not None:
                     # Legacy format: <screensizes><screensize moreOrEqual lessOrEqual id><position/><rendering/></screensize></screensizes>
@@ -595,6 +598,7 @@ class ApplicationMashupTemplateParser(object):
                             minimized=legacy_rendering.get('minimized', 'false').lower() == 'true',
                             titlevisible=legacy_rendering.get('titlevisible', 'true').lower() == 'true',
                             fulldragboard=legacy_rendering.get('fulldragboard', 'false').lower() == 'true',
+                            layout=int(widget.get('layout', 0)),
                         ))
                 elif position is not None and rendering is not None:
                     # Legacy format: <resource ...><position/><rendering/>...</resource>
@@ -611,6 +615,7 @@ class ApplicationMashupTemplateParser(object):
                         minimized=rendering.get('minimized', 'false').lower() == 'true',
                         titlevisible=rendering.get('titlevisible', 'true').lower() == 'true',
                         fulldragboard=rendering.get('fulldragboard', 'false').lower() == 'true',
+                        layout=int(widget.get('layout', rendering.get('layout', 0))),
                     ))
 
                 for prop in self._xpath(PROPERTIES_XPATH, widget):

@@ -674,6 +674,9 @@ class RDFTemplateParser(object):
                             titlevisible=self._get_field(WIRE_M, 'titlevisible', layout_node, default='true', required=False).lower() == 'true',
                             fulldragboard=self._get_field(WIRE_M, 'fullDragboard', layout_node, required=False).lower() == 'true',
                             visible=self._get_field(WIRE_M, 'visible', layout_node, default='true', required=False).lower() == 'true',
+                            dock=self._get_field(WIRE_M, 'dock', layout_node, default=None, required=False),
+                            dock_mode=self._get_field(WIRE_M, 'dockMode', layout_node, default='overlay', required=False),
+                            dock_open=self._get_field(WIRE_M, 'dockOpen', layout_node, default='false', required=False).lower() == 'true',
                         )
                 else:
                     # Legacy formats, converted best-effort:
@@ -700,6 +703,7 @@ class RDFTemplateParser(object):
                                 minimized=self._get_field(WIRE_M, 'minimized', legacy_rendering, required=False).lower() == 'true',
                                 titlevisible=self._get_field(WIRE_M, 'titlevisible', legacy_rendering, default='true', required=False).lower() == 'true',
                                 fulldragboard=self._get_field(WIRE_M, 'fullDragboard', legacy_rendering, required=False).lower() == 'true',
+                                layout=int(self._get_field(WIRE_M, 'layout', widget, required=False, default='0')),
                             ))
                     else:
                         legacy_position = self._get_field(WIRE_M, 'hasPosition', widget, id_=True, required=False, default=None)
@@ -718,6 +722,7 @@ class RDFTemplateParser(object):
                                 minimized=self._get_field(WIRE_M, 'minimized', legacy_rendering, required=False).lower() == 'true',
                                 titlevisible=self._get_field(WIRE_M, 'titlevisible', legacy_rendering, default='true', required=False).lower() == 'true',
                                 fulldragboard=self._get_field(WIRE_M, 'fullDragboard', legacy_rendering, required=False).lower() == 'true',
+                                layout=int(self._get_field(WIRE_M, 'layout', legacy_rendering, required=False, default='0')),
                             ))
 
                 for prop in self._graph.objects(widget, WIRE_M['hasiWidgetProperty']):

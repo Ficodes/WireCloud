@@ -117,10 +117,13 @@
     // always fills the tab regardless of its grid position/size. Full
     // dragboard is a background mode, so keep it below the other widgets.
     position: absolute !important;
-    left: 0px !important;
-    top: 0px !important;
-    width: 100% !important;
-    height: 100% !important;
+    // Push-mode docks affect only normal grid content. Fullscreen widgets
+    // remain a workspace-sized background even though they deliberately keep
+    // the main grid as their stable DOM parent.
+    left: calc(0px - var(--wc-main-push-left, 0px)) !important;
+    top: calc(0px - var(--wc-main-push-top, 0px)) !important;
+    width: calc(100% + var(--wc-main-push-left, 0px) + var(--wc-main-push-right, 0px)) !important;
+    height: calc(100% + var(--wc-main-push-top, 0px) + var(--wc-main-push-bottom, 0px)) !important;
     z-index: 0 !important;
 
     & > .grid-stack-item-content {

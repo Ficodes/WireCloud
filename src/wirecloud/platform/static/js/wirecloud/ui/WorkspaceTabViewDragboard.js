@@ -828,6 +828,10 @@
             }
             this._dockMargins[position] = px;
             const marginValue = px > 0 ? px + 'px' : '';
+            // The margin shrinks/moves only the ordinary GridStack content.
+            // Special children that must remain workspace-relative (notably
+            // fullscreen/background widgets) use these values to cancel it.
+            this.gridElement.style.setProperty('--wc-main-push-' + position, px + 'px');
             if (position === 'left') {
                 this.gridElement.style.marginLeft = marginValue;
             } else if (position === 'right') {

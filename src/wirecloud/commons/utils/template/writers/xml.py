@@ -140,6 +140,10 @@ def write_mashup_tree(doc: etree.Element, resources: etree.Element, options: MAC
                                type='boolean')
                 add_attributes(layout, layout_elem, ('titlevisible', 'visible'), default='true',
                                type='boolean')
+                if layout.dock is not None:
+                    layout_elem.set('dock', layout.dock)
+                    layout_elem.set('dockmode', layout.dock_mode or 'overlay')
+                    layout_elem.set('dockopen', str(layout.dock_open).lower())
 
             add_preference_values(resource, iwidget.preferences)
 

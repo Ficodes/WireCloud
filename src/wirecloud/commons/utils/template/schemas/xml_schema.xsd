@@ -805,6 +805,25 @@
                                             <xs:attribute name="titlevisible" type="xs:boolean" use="optional" />
                                             <xs:attribute name="fulldragboard" type="xs:boolean" use="optional" />
                                             <xs:attribute name="visible" type="xs:boolean" use="optional" />
+                                            <xs:attribute name="dock" use="optional">
+                                                <xs:simpleType>
+                                                    <xs:restriction base="xs:string">
+                                                        <xs:enumeration value="top" />
+                                                        <xs:enumeration value="right" />
+                                                        <xs:enumeration value="bottom" />
+                                                        <xs:enumeration value="left" />
+                                                    </xs:restriction>
+                                                </xs:simpleType>
+                                            </xs:attribute>
+                                            <xs:attribute name="dockmode" use="optional">
+                                                <xs:simpleType>
+                                                    <xs:restriction base="xs:string">
+                                                        <xs:enumeration value="overlay" />
+                                                        <xs:enumeration value="push" />
+                                                    </xs:restriction>
+                                                </xs:simpleType>
+                                            </xs:attribute>
+                                            <xs:attribute name="dockopen" type="xs:boolean" use="optional" />
                                         </xs:complexType>
                                     </xs:element>
                                 </xs:sequence>

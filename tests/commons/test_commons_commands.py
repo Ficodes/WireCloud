@@ -250,18 +250,23 @@ def test_migrate_widget_positions_to_layouts():
     }
 
     # Custom (non-legacy-default) screenSizes: original config ids are kept as layout keys
-    layouts = commands._migrate_widget_positions_to_layouts(positions, legacy_default_screen_sizes=False)
+    layouts = commands._migrate_widget_positions_to_layouts(
+        positions, legacy_default_screen_sizes=False, legacy_layout=3
+    )
     assert set(layouts) == {"0", "2"}
     assert layouts["0"]["x"] == round(10 * 12 / 20)
     assert layouts["0"]["minimized"] is False
     assert layouts["2"]["x"] is None
     assert layouts["2"]["minimized"] is True
     assert layouts["2"]["fulldragboard"] is True
+    assert all(layout["dock"] == "right" for layout in layouts.values())
 
     # Legacy default screenSizes: the converted (12-column-targeted) layout is remapped to the
     # id of the platform's new default desktop screen size, not the old config id
     desktop_id = str(commands.default_desktop_screen_size_id())
-    legacy_layouts = commands._migrate_widget_positions_to_layouts(positions, legacy_default_screen_sizes=True)
+    legacy_layouts = commands._migrate_widget_positions_to_layouts(
+        positions, legacy_default_screen_sizes=True, legacy_layout=3
+    )
     # Both old configurations collapse onto the single desktop-screen-size key (last one wins),
     # instead of being kept under their old (now meaningless) ids
     assert set(legacy_layouts) == {desktop_id}
@@ -330,7 +335,7 @@ async def test_convert_layouts_cmd_migrates_and_is_idempotent(monkeypatch, db_se
                 "widgets": {
                     "tab-0-0": {
                         "id": "tab-0-0",
-                        "layout": 0,
+                        "layout": 2,
                         "positions": {
                             "configurations": [
                                 {
@@ -396,6 +401,7 @@ async def test_convert_layouts_cmd_migrates_and_is_idempotent(monkeypatch, db_se
         assert "layout" not in migrated_widget
         assert set(migrated_widget["layouts"]) == {desktop_id}
         assert migrated_widget["layouts"][desktop_id]["x"] == round(10 * 12 / 20)
+        assert migrated_widget["layouts"][desktop_id]["dock"] == "left"
 
         # The already-migrated widget is left untouched
         assert updated["tabs"]["tab-0"]["widgets"]["tab-0-1"]["layouts"] == {"0": {"x": 1, "y": 1, "w": 2, "h": 2}}

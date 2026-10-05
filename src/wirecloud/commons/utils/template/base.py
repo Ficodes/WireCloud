@@ -129,7 +129,7 @@ def stringify_contact_info(contacts: list[Contact]) -> str:
 
 def convert_legacy_layout(top: float, left: float, width: float, height: float, relx: bool, rely: bool,
                           relwidth: bool, relheight: bool, minimized: bool = False, titlevisible: bool = True,
-                          fulldragboard: bool = False) -> dict:
+                          fulldragboard: bool = False, layout: int = 0) -> dict:
     """Convert a legacy widget position/rendering (old grid: 20 columns x 12 px rows) into the new
     GridStack-based layout format (new grid: 12 columns x 40 px rows), using a best-effort rule: cell-based
     (relative) coordinates are rescaled by the column/row ratio between grids; absolute (pixel-based)
@@ -156,7 +156,7 @@ def convert_legacy_layout(top: float, left: float, width: float, height: float, 
     else:
         h = max(1, round(height / 40))
 
-    return {
+    result = {
         'x': x,
         'y': y,
         'w': w,
@@ -166,6 +166,23 @@ def convert_legacy_layout(top: float, left: float, width: float, height: float, 
         'fulldragboard': bool(fulldragboard),
         'visible': True,
     }
+
+    # The old dragboard stored the selected layout as an array index:
+    # 0=column/grid, 1=free, 2=left, 3=right, 4=bottom and 5=top.
+    try:
+        layout = int(layout or 0)
+    except (TypeError, ValueError):
+        layout = 0
+    dock = {2: 'left', 3: 'right', 4: 'bottom', 5: 'top'}.get(layout)
+    if dock is not None:
+        result.update({
+            'dock': dock,
+            'dock_mode': 'overlay',
+            # Legacy sidebars started retracted and exposed their handle.
+            'dock_open': False,
+        })
+
+    return result
 
 
 def default_desktop_screen_size_id() -> int:

@@ -182,6 +182,9 @@ def _mashup_payload():
                                 "fulldragboard": True,
                                 "titlevisible": False,
                                 "visible": True,
+                                "dock": "right",
+                                "dock_mode": "push",
+                                "dock_open": True,
                             },
                             "2": {
                                 "w": 12,
@@ -310,10 +313,12 @@ def test_xml_roundtrip_widget_operator_mashup(monkeypatch):
     assert layouts["0"].model_dump() == {
         "x": 10, "y": 20, "w": 2, "h": 3,
         "minimized": True, "titlevisible": False, "fulldragboard": True, "visible": True,
+        "dock": "right", "dock_mode": "push", "dock_open": True,
     }
     assert layouts["2"].model_dump() == {
         "x": None, "y": None, "w": 12, "h": 8,
         "minimized": False, "titlevisible": True, "fulldragboard": False, "visible": False,
+        "dock": None, "dock_mode": "overlay", "dock_open": False,
     }
 
 
@@ -350,10 +355,12 @@ def test_rdf_roundtrip_widget_operator_mashup(monkeypatch):
     assert layouts["0"].model_dump() == {
         "x": 10, "y": 20, "w": 2, "h": 3,
         "minimized": True, "titlevisible": False, "fulldragboard": True, "visible": True,
+        "dock": "right", "dock_mode": "push", "dock_open": True,
     }
     assert layouts["2"].model_dump() == {
         "x": None, "y": None, "w": 12, "h": 8,
         "minimized": False, "titlevisible": True, "fulldragboard": False, "visible": False,
+        "dock": None, "dock_mode": "overlay", "dock_open": False,
     }
 
 

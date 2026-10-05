@@ -2003,22 +2003,27 @@ test('setDockPushMargin sets explicit pixel margins and repaints views after tra
 
     dragboard.setDockPushMargin('left', 250);
     assert.equal(dragboard.gridElement.style.marginLeft, '250px');
+    assert.equal(dragboard.gridElement.style.getPropertyValue('--wc-main-push-left'), '250px');
     assert.equal(dragboard._dockMargins.left, 250);
 
     dragboard.setDockPushMargin('right', 300);
     assert.equal(dragboard.gridElement.style.marginRight, '300px');
+    assert.equal(dragboard.gridElement.style.getPropertyValue('--wc-main-push-right'), '300px');
     assert.equal(dragboard._dockMargins.right, 300);
 
     dragboard.setDockPushMargin('top', 150);
     assert.equal(dragboard.gridElement.style.marginTop, '150px');
+    assert.equal(dragboard.gridElement.style.getPropertyValue('--wc-main-push-top'), '150px');
     assert.equal(dragboard._dockMargins.top, 150);
 
     dragboard.setDockPushMargin('bottom', 100);
     assert.equal(dragboard.gridElement.style.marginBottom, '');
+    assert.equal(dragboard.gridElement.style.getPropertyValue('--wc-main-push-bottom'), '0px');
     assert.equal(dragboard._dockMargins.bottom, 0, 'bottom docks are overlay-only');
 
     dragboard.setDockPushMargin('left', 0);
     assert.equal(dragboard.gridElement.style.marginLeft, '');
+    assert.equal(dragboard.gridElement.style.getPropertyValue('--wc-main-push-left'), '0px');
     assert.equal(dragboard._dockMargins.left, 0);
 
     assert.equal(repainted, false, 'repaint is debounced to after the 300ms animation');
