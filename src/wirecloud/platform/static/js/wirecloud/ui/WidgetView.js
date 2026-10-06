@@ -54,7 +54,8 @@
     };
 
     const update_tab_fulldragboard_class = function update_tab_fulldragboard_class(view) {
-        const anyFulldragboard = view.tab.dragboard.views.some((v) => v.layout != null && v.layout.fulldragboard);
+        const anyFulldragboard = view.tab.dragboard.views.some((v) => v.layout != null &&
+            v.layout.visible !== false && v.layout.fulldragboard);
         view.tab.wrapperElement.classList.toggle('wc-fulldragboard-active', anyFulldragboard);
     };
 
@@ -563,16 +564,43 @@
         setFullDragboardMode(enable, persist) {
             enable = !!enable;
 
-            if (this.layout != null && enable === !!this.layout.fulldragboard) {
-                return Promise.resolve(this);
-            }
-
             if (enable) {
                 // The widget covers the visible area of the tab, starting at its top
                 this.tab.wrapperElement.scrollTop = 0;
             }
 
-            return change_layout_flag.call(this, {fulldragboard: enable}, persist);
+            const applyCurrent = () => {
+                if (this.layout != null && enable === !!this.layout.fulldragboard) {
+                    return Promise.resolve(this);
+                }
+
+                const result = change_layout_flag.call(this, {fulldragboard: enable}, persist);
+
+                // Full-dragboard widgets are deliberately not GridStack nodes:
+                // as background layers they must not reserve cells in the main
+                // grid. change_layout_flag applies the local layout before it
+                // starts persistence, so it can be re-placed immediately.
+                this.tab.dragboard.refreshWidget(this);
+                return result;
+            };
+
+            if (!enable) {
+                return applyCurrent();
+            }
+
+            // Only one background is useful at a time. Exit any previous full
+            // widget sequentially (rather than issuing concurrent persistence
+            // requests for the same workspace) and restore its own grid/dock
+            // layout before enabling this one.
+            const others = this.tab.dragboard.views.filter((view) => view !== this &&
+                view.layout != null && view.layout.fulldragboard);
+            if (others.length === 0) {
+                return applyCurrent();
+            }
+
+            return others.reduce((promise, view) => {
+                return promise.then(() => view.setFullDragboardMode(false, persist));
+            }, Promise.resolve()).then(applyCurrent);
         }
 
         /**

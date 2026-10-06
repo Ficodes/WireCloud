@@ -786,6 +786,7 @@ test('paint() initializes GridStack with the expected options and target element
         float: false,
         animate: true,
         handle: '.wc-widget-heading',
+        draggable: {scroll: true},
         resizable: {handles: 'e, se, s, sw, w'},
         alwaysShowResizeHandle: 'mobile',
         staticGrid: false,
@@ -1210,6 +1211,34 @@ test('applyScreenSize hides a never-added widget without calling removeWidget', 
     assert.equal(dragboard.grid.calls.some((c) => c.name === 'removeWidget'), false);
 });
 
+test('a docked widget can be hidden and shown without losing its dock layout', () => {
+    const {dragboard} = paintedDragboard();
+    const model = createWidgetModel({
+        id: 'docked',
+        layouts: {2: {x: 0, y: 0, w: 3, h: 4, dock: 'left', dock_open: true}},
+    });
+    const view = createWidgetView(model);
+    dragboard.addWidget(view);
+
+    assert.equal(dragboard.leftDock.views.includes(view), true);
+    assert.equal(view.wrapperElement.hidden, false);
+
+    model.setLayout('2', {visible: false});
+    dragboard.refreshWidget(view);
+
+    assert.equal(view.wrapperElement.hidden, true);
+    assert.equal(view.wrapperElement.gridstackNode, undefined);
+    assert.equal(dragboard.leftDock.views.includes(view), false);
+    assert.equal(view.wrapperElement.classList.contains('wc-docked-widget'), false);
+
+    model.setLayout('2', {visible: true});
+    dragboard.refreshWidget(view);
+
+    assert.equal(view.wrapperElement.hidden, false);
+    assert.equal(dragboard.leftDock.views.includes(view), true);
+    assert.equal(view.wrapperElement.classList.contains('wc-docked-left'), true);
+});
+
 test('applyScreenSize orders placement by (y, x, id) with null treated as last', () => {
     const {dragboard} = paintedDragboard();
     const modelC = createWidgetModel({id: 'c', layouts: {2: {x: 0, y: 1, w: 1, h: 1}}});
@@ -1249,20 +1278,25 @@ test('applyScreenSize passes noMove/noResize based on move/resize permissions', 
     assert.equal(view.wrapperElement.gridstackNode.noResize, false);
 });
 
-test('applyScreenSize forces noMove/noResize for full-dragboard widgets', () => {
+test('applyScreenSize removes full-dragboard widgets from GridStack occupancy', () => {
     const {dragboard} = paintedDragboard();
     const model = createWidgetModel({
         id: 'w1',
-        layouts: {2: {x: 0, y: 0, w: 2, h: 2, fulldragboard: true}},
+        layouts: {2: {x: 0, y: 0, w: 2, h: 2}},
     });
     const view = createWidgetView(model);
-    dragboard.views.push(view);
-    dragboard.gridElement.appendChild(view.wrapperElement);
+    dragboard.addWidget(view);
+    assert.ok(view.wrapperElement.gridstackNode != null);
+
+    model.setLayout('2', {fulldragboard: true});
+    dragboard.grid.calls.length = 0;
 
     dragboard.applyScreenSize();
 
-    assert.equal(view.wrapperElement.gridstackNode.noMove, true);
-    assert.equal(view.wrapperElement.gridstackNode.noResize, true);
+    assert.equal(view.wrapperElement.gridstackNode, undefined);
+    assert.equal(view.wrapperElement.hidden, false);
+    assert.equal(view.layout.fulldragboard, true);
+    assert.equal(dragboard.grid.calls.some((c) => c.name === 'makeWidget' || c.name === 'update'), false);
 });
 
 test('applyScreenSize forces noResize (but not noMove) for minimized widgets', () => {
@@ -1991,6 +2025,37 @@ test('at most one handler is registered per GridStack event name', () => {
     });
 });
 
+test('dragging a widget taller than the viewport suppresses auto-scroll only for that drag', () => {
+    const {dragboard, grid, tab} = paintedDragboard();
+    tab.wrapperElement.clientHeight = 600;
+    const element = document.createElement('div');
+    element.offsetHeight = 1200;
+
+    grid.trigger('dragstart', element);
+    assert.equal(grid.opts.draggable.scroll, false);
+    grid.trigger('dragstop', element);
+    assert.equal(grid.opts.draggable.scroll, true);
+
+    element.offsetHeight = 200;
+    grid.trigger('dragstart', element);
+    assert.equal(grid.opts.draggable.scroll, true);
+    grid.trigger('dragstop', element);
+});
+
+test('oversized opposing push docks share a budget and recover their requested widths', () => {
+    const {dragboard} = paintedDragboard({offsetWidth: 1200});
+    dragboard.setDockPushMargin('left', 800);
+    dragboard.setDockPushMargin('right', 800);
+    assert.equal(dragboard._dockMargins.left, 440);
+    assert.equal(dragboard._dockMargins.right, 440);
+    assert.equal(dragboard.gridElement.style.marginLeft, '440px');
+    assert.equal(dragboard.gridElement.style.marginRight, '440px');
+
+    dragboard.setDockPushMargin('right', 0);
+    assert.equal(dragboard._dockMargins.left, 800);
+    assert.equal(dragboard.gridElement.style.marginLeft, '800px');
+});
+
 test('setDockPushMargin sets explicit pixel margins and repaints views after transition', async () => {
     const {dragboard, tab} = paintedDragboard();
     let repainted = false;
@@ -2011,10 +2076,12 @@ test('setDockPushMargin sets explicit pixel margins and repaints views after tra
     assert.equal(dragboard.gridElement.style.getPropertyValue('--wc-main-push-right'), '300px');
     assert.equal(dragboard._dockMargins.right, 300);
 
+    tab.wrapperElement.scrollTop = 73;
     dragboard.setDockPushMargin('top', 150);
     assert.equal(dragboard.gridElement.style.marginTop, '150px');
     assert.equal(dragboard.gridElement.style.getPropertyValue('--wc-main-push-top'), '150px');
     assert.equal(dragboard._dockMargins.top, 150);
+    assert.equal(tab.wrapperElement.scrollTop, 73, 'top push keeps the current scroll position');
 
     dragboard.setDockPushMargin('bottom', 100);
     assert.equal(dragboard.gridElement.style.marginBottom, '');
@@ -2029,4 +2096,37 @@ test('setDockPushMargin sets explicit pixel margins and repaints views after tra
     assert.equal(repainted, false, 'repaint is debounced to after the 300ms animation');
     await wait(350);
     assert.equal(repainted, true, 'repaint called after animation settles');
+});
+
+test('full-dragboard geometry follows the visible tab without interfering with push margins', () => {
+    const {dragboard, tab} = paintedDragboard({offsetHeight: 700});
+    let rect = {left: 24, top: 80, width: 1176, height: 700, right: 1200, bottom: 780};
+    tab.wrapperElement.getBoundingClientRect = () => rect;
+    const model = createWidgetModel({
+        id: 'background',
+        layouts: {'2': {x: 1, y: 2, w: 4, h: 5, fulldragboard: true}}
+    });
+    const view = createWidgetView(model, {tab});
+
+    dragboard.addWidget(view);
+
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-fulldragboard-left'), '24px');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-fulldragboard-top'), '80px');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-fulldragboard-width'), '1176px');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-fulldragboard-height'), '700px');
+
+    dragboard.setDockPushMargin('left', 200);
+    dragboard.setDockPushMargin('top', 120);
+    assert.equal(dragboard.gridElement.style.marginLeft, '200px');
+    assert.equal(dragboard.gridElement.style.marginTop, '120px');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-fulldragboard-left'), '24px');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-fulldragboard-top'), '80px');
+
+    rect = {left: 12, top: 60, width: 900, height: 620, right: 912, bottom: 680};
+    dragboard._on_resize();
+
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-fulldragboard-left'), '12px');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-fulldragboard-top'), '60px');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-fulldragboard-width'), '900px');
+    assert.equal(view.wrapperElement.style.getPropertyValue('--wc-fulldragboard-height'), '620px');
 });

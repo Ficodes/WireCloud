@@ -116,15 +116,26 @@
     // `styleInHead` is used); beat those with !important so the widget
     // always fills the tab regardless of its grid position/size. Full
     // dragboard is a background mode, so keep it below the other widgets.
-    position: absolute !important;
-    // Push-mode docks affect only normal grid content. Fullscreen widgets
-    // remain a workspace-sized background even though they deliberately keep
-    // the main grid as their stable DOM parent.
-    left: calc(0px - var(--wc-main-push-left, 0px)) !important;
-    top: calc(0px - var(--wc-main-push-top, 0px)) !important;
-    width: calc(100% + var(--wc-main-push-left, 0px) + var(--wc-main-push-right, 0px)) !important;
-    height: calc(100% + var(--wc-main-push-top, 0px) + var(--wc-main-push-bottom, 0px)) !important;
+    position: fixed !important;
+    // Full-dragboard widgets use viewport coordinates copied from the tab.
+    // This makes them sticky backgrounds without changing the main grid's
+    // positioning, margins, height or scrolling behaviour.
+    left: var(--wc-fulldragboard-left, 0px) !important;
+    top: var(--wc-fulldragboard-top, 0px) !important;
+    width: var(--wc-fulldragboard-width, 100%) !important;
+    height: var(--wc-fulldragboard-height, 100%) !important;
     z-index: 0 !important;
+    // Background iframe documents swallow wheel events before they can reach
+    // the workspace scroller. Background content must let the pointer through.
+    pointer-events: none;
+
+    & > .grid-stack-item-content > .wc-widget-body {
+        pointer-events: none !important;
+
+        & > * {
+            pointer-events: none !important;
+        }
+    }
 
     & > .grid-stack-item-content {
         @include z-depth(0);
@@ -133,6 +144,7 @@
 
     & > .grid-stack-item-content > .wc-widget-heading {
         cursor: default;
+        pointer-events: auto;
 
         & > .fa-minus {
             display: none;
@@ -140,21 +152,13 @@
     }
 }
 
-// Tab wrapper while one of its widgets is in full dragboard mode: it
-// becomes the positioning context so the widget (position: absolute
-// above) fills exactly the visible tab area instead of the whole grid.
-.wc-workspace-tab-content.wc-fulldragboard-active {
-    overflow: hidden;
-
-    & > .grid-stack {
-        position: static;
-
-        // Positioned GridStack items otherwise share the same stacking level
-        // as the full-dragboard widget, making their DOM order decide which
-        // one is visible. Keep every regular widget above the background.
-        & > .wc-widget:not(.wc-widget-fulldragboard):not(.wc-docked-widget):not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
-            z-index: 1;
-        }
+// Tab wrapper while one of its widgets is in full dragboard mode.
+.wc-workspace-tab-content.wc-fulldragboard-active > .grid-stack {
+    // Keep every regular widget above the fixed background. Do not alter the
+    // grid's positioning or the tab's overflow: docks and tall content must
+    // behave exactly as they do without a background widget.
+    & > .wc-widget:not(.wc-widget-fulldragboard):not(.wc-docked-widget):not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+        z-index: 1;
     }
 }
 

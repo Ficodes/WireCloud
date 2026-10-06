@@ -596,6 +596,30 @@ test('integration: hideInCurrentScreenSize removes the node from the grid and ma
     assert.equal(model.getLayout('2').visible, true);
 });
 
+test('integration: full-dragboard mode releases and restores the widget grid cells', async () => {
+    setupIntegration();
+    const tab = makeIntegrationTab();
+    const model = makeStorageModel({ layouts: { 2: { x: 2, y: 3, w: 4, h: 5 } } });
+    const view = new Wirecloud.ui.WidgetView(tab, model, {});
+    tab.dragboard.paint();
+
+    assert.ok(view.wrapperElement.gridstackNode);
+
+    await view.setFullDragboardMode(true, false);
+
+    assert.equal(view.wrapperElement.gridstackNode, undefined);
+    assert.equal(view.layout.fulldragboard, true);
+    assert.equal(view.wrapperElement.hidden, false);
+
+    await view.setFullDragboardMode(false, false);
+
+    assert.ok(view.wrapperElement.gridstackNode);
+    assert.equal(view.wrapperElement.gridstackNode.x, 2);
+    assert.equal(view.wrapperElement.gridstackNode.y, 3);
+    assert.equal(view.wrapperElement.gridstackNode.w, 4);
+    assert.equal(view.wrapperElement.gridstackNode.h, 5);
+});
+
 test('integration: updateGridPermissions reflects viewer permissions once the widget is placed', () => {
     setupIntegration();
     const tab = makeIntegrationTab({ workspace: { editing: false } });

@@ -670,6 +670,17 @@ test('applyLayout: toggles wc-fulldragboard-active on the tab when any view is i
     assert.equal(tab.wrapperElement.classList.contains('wc-fulldragboard-active'), false);
 });
 
+test('applyLayout: a hidden full-dragboard layout does not activate the tab background mode', () => {
+    setup();
+    const dragboard = makeDragboard();
+    const tab = makeTab({ dragboard });
+    const view = createWidgetView({ tab });
+
+    view.applyLayout({ x: 0, y: 0, w: 1, h: 1, minimized: false, titlevisible: true, fulldragboard: true, visible: false });
+
+    assert.equal(tab.wrapperElement.classList.contains('wc-fulldragboard-active'), false);
+});
+
 test('applyLayout: when minimized, updates the grid with the computed collapsed row count and noResize', () => {
     setup();
     const grid = makeGrid();
@@ -998,6 +1009,41 @@ test('setFullDragboardMode: applies the layout and persists through the model', 
     assert.equal(model._layoutCalls[0].persist, true);
     assert.equal(view.wrapperElement.classList.contains('wc-widget-fulldragboard'), true);
     assert.equal(view.tab.wrapperElement.scrollTop, 0);
+    assert.deepEqual(view.tab.dragboard._refreshCalls, [view]);
+});
+
+test('setFullDragboardMode: restores the previous background before enabling a new one', async () => {
+    setup();
+    const dragboard = makeDragboard();
+    const tab = makeTab({ dragboard });
+    const firstModel = makeModel({ id: 'first' });
+    const secondModel = makeModel({ id: 'second' });
+    const first = createWidgetView({ model: firstModel, tab });
+    const second = createWidgetView({ model: secondModel, tab });
+    const callOrder = [];
+    const firstSetLayout = firstModel.setLayout.bind(firstModel);
+    const secondSetLayout = secondModel.setLayout.bind(secondModel);
+    firstModel.setLayout = (...args) => {
+        callOrder.push('restore-first');
+        return firstSetLayout(...args);
+    };
+    secondModel.setLayout = (...args) => {
+        callOrder.push('enable-second');
+        return secondSetLayout(...args);
+    };
+
+    first.applyLayout({ x: 1, y: 2, w: 3, h: 4, minimized: false, titlevisible: true, fulldragboard: true, visible: true });
+    second.applyLayout({ x: 5, y: 6, w: 2, h: 3, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+    dragboard._refreshCalls.length = 0;
+
+    await second.setFullDragboardMode(true, true);
+
+    assert.equal(first.layout.fulldragboard, false);
+    assert.equal(second.layout.fulldragboard, true);
+    assert.deepEqual(callOrder, ['restore-first', 'enable-second']);
+    assert.deepEqual(dragboard._refreshCalls, [first, second]);
+    assert.equal(firstModel._layoutCalls[0].persist, true);
+    assert.equal(secondModel._layoutCalls[0].persist, true);
 });
 
 // ============================================================================

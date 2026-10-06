@@ -25,6 +25,10 @@
     padding-right: $margin-horizontal-small;
     overflow-x: hidden;
     overflow-y: auto;
+    // Opening or resizing a top push dock changes the main grid's top margin.
+    // Browser scroll anchoring would otherwise compensate for that insertion
+    // by advancing scrollTop, making tall widgets appear to grow upwards.
+    overflow-anchor: none;
     box-sizing: border-box;
 
     &.dragging {
@@ -374,6 +378,13 @@
 // keeps the handle at the item's outer edge so it remains fully visible.
 .wc-docked-left.wc-dock-widget-open .wc-sidebar-left-handle {
     left: calc(100% - var(--wc-dock-margin-right, 0px));
+}
+
+// A closed left dock is translated by its complete wrapper width. Its wrapper
+// itself sits one GridStack gutter outside the workspace, so move the handle
+// back through that gutter to keep it fully on-screen.
+.wc-docked-left.wc-dock-widget-closed .wc-sidebar-left-handle {
+    left: calc(100% + var(--wc-dock-margin-left, 0px) + var(--wc-dock-margin-right, 0px));
 }
 
 .wc-docked-right.wc-dock-widget-open .wc-sidebar-right-handle {

@@ -130,7 +130,16 @@
      *
      * @private
      */
-    const on_interaction_start = function on_interaction_start() {
+    const on_interaction_start = function on_interaction_start(event, element) {
+        if (event && event.type === 'dragstart' && element &&
+                element.offsetHeight > this.tab.wrapperElement.clientHeight &&
+                this.tab.wrapperElement.clientHeight > 0) {
+            // GridStack auto-scrolls from the helper's edges, so an oversized
+            // widget scrolls continuously even with the pointer near its title.
+            this._dragScroll = this.grid.opts.draggable.scroll;
+            this._dragScrollSuppressed = true;
+            this.grid.opts.draggable.scroll = false;
+        }
         this.gridElement.classList.add('wc-dragboard-interacting');
         if (this.tab && this.tab.wrapperElement) {
             this.tab.wrapperElement.classList.add('wc-dragboard-interacting');
@@ -138,11 +147,49 @@
     };
 
     const on_interaction_end = function on_interaction_end() {
+        if (this._dragScrollSuppressed) {
+            this.grid.opts.draggable.scroll = this._dragScroll;
+            delete this._dragScroll;
+            delete this._dragScrollSuppressed;
+        }
         this.gridElement.classList.remove('wc-dragboard-interacting');
         if (this.tab && this.tab.wrapperElement) {
             this.tab.wrapperElement.classList.remove('wc-dragboard-interacting');
         }
         on_grid_event.call(this);
+    };
+
+    const clear_fulldragboard_geometry = function clear_fulldragboard_geometry(view) {
+        const style = view.wrapperElement.style;
+        style.removeProperty('--wc-fulldragboard-left');
+        style.removeProperty('--wc-fulldragboard-top');
+        style.removeProperty('--wc-fulldragboard-width');
+        style.removeProperty('--wc-fulldragboard-height');
+    };
+
+    const update_fulldragboard_geometry = function update_fulldragboard_geometry(view) {
+        const wrapper = this.tab.wrapperElement;
+        const rect = typeof wrapper.getBoundingClientRect === 'function'
+            ? wrapper.getBoundingClientRect()
+            : {};
+        const left = Number.isFinite(rect.left) ? rect.left : 0;
+        const top = Number.isFinite(rect.top) ? rect.top : 0;
+        const width = Number.isFinite(rect.width) && rect.width > 0
+            ? rect.width
+            : (Number.isFinite(rect.right) && rect.right > left
+                ? rect.right - left
+                : (wrapper.clientWidth || wrapper.offsetWidth || window.innerWidth));
+        const height = Number.isFinite(rect.height) && rect.height > 0
+            ? rect.height
+            : (Number.isFinite(rect.bottom) && rect.bottom > top
+                ? rect.bottom - top
+                : (wrapper.clientHeight || wrapper.offsetHeight || window.innerHeight));
+        const style = view.wrapperElement.style;
+
+        style.setProperty('--wc-fulldragboard-left', left + 'px');
+        style.setProperty('--wc-fulldragboard-top', top + 'px');
+        style.setProperty('--wc-fulldragboard-width', width + 'px');
+        style.setProperty('--wc-fulldragboard-height', height + 'px');
     };
 
     /**
@@ -154,6 +201,47 @@
      */
     const place_view = function place_view(view, layout, role) {
         const el = view.wrapperElement;
+
+        const removeFromDocks = () => {
+            if (this.docks) {
+                Object.values(this.docks).forEach((dock) => {
+                    if (dock.views.includes(view)) {
+                        dock.removeWidget(view);
+                    }
+                });
+            }
+        };
+
+        // Visibility takes precedence over the layout owner. Previously the
+        // dock branch returned before reaching this check, leaving a docked
+        // widget visible even though its persisted layout said otherwise.
+        if (!layout.visible) {
+            removeFromDocks();
+            clear_fulldragboard_geometry(view);
+            if (el.gridstackNode != null && el.gridstackNode.grid === this.grid) {
+                this.grid.removeWidget(el, false, false);
+            }
+            el.hidden = true;
+            view.applyLayout(layout);
+            return;
+        }
+
+        el.hidden = false;
+
+        // Full-dragboard widgets are background layers, not grid occupants.
+        // Keep their DOM element under the stable main-grid parent, but remove
+        // their GridStack node so regular widgets can use the cells beneath it.
+        if (layout.fulldragboard) {
+            removeFromDocks();
+            if (el.gridstackNode != null && el.gridstackNode.grid === this.grid) {
+                this.grid.removeWidget(el, false, false);
+            }
+            view.applyLayout(layout);
+            update_fulldragboard_geometry.call(this, view);
+            return;
+        }
+
+        clear_fulldragboard_geometry(view);
 
         if (layout.dock && this.docks && this.docks[layout.dock]) {
             if (el.gridstackNode != null && el.gridstackNode.grid === this.grid) {
@@ -168,27 +256,10 @@
             return;
         }
 
-        if (this.docks) {
-            Object.keys(this.docks).forEach((pos) => {
-                if (this.docks[pos].views.includes(view)) {
-                    this.docks[pos].removeWidget(view);
-                }
-            });
-        }
+        removeFromDocks();
 
-        if (!layout.visible) {
-            if (el.gridstackNode != null && el.gridstackNode.grid === this.grid) {
-                this.grid.removeWidget(el, false, false);
-            }
-            el.hidden = true;
-            view.applyLayout(layout);
-            return;
-        }
-
-        el.hidden = false;
-
-        const canMove = !layout.fulldragboard && view.model.isAllowed('move', role);
-        const canResize = !layout.fulldragboard && !layout.minimized && view.model.isAllowed('resize', role);
+        const canMove = view.model.isAllowed('move', role);
+        const canResize = !layout.minimized && view.model.isAllowed('resize', role);
         const autoPosition = layout.derived === true || layout.x == null || layout.y == null;
 
         const nodeOpts = {
@@ -245,8 +316,17 @@
         // pixel geometry must follow every container resize, including width
         // changes that stay inside the same responsive breakpoint.
         if (this.docks) {
-            Object.values(this.docks).forEach((dock) => dock.updateWidgetPositions());
+            Object.values(this.docks).forEach((dock) => {
+                dock.updateWidgetPositions();
+                dock.updatePushMargins();
+            });
         }
+
+        this.views.forEach((view) => {
+            if (view.layout != null && view.layout.visible !== false && view.layout.fulldragboard) {
+                update_fulldragboard_geometry.call(this, view);
+            }
+        });
     };
 
     const on_preferences_commit = function on_preferences_commit(preferences, modifiedValues) {
@@ -767,6 +847,7 @@
                 float: screenSize.rows > 0,
                 animate: true,
                 handle: '.wc-widget-heading',
+                draggable: {scroll: true},
                 resizable: {handles: 'e, se, s, sw, w'},
                 alwaysShowResizeHandle: 'mobile',
                 staticGrid: this.tab.workspace.model.restricted
@@ -823,23 +904,37 @@
             if (position === 'bottom') {
                 px = 0;
             }
-            if (!this._dockMargins) {
-                this._dockMargins = { top: 0, bottom: 0, left: 0, right: 0 };
+            const wrapper = this.tab.wrapperElement;
+            const previousScrollTop = wrapper.scrollTop;
+            if (!this._requestedDockMargins) {
+                this._requestedDockMargins = { top: 0, bottom: 0, left: 0, right: 0 };
             }
-            this._dockMargins[position] = px;
-            const marginValue = px > 0 ? px + 'px' : '';
-            // The margin shrinks/moves only the ordinary GridStack content.
-            // Special children that must remain workspace-relative (notably
-            // fullscreen/background widgets) use these values to cancel it.
-            this.gridElement.style.setProperty('--wc-main-push-' + position, px + 'px');
-            if (position === 'left') {
-                this.gridElement.style.marginLeft = marginValue;
-            } else if (position === 'right') {
-                this.gridElement.style.marginRight = marginValue;
-            } else if (position === 'top') {
-                this.gridElement.style.marginTop = marginValue;
-            } else if (position === 'bottom') {
-                this.gridElement.style.marginBottom = marginValue;
+            this._requestedDockMargins[position] = Math.max(0, Number(px) || 0);
+            const margins = Object.assign({}, this._requestedDockMargins);
+            const width = wrapper.clientWidth || wrapper.offsetWidth || window.innerWidth;
+            // Keep 320px for content on desktop, or half the tab on small
+            // screens. Oversized docks retain their size and overlay the excess.
+            const pushBudget = Math.max(0, width - Math.min(320, width / 2));
+            const requestedWidth = margins.left + margins.right;
+            if (requestedWidth > pushBudget) {
+                const ratio = pushBudget / requestedWidth;
+                margins.left = Math.floor(margins.left * ratio);
+                margins.right = pushBudget - margins.left;
+            }
+            this._dockMargins = margins;
+            // The margin shrinks/moves only the ordinary GridStack content;
+            // docked and background widgets keep workspace-relative geometry.
+            Object.entries(margins).forEach(([side, value]) => {
+                this.gridElement.style.setProperty('--wc-main-push-' + side, value + 'px');
+                this.gridElement.style['margin' + side[0].toUpperCase() + side.slice(1)] = value > 0 ? value + 'px' : '';
+            });
+
+            // A top push inserts space before every ordinary grid item. Keep
+            // the user's viewport at the same logical position; otherwise
+            // scroll anchoring can move the scroll origin by the dock height,
+            // which is especially noticeable for widgets taller than the tab.
+            if (position === 'top') {
+                wrapper.scrollTop = previousScrollTop;
             }
 
             if ((position === 'top' || position === 'bottom') && this.grid != null && this.activeScreenSize.rows > 0) {

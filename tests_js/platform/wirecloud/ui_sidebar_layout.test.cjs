@@ -393,6 +393,45 @@ test('Multiple push widgets on the same side use the maximum width for margin', 
     assert.equal(dragboard.gridElement.style.marginLeft, '300px');
 });
 
+test('resizing push docks uses dock nodes while temporary element dimensions are stale', () => {
+    const tab = createTabMock();
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+    dragboard.persist = () => Promise.resolve(dragboard);
+
+    const view = createWidgetViewMock('left', {dock: 'left', dock_mode: 'push', w: 3});
+    dragboard.addWidget(view);
+    // At resizestop the element is still marked as resizing, while its inline
+    // size has already been cleared. Its measured width belongs to the main grid.
+    view.wrapperElement.offsetWidth = 25;
+    view.wrapperElement.classList.add('ui-resizable-resizing');
+    view.wrapperElement.gridstackNode.w = 5;
+    dragboard.leftDock.grid.trigger('resize', view.wrapperElement);
+    assert.equal(dragboard.gridElement.style.marginLeft, '500px');
+    dragboard.leftDock.grid.trigger('resizestop', view.wrapperElement);
+    assert.equal(dragboard.gridElement.style.marginLeft, '500px');
+
+    const top = createWidgetViewMock('top', {dock: 'top', dock_mode: 'push', h: 3});
+    dragboard.addWidget(top);
+    top.wrapperElement.offsetHeight = 1;
+    top.wrapperElement.gridstackNode.h = 7;
+    dragboard.topDock.grid.trigger('resizestop', top.wrapperElement);
+    assert.equal(dragboard.gridElement.style.marginTop, '280px');
+});
+
+test('push reservations follow a workspace resize within the same breakpoint', () => {
+    const tab = createTabMock();
+    const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);
+    dragboard.paint();
+    const view = createWidgetViewMock('left', {dock: 'left', dock_mode: 'push', w: 3});
+    dragboard.addWidget(view);
+    assert.equal(dragboard.gridElement.style.marginLeft, '300px');
+
+    tab.wrapperElement.offsetWidth = 1440;
+    dragboard._on_resize();
+    assert.equal(dragboard.gridElement.style.marginLeft, '360px');
+});
+
 test('Bottom dock is overlay-only and never pushes the main content', () => {
     const tab = createTabMock();
     const dragboard = new Wirecloud.ui.WorkspaceTabViewDragboard(tab);

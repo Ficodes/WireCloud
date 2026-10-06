@@ -218,26 +218,18 @@
                 return;
             }
 
-            let maxDimension = 0;
-            if (this.vertical) {
-                openPushViews.forEach((v) => {
-                    const px = (v.wrapperElement && v.wrapperElement.offsetWidth > 0)
-                        ? v.wrapperElement.offsetWidth
-                        : this.dragboard.columnsToPixels(v.layout.w || 4);
-                    if (px > maxDimension) {
-                        maxDimension = px;
-                    }
-                });
-            } else {
-                openPushViews.forEach((v) => {
-                    const px = (v.wrapperElement && v.wrapperElement.offsetHeight > 0)
-                        ? v.wrapperElement.offsetHeight
-                        : (v.layout.h || 4) * (this.dragboard.cellheight || 40);
-                    if (px > maxDimension) {
-                        maxDimension = px;
-                    }
-                });
-            }
+            // During resizestop GridStack has cleared the inline dimensions,
+            // but the resizing class still disables our dock geometry rules.
+            // Measuring offsetWidth then reads the pushed MAIN grid's sizing.
+            // Always derive the reservation from the owning dock's node instead.
+            const wrapper = this.dragboard.tab.wrapperElement;
+            const width = wrapper.clientWidth || wrapper.offsetWidth || window.innerWidth;
+            const columns = this.grid ? this.grid.getColumn() : this.dragboard.activeScreenSize.columns;
+            const cellHeight = this.grid ? this.grid.getCellHeight(true) : this.dragboard.cellheight;
+            const maxDimension = Math.max(...openPushViews.map((view) => {
+                const node = view.wrapperElement.gridstackNode || view.layout;
+                return this.vertical ? node.w * width / columns : node.h * cellHeight;
+            }));
 
             this.dragboard.setDockPushMargin(this.position, maxDimension);
         }
@@ -295,6 +287,7 @@
                 float: true,
                 animate: true,
                 handle: ".wc-widget-heading",
+                draggable: {scroll: false},
                 alwaysShowResizeHandle: "mobile",
                 staticGrid: this.dragboard.tab.workspace.model.restricted
             };
@@ -390,12 +383,15 @@
                 this.dragboard._on_dock_change(this);
                 this.updatePushMargins();
             });
-            this.grid.on("drag resize", (event, element) => {
+            const onMove = (event, element) => {
                 const view = this.views.find((candidate) => candidate.wrapperElement === element);
                 if (view != null) {
                     this.updateWidgetPosition(view);
+                    this.updatePushMargins();
                 }
-            });
+            };
+            this.grid.on("drag", onMove);
+            this.grid.on("resize", onMove);
             this.grid.on("dragstart", () => {
                 this.container.classList.add("wc-dock-interacting");
                 this.dragboard._on_interaction_start(this);
