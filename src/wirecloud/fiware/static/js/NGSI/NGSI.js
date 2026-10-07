@@ -1,6 +1,6 @@
 /*
  *     Copyright (c) 2013-2017 CoNWeT Lab., Universidad Politécnica de Madrid
- *     Copyright (c) 2018-2021 Future Internet Consulting and Development Solutions S.L.
+ *     Copyright (c) 2018-2026 Future Internet Consulting and Development Solutions S.L.
  *
  *     This file is part of ngsijs.
  *
@@ -37,7 +37,7 @@
  *     Modified by: Fermín Galán Márquez - Telefónica
  */
 
-/* global EventSource, exports, require */
+/* global EventSource, WebSocket, exports, require */
 
 (function () {
 
@@ -275,6 +275,7 @@
         },
 
         ld: {
+            WEBSOCKET: 'ngsi-ld/v1/ws',
             ENTITY_ATTR_ENTRY: 'ngsi-ld/v1/entities/%(entityId)s/attrs/%(attribute)s',
             ENTITY_COLLECTION: 'ngsi-ld/v1/entities',
             ENTITY_ENTRY: 'ngsi-ld/v1/entities/%(entityId)s',
@@ -1296,6 +1297,339 @@
         };
     };
 
+    const websocket_response_headers = new Set([
+        "connection", "method", "path", "requestid", "status"
+    ]);
+
+    const serialize_parameters = function serialize_parameters(parameters) {
+        const query = [];
+
+        if (parameters == null || typeof parameters !== "object") {
+            return null;
+        }
+
+        Object.keys(parameters).forEach((key) => {
+            if (typeof parameters[key] === "undefined") {
+                return;
+            }
+            query.push(
+                encodeURIComponent(key) + "=" +
+                (parameters[key] == null ? "" : encodeURIComponent(parameters[key]))
+            );
+        });
+
+        return query.length > 0 ? query.join("&") : null;
+    };
+
+    const websocket_headers = function websocket_headers(metadata) {
+        const headers = {};
+
+        Object.keys(metadata).forEach((name) => {
+            if (!websocket_response_headers.has(name.toLowerCase())) {
+                headers[name.toLowerCase()] = metadata[name];
+            }
+        });
+
+        return headers;
+    };
+
+    const WebSocketResponse = function WebSocketResponse(metadata, body) {
+        const headers = websocket_headers(metadata);
+        let responseText = "";
+
+        if (body != null) {
+            responseText = typeof body === "string" ? body : JSON.stringify(body);
+        }
+
+        Object.defineProperties(this, {
+            status: {value: metadata.status},
+            statusText: {value: metadata.statusText || ""},
+            response: {value: responseText},
+            responseText: {value: responseText},
+            responseXML: {value: null},
+            transport: {value: null}
+        });
+
+        this.getHeader = function getHeader(name) {
+            return headers[name.toLowerCase()] != null ? headers[name.toLowerCase()] : null;
+        };
+    };
+
+    const reject_websocket_requests = function reject_websocket_requests(connection, error) {
+        const pending = connection.pending;
+        connection.pending = {};
+        Object.keys(pending).forEach((requestId) => {
+            pending[requestId].reject(error);
+        });
+    };
+
+    const notify_websocket_state = function notify_websocket_state(connection, state) {
+        const callbacks = connection.callbacks;
+        connection.callbacks = {};
+        Object.keys(callbacks).forEach((subscriptionId) => {
+            try {
+                callbacks[subscriptionId](null, null, true, state);
+            } catch (e) {}
+        });
+    };
+
+    const handle_websocket_message = function handle_websocket_message(connection, event) {
+        let message;
+
+        try {
+            message = JSON.parse(event.data);
+        } catch (e) {
+            return;
+        }
+
+        if (message == null || typeof message !== "object" ||
+                message.metadata == null || typeof message.metadata !== "object") {
+            return;
+        }
+
+        const metadata = message.metadata;
+        if (typeof metadata.connection === "string" && connection.connection_id == null) {
+            if (typeof connection.resolve !== "function") {
+                return;
+            }
+            connection.connection_id = metadata.connection;
+            connection.supported = true;
+            clearTimeout(connection.timeout);
+            connection.timeout = null;
+            const resolve = connection.resolve;
+            connection.resolve = null;
+            connection.reject = null;
+            connection.promise = null;
+            resolve(metadata.connection);
+        } else if (metadata.requestId != null && metadata.requestId in connection.pending) {
+            const request = connection.pending[metadata.requestId];
+            delete connection.pending[metadata.requestId];
+            request.resolve(new WebSocketResponse(metadata, message.body));
+        } else if (message.body != null && typeof message.body === "object") {
+            const subscriptionId = message.body.subscriptionId;
+            if (subscriptionId in connection.callbacks) {
+                connection.callbacks[subscriptionId](
+                    message.body,
+                    websocket_headers(metadata),
+                    false,
+                    null
+                );
+            }
+        }
+    };
+
+    /**
+     * Connection to the NGSI-LD WebSocket transport exposed by a context broker.
+     *
+     * This class is normally created automatically by {@link NGSI.Connection}.
+     * Applications only need to use it directly to inspect or close the transport.
+     */
+    NGSI.WebSocketConnection = function WebSocketConnection(url, fallbackRequest) {
+        const websocketUrl = new URL(NGSI.endpoints.ld.WEBSOCKET, url);
+        websocketUrl.protocol = websocketUrl.protocol === "https:" ? "wss:" : "ws:";
+
+        this.fallbackRequest = fallbackRequest;
+        privates.set(this, {
+            callbacks: {},
+            connection_id: null,
+            failed: false,
+            pending: {},
+            promise: null,
+            reject: null,
+            request_id: 0,
+            resolve: null,
+            socket: null,
+            supported: null,
+            timeout: null
+        });
+
+        Object.defineProperties(this, {
+            connected: {
+                get: function () {
+                    const connection = privates.get(this);
+                    return connection.connection_id != null && connection.socket != null &&
+                        connection.socket.readyState === 1;
+                }
+            },
+            connecting: {
+                get: function () {
+                    return privates.get(this).promise != null;
+                }
+            },
+            connection_id: {
+                get: function () {
+                    return privates.get(this).connection_id;
+                }
+            },
+            supported: {
+                get: function () {
+                    return privates.get(this).supported;
+                }
+            },
+            url: {value: websocketUrl}
+        });
+    };
+
+    /**
+     * Opens the WebSocket and resolves with the broker-assigned connection URN.
+     *
+     * @returns {Promise<String>}
+     */
+    NGSI.WebSocketConnection.prototype.connect = function connect() {
+        const connection = privates.get(this);
+
+        if (this.connected) {
+            return Promise.resolve(connection.connection_id);
+        }
+        if (connection.failed) {
+            return Promise.reject(new NGSI.ConnectionError("WebSocket transport is not available"));
+        }
+        if (connection.promise != null) {
+            return connection.promise;
+        }
+
+        connection.promise = new Promise((resolve, reject) => {
+            connection.resolve = resolve;
+            connection.reject = reject;
+
+            const fail = () => {
+                if (connection.connection_id == null && connection.reject != null) {
+                    const socket = connection.socket;
+                    clearTimeout(connection.timeout);
+                    connection.timeout = null;
+                    connection.failed = true;
+                    connection.supported = false;
+                    connection.socket = null;
+                    connection.promise = null;
+                    connection.resolve = null;
+                    const rejectConnection = connection.reject;
+                    connection.reject = null;
+                    if (socket != null && socket.readyState < 2) {
+                        socket.close();
+                    }
+                    rejectConnection(new NGSI.ConnectionError("WebSocket transport is not available"));
+                }
+            };
+
+            let socket;
+            try {
+                socket = new WebSocket(this.url.toString(), "ngsi-ld.json");
+                connection.socket = socket;
+            } catch (e) {
+                setTimeout(fail, 0);
+                return;
+            }
+
+            socket.addEventListener("message", (event) => {
+                handle_websocket_message(connection, event);
+            });
+            socket.addEventListener("error", fail);
+            socket.addEventListener("close", () => {
+                if (connection.socket !== socket) {
+                    return;
+                }
+                if (connection.connection_id == null) {
+                    fail();
+                    return;
+                }
+
+                connection.socket = null;
+                connection.connection_id = null;
+                reject_websocket_requests(connection, new NGSI.ConnectionError("WebSocket connection closed"));
+                notify_websocket_state(connection, "closed");
+            });
+
+            connection.timeout = setTimeout(fail, 5000);
+        });
+
+        return connection.promise;
+    };
+
+    /**
+     * Sends an HTTP-shaped request through the WebSocket transport. If the
+     * broker does not expose that transport, the configured HTTP request
+     * function is used instead.
+     */
+    NGSI.WebSocketConnection.prototype.makeRequest = function makeRequest(url, options) {
+        return this.connect().then(() => {
+            const connection = privates.get(this);
+            const requestUrl = new URL(url.toString());
+            const query = serialize_parameters(options.parameters);
+            if (query != null) {
+                requestUrl.search += (requestUrl.search === "" ? "?" : "&") + query;
+            }
+
+            const requestId = "ngsijs-" + (++connection.request_id);
+            const metadata = {
+                method: (options.method || "POST").toUpperCase(),
+                path: requestUrl.pathname + requestUrl.search,
+                requestId: requestId
+            };
+            const headers = Object.assign({Accept: "application/json, */*"}, options.requestHeaders);
+            if (options.postBody != null && options.contentType != null &&
+                    Object.keys(headers).every((name) => name.toLowerCase() !== "content-type")) {
+                headers["Content-Type"] = options.contentType;
+            }
+            Object.keys(headers).forEach((name) => {
+                if (headers[name] != null) {
+                    metadata[name] = headers[name];
+                }
+            });
+
+            let body = options.postBody;
+            const contentTypeName = Object.keys(headers).find((name) => name.toLowerCase() === "content-type");
+            const contentType = contentTypeName != null ? headers[contentTypeName] : options.contentType;
+            if (typeof body === "string" && typeof contentType === "string" &&
+                    contentType.toLowerCase().split(";", 1)[0].endsWith("json")) {
+                try {
+                    body = JSON.parse(body);
+                } catch (e) {}
+            }
+
+            return new Promise((resolve, reject) => {
+                connection.pending[requestId] = {resolve: resolve, reject: reject};
+                try {
+                    connection.socket.send(JSON.stringify({metadata: metadata, body: body == null ? null : body}));
+                } catch (e) {
+                    delete connection.pending[requestId];
+                    reject(new NGSI.ConnectionError(e.message));
+                }
+            });
+        }, (error) => {
+            if (typeof this.fallbackRequest === "function") {
+                return this.fallbackRequest(url, options);
+            }
+            return Promise.reject(error);
+        }).then((response) => {
+            // Early versions of the transport accepted the upgrade but only
+            // implemented subscription paths, answering other requests with
+            // 501. Keep those brokers usable without giving up WebSocket
+            // notification delivery.
+            if (response instanceof WebSocketResponse && response.status === 501 &&
+                    typeof this.fallbackRequest === "function") {
+                return this.fallbackRequest(url, options);
+            }
+            return response;
+        });
+    };
+
+    NGSI.WebSocketConnection.prototype.associateSubscriptionId = function associateSubscriptionId(subscriptionId, callback) {
+        privates.get(this).callbacks[subscriptionId] = callback;
+        return this;
+    };
+
+    NGSI.WebSocketConnection.prototype.closeSubscriptionCallback = function closeSubscriptionCallback(subscriptionId) {
+        delete privates.get(this).callbacks[subscriptionId];
+        return Promise.resolve();
+    };
+
+    NGSI.WebSocketConnection.prototype.close = function close() {
+        const connection = privates.get(this);
+        if (connection.socket != null) {
+            connection.socket.close();
+        }
+    };
+
     const init = function init() {
         return this.makeRequest(new URL(NGSI.proxy_endpoints.EVENTSOURCE_COLLECTION, this.url), {
             supportsAccessControl: true,  // required for using CORS on WireCloud
@@ -1888,6 +2222,11 @@
      *   requests through this connection.
      * - `ngsi_proxy_url` (`String`|`URL`): URL of the NGSI proxy to be used for
      *   receiving notifications.
+     * - `websocket` (`Boolean`; default: `true`): Prefer the broker's NGSI-LD
+     *   WebSocket transport for requests and local NGSI-LD subscription
+     *   callbacks. If unavailable, requests fall back to HTTP and callbacks
+     *   fall back to the configured NGSI proxy. Set to `false` to use only the
+     *   legacy transports.
      *
      * @example <caption>Basic usage</caption>
      *
@@ -1941,20 +2280,27 @@
             this.headers["FIWARE-ServicePath"] = options.servicepath;
         }
 
+        let requestFunction;
         if (typeof options.requestFunction === 'function') {
-            this.makeRequest = options.requestFunction;
+            requestFunction = options.requestFunction;
         } else {
-            this.makeRequest = makeRequest;
+            requestFunction = makeRequest;
         }
+
+        const useWebSocket = options.websocket !== false && options.webSocket !== false &&
+            options.use_websocket !== false && typeof WebSocket === "function";
+        const webSocket = useWebSocket ? new NGSI.WebSocketConnection(url, requestFunction) : null;
+        this.makeRequest = webSocket != null ? webSocket.makeRequest.bind(webSocket) : requestFunction;
 
         if (options.ngsi_proxy_connection instanceof NGSI.ProxyConnection) {
             this.ngsi_proxy = options.ngsi_proxy_connection;
         } else if (typeof options.ngsi_proxy_url === 'string') {
-            this.ngsi_proxy = new NGSI.ProxyConnection(options.ngsi_proxy_url, this.makeRequest);
+            this.ngsi_proxy = new NGSI.ProxyConnection(options.ngsi_proxy_url, requestFunction);
         }
 
         Object.defineProperties(this, {
             url: {value: url},
+            webSocket: {value: webSocket},
             v1: {value: this},
             v2: {value: new NGSI.Connection.V2(this)},
             ld: {value: new NGSI.Connection.LD(this)}
@@ -6873,7 +7219,7 @@
      *
      */
     NGSI.Connection.LD.prototype.createSubscription = function createSubscription(subscription, options) {
-        let p, proxy_callback;
+        let p, proxy_callback, websocket_callback;
         const connection = privates.get(this);
 
         if (options == null) {
@@ -6913,20 +7259,37 @@
             const format = subscription.notification.format || "normalized";
             const onNotify = (payload, headers, statechange, newstate) => {
                 if (payload != null) {
-                    payload = JSON.parse(payload);
+                    if (typeof payload === "string") {
+                        payload = JSON.parse(payload);
+                    }
                     payload.format = format;
                     payload.contentType = headers["content-type"];
                 }
                 callback(payload, headers, statechange, newstate);
             };
 
-            p = connection.ngsi_proxy.requestCallback(onNotify).then(
-                (response) => {
+            const useProxy = () => {
+                if (connection.ngsi_proxy == null) {
+                    return Promise.reject(new TypeError(
+                        "An NGSI proxy or a WebSocket-capable context broker is needed for local callbacks"
+                    ));
+                }
+                return connection.ngsi_proxy.requestCallback(onNotify).then((response) => {
                     proxy_callback = response;
                     delete subscription.notification.endpoint.callback;
                     subscription.notification.endpoint.uri = proxy_callback.url;
-                }
-            );
+                });
+            };
+
+            if (connection.webSocket != null) {
+                p = connection.webSocket.connect().then((connectionId) => {
+                    websocket_callback = onNotify;
+                    delete subscription.notification.endpoint.callback;
+                    subscription.notification.endpoint.uri = connectionId;
+                }, useProxy);
+            } else {
+                p = useProxy();
+            }
         } else {
             p = Promise.resolve();
         }
@@ -6963,6 +7326,8 @@
 
                 if (proxy_callback) {
                     connection.ngsi_proxy.associateSubscriptionId(proxy_callback.callback_id, subscription.id, "ld");
+                } else if (websocket_callback) {
+                    connection.webSocket.associateSubscriptionId(subscription.id, websocket_callback);
                 }
 
                 return Promise.resolve({
@@ -7047,6 +7412,9 @@
                 return parse_not_found_response_ld(response);
             } else if (response.status !== 204) {
                 return Promise.reject(new NGSI.InvalidResponseError('Unexpected error code: ' + response.status));
+            }
+            if (connection.webSocket != null) {
+                connection.webSocket.closeSubscriptionCallback(options.id);
             }
             return Promise.resolve({});
         });
