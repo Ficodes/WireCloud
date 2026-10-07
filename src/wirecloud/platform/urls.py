@@ -24,7 +24,7 @@ patterns = {
     'wirecloud.version': URLTemplate(urlpattern='/api/version', defaults={}),
 
     # Context
-    'wirecloud.platform_context_collection': URLTemplate(urlpattern='/api/context', defaults={}),
+    'wirecloud.platform_context_collection': URLTemplate(urlpattern='/api/context/', defaults={}),
 
     'wirecloud.showcase_media': URLTemplate(urlpattern='/showcase/media/{vendor}/{name}/{version}/{path}', defaults={}),
 
@@ -32,7 +32,7 @@ patterns = {
     'wirecloud.search_service': URLTemplate(urlpattern='/api/search', defaults={}),
 
     # Widgets
-    'wirecloud.resource_collection': URLTemplate(urlpattern='/api/resources', defaults={}),
+    'wirecloud.resource_collection': URLTemplate(urlpattern='/api/resources/', defaults={}),
     'wirecloud.resource_entry': URLTemplate(urlpattern='/api/resource/{vendor}/{name}/{version}', defaults={}),
     'wirecloud.unversioned_resource_entry': URLTemplate(urlpattern='/api/resource/{vendor}/{name}', defaults={}),
     'wirecloud.massive_resource_update_entry': URLTemplate(
@@ -44,7 +44,7 @@ patterns = {
 
     # IWidgets
     'wirecloud.iwidget_collection': URLTemplate(
-        urlpattern='/api/workspace/{workspace_id}/tab/{tab_id}/widget_instances', defaults={}),
+        urlpattern='/api/workspace/{workspace_id}/tab/{tab_id}/widget_instances/', defaults={}),
     'wirecloud.iwidget_entry': URLTemplate(
         urlpattern='/api/workspace/{workspace_id}/tab/{tab_id}/widget_instances/{iwidget_id}', defaults={}),
     'wirecloud.iwidget_preferences': URLTemplate(
@@ -53,15 +53,15 @@ patterns = {
         urlpattern='/api/workspace/{workspace_id}/tab/{tab_id}/widget_instances/{iwidget_id}/properties', defaults={}),
 
     # Preferences
-    'wirecloud.platform_preferences': URLTemplate(urlpattern='/api/preferences/platform', defaults={}),
-    'wirecloud.workspace_preferences': URLTemplate(urlpattern='/api/workspace/{workspace_id}/preferences', defaults={}),
+    'wirecloud.platform_preferences': URLTemplate(urlpattern='/api/preferences/platform/', defaults={}),
+    'wirecloud.workspace_preferences': URLTemplate(urlpattern='/api/workspace/{workspace_id}/preferences/', defaults={}),
     'wirecloud.tab_preferences': URLTemplate(
-        urlpattern='/api/workspace/{workspace_id}/tab/{tab_id}/preferences', defaults={}),
+        urlpattern='/api/workspace/{workspace_id}/tab/{tab_id}/preferences/', defaults={}),
 
     'wirecloud.operator_code_entry': URLTemplate(
         urlpattern='/api/operator/{vendor}/{name}/{version}/html', defaults={}),
 
-    'wirecloud.market_collection': URLTemplate(urlpattern='/api/markets', defaults={}),
+    'wirecloud.market_collection': URLTemplate(urlpattern='/api/markets/', defaults={}),
     'wirecloud.market_entry': URLTemplate(urlpattern='/api/market/{user}/{market}', defaults={}),
     'wirecloud.publish_on_other_marketplace': URLTemplate(urlpattern='/api/markets/publish', defaults={}),
 
@@ -69,20 +69,20 @@ patterns = {
     'wirecloud.theme_entry': URLTemplate(urlpattern='/api/theme/{name}', defaults={}),
 
     # Workspace
-    'wirecloud.workspace_collection': URLTemplate(urlpattern='/api/workspaces', defaults={}),
-    'wirecloud.workspace_entry': URLTemplate(urlpattern='/api/workspace/{workspace_id}', defaults={}),
-    'wirecloud.tab_collection': URLTemplate(urlpattern='/api/workspace/{workspace_id}/tabs', defaults={}),
+    'wirecloud.workspace_collection': URLTemplate(urlpattern='/api/workspaces/', defaults={}),
+    'wirecloud.workspace_entry': URLTemplate(urlpattern='/api/workspace/{workspace_id}/', defaults={}),
+    'wirecloud.tab_collection': URLTemplate(urlpattern='/api/workspace/{workspace_id}/tabs/', defaults={}),
     'wirecloud.tab_order': URLTemplate(urlpattern='/api/workspace/{workspace_id}/tabs/order', defaults={}),
-    'wirecloud.tab_entry': URLTemplate(urlpattern='/api/workspace/{workspace_id}/tab/{tab_id}', defaults={}),
+    'wirecloud.tab_entry': URLTemplate(urlpattern='/api/workspace/{workspace_id}/tab/{tab_id}/', defaults={}),
 
     'wirecloud.workspace_resource_collection': URLTemplate(
         urlpattern='/api/workspace/{workspace_id}/resources', defaults={}),
     'wirecloud.workspace_wiring': URLTemplate(urlpattern='/api/workspace/{workspace_id}/wiring', defaults={}),
     'wirecloud.operator_variables': URLTemplate(
         urlpattern='/api/workspace/{workspace_id}/operators/{operator_id}/variables', defaults={}),
-    'wirecloud.workspace_merge': URLTemplate(urlpattern='/api/workspace/{to_ws_id}/merge', defaults={}),
-    'wirecloud.workspace_publish': URLTemplate(urlpattern='/api/workspace/{workspace_id}/publish', defaults={}),
-    'wirecloud.workspace_entry_owner_name': URLTemplate(urlpattern='/api/workspace/{owner}/{name}', defaults={}),
+    'wirecloud.workspace_merge': URLTemplate(urlpattern='/api/workspace/{to_ws_id}/merge/', defaults={}),
+    'wirecloud.workspace_publish': URLTemplate(urlpattern='/api/workspace/{workspace_id}/publish/', defaults={}),
+    'wirecloud.workspace_entry_owner_name': URLTemplate(urlpattern='/api/workspace/{owner}/{name}/', defaults={}),
     'wirecloud.switch_user_service': URLTemplate(urlpattern='/api/admin/switchuser', defaults={}),
     'wirecloud.admin_user_collection': URLTemplate(urlpattern='/api/admin/users', defaults={}),
     'wirecloud.admin_user_entry': URLTemplate(urlpattern='/api/admin/users/{user_username}', defaults={}),
