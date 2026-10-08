@@ -380,13 +380,6 @@
     left: calc(100% - var(--wc-dock-margin-right, 0px));
 }
 
-// A closed left dock is translated by its complete wrapper width. Its wrapper
-// itself sits one GridStack gutter outside the workspace, so move the handle
-// back through that gutter to keep it fully on-screen.
-.wc-docked-left.wc-dock-widget-closed .wc-sidebar-left-handle {
-    left: calc(100% + var(--wc-dock-margin-left, 0px) + var(--wc-dock-margin-right, 0px));
-}
-
 .wc-docked-right.wc-dock-widget-open .wc-sidebar-right-handle {
     right: calc(100% - var(--wc-dock-margin-left, 0px));
 }
