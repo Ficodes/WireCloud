@@ -92,6 +92,19 @@ test('WidgetElement.disconnectedCallback calls _unload', () => {
     assert.equal(unloaded, true);
 });
 
+test('WidgetElement.connectedMoveCallback preserves the loaded shadow DOM', () => {
+    const widget = createWidget();
+    widget.hasShadowDOM = true;
+    widget.shadowRoot = { innerHTML: '<div>running widget</div>', appendChild() {}, querySelectorAll() { return []; } };
+    let unloaded = false;
+    widget._unload = () => { unloaded = true; };
+
+    widget.connectedMoveCallback();
+
+    assert.equal(unloaded, false);
+    assert.equal(widget.shadowRoot.innerHTML, '<div>running widget</div>');
+});
+
 test('WidgetElement.load throws when not attached (no shadow DOM)', () => {
     const widget = createWidget();
     widget.hasShadowDOM = false;

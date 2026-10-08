@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import json
+
 import rdflib
 import pytest
 from lxml import etree
@@ -362,6 +364,8 @@ def test_xml_parser_mashup_wiring_error_paths(monkeypatch):
     parser._parse_workspace_info()
     assert parser._info.wiring.version == "2.0"
 
+    # A resource with no layouts/screensizes/position/rendering at all simply has no stored
+    # layouts (it is auto-placed by the client) instead of raising
     parser2 = ApplicationMashupTemplateParser(
         f'<mashup xmlns="{WIRECLOUD_TEMPLATE_NS}" vendor="acme" name="m" version="1.0.0">'
         '<details/><structure><tab name="t"><resource id="r" vendor="acme" name="w" version="1.0.0"/></tab></structure>'
@@ -369,11 +373,16 @@ def test_xml_parser_mashup_wiring_error_paths(monkeypatch):
     )
     parser2._component_description = etree.Element("details")
     parser2._parse_basic_info()
-    with pytest.raises(TemplateParseException, match="Missing position/rendering"):
-        parser2._parse_workspace_info()
+    parser2._parse_workspace_info()
+    assert parser2._info.tabs[0].resources[0].layouts == {}
 
 
-def test_rdf_parser_workspace_no_screensizes_and_invalid(monkeypatch):
+def test_rdf_parser_workspace_legacy_position_rendering(monkeypatch):
+    # Legacy RDF format: a single hasPosition + hasiWidgetRendering pair directly on the widget
+    # (no hasLayout, no hasScreenSize). With no screenSizes preference anywhere (tab or
+    # workspace), the effective screenSizes is 'legacy default', so the converted layout is
+    # remapped to the id of the platform's new default desktop screen size (not the old,
+    # now-meaningless, screen size id).
     rdf_parser._ = lambda text: text
 
     parser = RDFTemplateParser(rdflib.Graph())
@@ -400,30 +409,113 @@ def test_rdf_parser_workspace_no_screensizes_and_invalid(monkeypatch):
     parser._graph.add((widget, rdf_parser.DCTERMS["title"], rdflib.Literal("Widget")))
     parser._graph.add((widget, rdf_parser.WIRE_M["hasPosition"], position))
     parser._graph.add((widget, rdf_parser.WIRE_M["hasiWidgetRendering"], rendering))
-    parser._graph.add((rendering, rdf_parser.WIRE_M["layout"], rdflib.Literal("0")))
-    parser._graph.add((position, rdf_parser.WIRE_M["x"], rdflib.Literal("1")))
-    parser._graph.add((position, rdf_parser.WIRE_M["y"], rdflib.Literal("2")))
+    parser._graph.add((position, rdf_parser.WIRE_M["x"], rdflib.Literal("10")))
+    parser._graph.add((position, rdf_parser.WIRE_M["y"], rdflib.Literal("8")))
     parser._graph.add((position, rdf_parser.WIRE_M["z"], rdflib.Literal("1")))
-    parser._graph.add((rendering, rdf_parser.WIRE["renderingWidth"], rdflib.Literal("2")))
-    parser._graph.add((rendering, rdf_parser.WIRE["renderingHeight"], rdflib.Literal("3")))
+    parser._graph.add((rendering, rdf_parser.WIRE["renderingWidth"], rdflib.Literal("6")))
+    parser._graph.add((rendering, rdf_parser.WIRE["renderingHeight"], rdflib.Literal("4")))
+    parser._graph.add((rendering, rdf_parser.WIRE_M["layout"], rdflib.Literal("3")))
 
     parser._parse_workspace_info()
-    assert parser._info.tabs[0].resources[0].screenSizes[0].id == 0
+
+    from wirecloud.commons.utils.template.base import convert_legacy_layout, default_desktop_screen_size_id
+
+    expected = convert_legacy_layout(top=8, left=10, width=6, height=4, relx=True, rely=True,
+                                     relwidth=True, relheight=True, layout=3)
+    desktop_id = str(default_desktop_screen_size_id())
+    layouts = parser._info.tabs[0].resources[0].layouts
+    assert set(layouts) == {desktop_id}
+    assert layouts[desktop_id].model_dump() == expected
 
     req = rdflib.BNode()
     parser._graph.add((parser._rootURI, rdf_parser.WIRE["hasRequirement"], req))
     parser._graph.add((req, rdf_parser.RDF["type"], rdf_parser.WIRE["Other"]))
     parser._parse_requirements()
 
-    parser_bad = RDFTemplateParser(rdflib.Graph())
-    parser_bad._type = MACType.mashup
-    parser_bad._rootURI = parser._rootURI
-    parser_bad._graph = parser._graph
-    parser_bad._info = _mk_mashup_info()
-    monkeypatch.setattr(parser_bad, "_parse_wiring_info", lambda *args, **kwargs: None)
-    monkeypatch.setattr(type(parser_bad._info), "is_valid_screen_sizes", lambda self: False)
-    with pytest.raises(TemplateParseException, match="Invalid screen sizes"):
-        parser_bad._parse_workspace_info()
+    # A widget with neither hasLayout, hasScreenSize, nor hasPosition/hasiWidgetRendering
+    # simply gets no stored layouts
+    parser_empty = RDFTemplateParser(rdflib.Graph())
+    parser_empty._type = MACType.mashup
+    parser_empty._rootURI = rdflib.URIRef("http://example.com/m2")
+    parser_empty._info = _mk_mashup_info()
+    monkeypatch.setattr(parser_empty, "_parse_wiring_info", lambda *args, **kwargs: None)
+
+    tab2 = rdflib.BNode()
+    parser_empty._graph.add((parser_empty._rootURI, rdf_parser.WIRE_M["hasTab"], tab2))
+    parser_empty._graph.add((tab2, rdf_parser.DCTERMS["title"], rdflib.Literal("main")))
+    parser_empty._graph.add((tab2, rdf_parser.WIRE["index"], rdflib.Literal("0")))
+
+    widget2 = rdflib.BNode()
+    provider2 = rdflib.BNode()
+    parser_empty._graph.add((tab2, rdf_parser.WIRE_M["hasiWidget"], widget2))
+    parser_empty._graph.add((widget2, rdf_parser.WIRE_M["iWidgetId"], rdflib.Literal("r2")))
+    parser_empty._graph.add((widget2, rdf_parser.USDL["hasProvider"], provider2))
+    parser_empty._graph.add((provider2, rdf_parser.FOAF["name"], rdflib.Literal("acme")))
+    parser_empty._graph.add((widget2, rdf_parser.RDFS["label"], rdflib.Literal("widget")))
+    parser_empty._graph.add((widget2, rdf_parser.USDL["versionInfo"], rdflib.Literal("1.0.0")))
+    parser_empty._graph.add((widget2, rdf_parser.DCTERMS["title"], rdflib.Literal("Widget")))
+
+    parser_empty._parse_workspace_info()
+    assert parser_empty._info.tabs[0].resources[0].layouts == {}
+
+
+def test_rdf_parser_workspace_custom_screen_sizes_keeps_ids(monkeypatch):
+    # A tab with a real, custom multi-interval screenSizes preference is NOT 'legacy default':
+    # legacy hasScreenSize entries keep their own screen size ids instead of being remapped.
+    rdf_parser._ = lambda text: text
+
+    parser = RDFTemplateParser(rdflib.Graph())
+    parser._type = MACType.mashup
+    parser._rootURI = rdflib.URIRef("http://example.com/m3")
+    parser._info = _mk_mashup_info()
+    monkeypatch.setattr(parser, "_parse_wiring_info", lambda *args, **kwargs: None)
+
+    tab = rdflib.BNode()
+    parser._graph.add((parser._rootURI, rdf_parser.WIRE_M["hasTab"], tab))
+    parser._graph.add((tab, rdf_parser.DCTERMS["title"], rdflib.Literal("main")))
+    parser._graph.add((tab, rdf_parser.WIRE["index"], rdflib.Literal("0")))
+
+    tab_pref = rdflib.BNode()
+    parser._graph.add((tab, rdf_parser.WIRE_M["hasTabPreference"], tab_pref))
+    parser._graph.add((tab_pref, rdf_parser.DCTERMS["title"], rdflib.Literal("screenSizes")))
+    custom_screen_sizes = json.dumps([
+        {"id": 4, "moreOrEqual": 0, "lessOrEqual": 767},
+        {"id": 8, "moreOrEqual": 768, "lessOrEqual": -1},
+    ])
+    parser._graph.add((tab_pref, rdf_parser.WIRE["value"], rdflib.Literal(custom_screen_sizes)))
+
+    widget = rdflib.BNode()
+    provider = rdflib.BNode()
+    parser._graph.add((tab, rdf_parser.WIRE_M["hasiWidget"], widget))
+    parser._graph.add((widget, rdf_parser.WIRE_M["iWidgetId"], rdflib.Literal("r1")))
+    parser._graph.add((widget, rdf_parser.USDL["hasProvider"], provider))
+    parser._graph.add((provider, rdf_parser.FOAF["name"], rdflib.Literal("acme")))
+    parser._graph.add((widget, rdf_parser.RDFS["label"], rdflib.Literal("widget")))
+    parser._graph.add((widget, rdf_parser.USDL["versionInfo"], rdflib.Literal("1.0.0")))
+    parser._graph.add((widget, rdf_parser.DCTERMS["title"], rdflib.Literal("Widget")))
+
+    for size_id in (4, 8):
+        screen_size = rdflib.BNode()
+        position = rdflib.BNode()
+        rendering = rdflib.BNode()
+        parser._graph.add((widget, rdf_parser.WIRE_M["hasScreenSize"], screen_size))
+        parser._graph.add((screen_size, rdf_parser.WIRE_M["screenSizeId"], rdflib.Literal(str(size_id))))
+        parser._graph.add((screen_size, rdf_parser.WIRE_M["hasPosition"], position))
+        parser._graph.add((screen_size, rdf_parser.WIRE_M["hasiWidgetRendering"], rendering))
+        parser._graph.add((position, rdf_parser.WIRE_M["x"], rdflib.Literal("10")))
+        parser._graph.add((position, rdf_parser.WIRE_M["y"], rdflib.Literal("8")))
+        parser._graph.add((position, rdf_parser.WIRE_M["z"], rdflib.Literal("1")))
+        parser._graph.add((rendering, rdf_parser.WIRE["renderingWidth"], rdflib.Literal("6")))
+        parser._graph.add((rendering, rdf_parser.WIRE["renderingHeight"], rdflib.Literal("4")))
+
+    parser._parse_workspace_info()
+
+    layouts = parser._info.tabs[0].resources[0].layouts
+    assert set(layouts) == {"4", "8"}
+
+    # The custom preference is preserved on the tab (untouched, per §7's "leave the preference
+    # value untouched" rule for templates)
+    assert parser._info.tabs[0].preferences["screenSizes"] == custom_screen_sizes
 
 
 def test_rdf_parser_component_info_list_options_and_validation_error(monkeypatch):
@@ -516,7 +608,11 @@ def test_xml_parser_extra_branches_and_getters(monkeypatch):
     with pytest.raises(TemplateParseException, match="Invalid wiring version"):
         parser_bad_version._parse_workspace_info()
 
-    parser_layout_error = ApplicationMashupTemplateParser(
+    # Legacy <screensizes> parses fine without any 'layout' attribute on <resource> (that
+    # attribute, and the requirement for it, no longer exist). No screenSizes preference is
+    # present anywhere, so the effective value is 'legacy default' and the single old
+    # screensize's converted layout is remapped to the new default desktop screen size id.
+    parser_legacy_screensizes = ApplicationMashupTemplateParser(
         f'<mashup xmlns="{WIRECLOUD_TEMPLATE_NS}" vendor="acme" name="m" version="1.0.0">'
         "<details/>"
         "<structure><tab name='t'><resource id='r' vendor='acme' name='w' version='1.0.0' title='t'>"
@@ -525,24 +621,55 @@ def test_xml_parser_extra_branches_and_getters(monkeypatch):
         "</resource></tab></structure>"
         "</mashup>"
     )
-    parser_layout_error._component_description = etree.Element("details")
-    parser_layout_error._parse_basic_info()
-    with pytest.raises(TemplateParseException, match="Missing layout in resource"):
-        parser_layout_error._parse_workspace_info()
+    parser_legacy_screensizes._component_description = etree.Element("details")
+    parser_legacy_screensizes._parse_basic_info()
+    parser_legacy_screensizes._parse_workspace_info()
+    from wirecloud.commons.utils.template.base import default_desktop_screen_size_id
+    legacy_layouts = parser_legacy_screensizes._info.tabs[0].resources[0].layouts
+    assert set(legacy_layouts) == {str(default_desktop_screen_size_id())}
 
-    parser_invalid_screens = ApplicationMashupTemplateParser(
+    # A tab with a real, custom multi-interval screenSizes preference keeps the legacy
+    # screensize's own id instead of remapping it
+    parser_custom_screensizes = ApplicationMashupTemplateParser(
         f'<mashup xmlns="{WIRECLOUD_TEMPLATE_NS}" vendor="acme" name="m" version="1.0.0">'
         "<details/>"
-        "<structure><tab name='t'><resource id='r' vendor='acme' name='w' version='1.0.0' title='t'>"
-        "<position x='1' y='2' z='1'/><rendering width='1' height='1' layout='0'/>"
+        "<structure><tab name='t'>"
+        '<preferencevalue name="screenSizes" '
+        'value=\'[{"id": 4, "moreOrEqual": 0, "lessOrEqual": 767}, {"id": 8, "moreOrEqual": 768, "lessOrEqual": -1}]\'/>'
+        "<resource id='r' vendor='acme' name='w' version='1.0.0' title='t'>"
+        "<screensizes><screensize id='8' moreOrEqual='0' lessOrEqual='-1'><position x='1' y='2' z='1'/>"
+        "<rendering width='1' height='1'/></screensize></screensizes>"
         "</resource></tab></structure>"
         "</mashup>"
     )
-    parser_invalid_screens._component_description = etree.Element("details")
-    parser_invalid_screens._parse_basic_info()
-    monkeypatch.setattr(type(parser_invalid_screens._info), "is_valid_screen_sizes", lambda self: False)
-    with pytest.raises(TemplateParseException, match="Invalid screen sizes"):
-        parser_invalid_screens._parse_workspace_info()
+    parser_custom_screensizes._component_description = etree.Element("details")
+    parser_custom_screensizes._parse_basic_info()
+    parser_custom_screensizes._parse_workspace_info()
+    custom_layouts = parser_custom_screensizes._info.tabs[0].resources[0].layouts
+    assert set(custom_layouts) == {"8"}
+    assert parser_custom_screensizes._info.tabs[0].preferences["screenSizes"] == (
+        '[{"id": 4, "moreOrEqual": 0, "lessOrEqual": 767}, {"id": 8, "moreOrEqual": 768, "lessOrEqual": -1}]'
+    )
+
+    # New <layouts> format takes precedence and needs no 'layout' attribute either
+    parser_new_layouts = ApplicationMashupTemplateParser(
+        f'<mashup xmlns="{WIRECLOUD_TEMPLATE_NS}" vendor="acme" name="m" version="1.0.0">'
+        "<details/>"
+        "<structure><tab name='t'><resource id='r' vendor='acme' name='w' version='1.0.0' title='t'>"
+        "<layouts><layout screensize='0' x='1' y='2' w='3' h='4' visible='false' "
+        "dock='bottom' dockmode='overlay' dockopen='true'/></layouts>"
+        "</resource></tab></structure>"
+        "</mashup>"
+    )
+    parser_new_layouts._component_description = etree.Element("details")
+    parser_new_layouts._parse_basic_info()
+    parser_new_layouts._parse_workspace_info()
+    new_layout = parser_new_layouts._info.tabs[0].resources[0].layouts["0"]
+    assert new_layout.x == 1 and new_layout.y == 2 and new_layout.w == 3 and new_layout.h == 4
+    assert new_layout.visible is False
+    assert new_layout.dock == "bottom"
+    assert new_layout.dock_mode == "overlay"
+    assert new_layout.dock_open is True
 
     parser_err = ApplicationMashupTemplateParser(f'<widget xmlns="{WIRECLOUD_TEMPLATE_NS}" vendor="acme" name="w" version="1.0.0"><details/></widget>')
     parser_err._parsed = False

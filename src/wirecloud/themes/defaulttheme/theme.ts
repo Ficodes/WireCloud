@@ -32,7 +32,6 @@ const BASE_CSS: string[] = [
 
 const CLASSIC_CORE_CSS: string[] = [
     'css/mac_search.scss',
-    'css/layout_field.css',
     'css/screen_size_field.css',
     'css/mac_field.scss',
     'css/mac_selection_dialog.css'
@@ -40,7 +39,6 @@ const CLASSIC_CORE_CSS: string[] = [
 
 const WORKSPACE_CSS: string[] = [
     'css/workspace/dragboard.scss',
-    'css/workspace/dragboard_cursor.scss',
     'css/workspace/operator.scss',
     'css/workspace/widget.scss',
     'css/workspace/modals/share.scss',

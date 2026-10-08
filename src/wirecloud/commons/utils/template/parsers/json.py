@@ -67,9 +67,6 @@ class JSONTemplateParser(object):
     def _init(self) -> None:
         self._info.translation_index_usage = {}
 
-        if self._info.type == MACType.mashup and not self._info.is_valid_screen_sizes():
-            raise TemplateParseException(_('Invalid screen sizes range present in the template'))
-
         self._add_translation_index(self._info.title, type='resource', field='title')
         self._add_translation_index(self._info.description, type='resource', field='description')
 

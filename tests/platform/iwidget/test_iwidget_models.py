@@ -8,14 +8,40 @@ from wirecloud.platform.iwidget import models
 
 
 def test_widget_models_serialization():
-    cfg = models.WidgetConfig(anchor=models.WidgetConfigAnchor.top_left)
-    assert cfg.model_dump()["anchor"] == "top-left"
-    assert cfg.serialize_enum(models.WidgetConfigAnchor.top_left, None) == "top-left"
-    assert cfg.serialize_enum("top-left", None) == "top-left"
+    layout = models.WidgetLayout()
+    assert layout.model_dump() == {
+        "x": None,
+        "y": None,
+        "w": 1,
+        "h": 1,
+        "minimized": False,
+        "titlevisible": True,
+        "fulldragboard": False,
+        "visible": True,
+        "dock": None,
+        "dock_mode": "overlay",
+        "dock_open": False,
+    }
 
-    pos = models.WidgetPositionsConfig(id=0, moreOrEqual=0, lessOrEqual=-1)
-    assert pos.widget.moreOrEqual == 0
-    assert pos.widget.lessOrEqual == -1
+    layout = models.WidgetLayout(x=2, y=3, w=6, h=4, minimized=True, titlevisible=False,
+                                 fulldragboard=True, visible=False, dock="left", dock_mode="push", dock_open=False)
+    assert layout.model_dump() == {
+        "x": 2,
+        "y": 3,
+        "w": 6,
+        "h": 4,
+        "minimized": True,
+        "titlevisible": False,
+        "fulldragboard": True,
+        "visible": False,
+        "dock": "left",
+        "dock_mode": "push",
+        "dock_open": False,
+    }
+
+    instance = models.WidgetInstance(id="ws-0-0", layouts={"0": models.WidgetLayout(w=2, h=3)})
+    assert instance.layouts["0"].w == 2
+    assert instance.layouts["0"].h == 3
 
     perms = models.WidgetPermissions(
         editor=models.WidgetPermissionsConfig(move=True, close=None),

@@ -7,13 +7,14 @@ from bson import ObjectId
 
 from wirecloud.commons.utils.template.schemas.macdschemas import (
     MACDMashupResource,
+    MACDMashupResourceLayout,
     MACDMashupWithParametrization,
     MACDParametrizationOptions,
     MACDParametrizationOptionsSource,
     MACDParametrizationOptionsStatus,
     MACType,
 )
-from wirecloud.platform.iwidget.models import WidgetConfig, WidgetInstance, WidgetPositions, WidgetPositionsConfig
+from wirecloud.platform.iwidget.models import WidgetInstance, WidgetLayout
 from wirecloud.platform.wiring.schemas import (
     WiringBehaviour,
     WiringComponent,
@@ -217,27 +218,10 @@ async def test_parser_fill_workspace_using_template_minimal(monkeypatch):
                         name="widget",
                         version="1.0.0",
                         title="Widget",
-                        layout=0,
                         readonly=False,
                         properties={"prop1": SimpleNamespace(readonly=False, value="pval")},
                         preferences={"pref1": SimpleNamespace(readonly=True, hidden=True, value="qval")},
-                        screenSizes=[
-                            SimpleNamespace(
-                                id=0,
-                                moreOrEqual=0,
-                                lessOrEqual=-1,
-                                position=SimpleNamespace(x="1", y="2", z="3", anchor="top-left", relx=True, rely=True),
-                                rendering=SimpleNamespace(
-                                    relwidth=True,
-                                    relheight=True,
-                                    width="4",
-                                    height="5",
-                                    minimized=False,
-                                    fulldragboard=False,
-                                    titlevisible=True,
-                                ),
-                            )
-                        ],
+                        layouts={"0": MACDMashupResourceLayout(x=1, y=2, w=4, h=5)},
                     )
                 ],
             )
@@ -299,7 +283,7 @@ async def test_parser_fill_workspace_using_template_minimal(monkeypatch):
             id=f"{tab.id}-0",
             title="Widget",
             resource=ObjectId(),
-            positions=WidgetPositions(configurations=[WidgetPositionsConfig(id=0, moreOrEqual=0, lessOrEqual=-1, widget=WidgetConfig())]),
+            layouts={"0": WidgetLayout()},
         )
         workspace.tabs[tab.id].widgets[widget.id] = widget
         return widget
@@ -370,30 +354,13 @@ async def test_parser_fill_workspace_additional_branches(monkeypatch):
                         name="widget",
                         version="1.0.0",
                         title="Widget",
-                        layout=0,
                         readonly=True,
                         properties={
                             "prop1": SimpleNamespace(readonly=False, value=None),
                             "prop2": SimpleNamespace(readonly=True, value=None),
                         },
                         preferences={"pref1": SimpleNamespace(readonly=False, hidden=False, value=None)},
-                        screenSizes=[
-                            SimpleNamespace(
-                                id=0,
-                                moreOrEqual=0,
-                                lessOrEqual=-1,
-                                position=SimpleNamespace(x="1", y="2", z="3", anchor="top-left", relx=True, rely=True),
-                                rendering=SimpleNamespace(
-                                    relwidth=True,
-                                    relheight=True,
-                                    width="4",
-                                    height="5",
-                                    minimized=False,
-                                    fulldragboard=False,
-                                    titlevisible=True,
-                                ),
-                            )
-                        ],
+                        layouts={"0": MACDMashupResourceLayout(x=1, y=2, w=4, h=5)},
                     )
                 ],
             )
@@ -555,11 +522,10 @@ async def test_parser_fill_workspace_without_forced_values(monkeypatch):
                         name="widget",
                         version="1.0.0",
                         title="Widget",
-                        layout=0,
                         readonly=False,
                         properties={"prop1": SimpleNamespace(readonly=False, value="v")},
                         preferences={"pref1": SimpleNamespace(readonly=False, hidden=False, value="v")},
-                        screenSizes=[],
+                        layouts={},
                     )
                 ],
             )
@@ -628,31 +594,8 @@ async def test_generator_process_widget_instance_and_invalid_source(monkeypatch)
         id="w1",
         resource=ObjectId(),
         title="Widget title",
-        layout=1,
-        positions=WidgetPositions(
-            configurations=[
-                    WidgetPositionsConfig(
-                        id=0,
-                        moreOrEqual=0,
-                        lessOrEqual=-1,
-                        widget=WidgetConfig(
-                            top=1,
-                            left=2,
-                            zIndex=3,
-                            width=4,
-                            height=5,
-                            relx=False,
-                            rely=False,
-                            relwidth=False,
-                            relheight=False,
-                            fulldragboard=False,
-                            minimized=False,
-                            titlevisible=True,
-                        ),
-                    )
-                ]
-            ),
-        )
+        layouts={"0": WidgetLayout(x=2, y=1, w=4, h=5)},
+    )
 
     widget_description = SimpleNamespace(
         wiring=SimpleNamespace(
@@ -732,30 +675,7 @@ async def test_generator_process_widget_instance_additional_param_sources(monkey
         id="w2",
         resource=ObjectId(),
         title="Widget title",
-        layout=1,
-        positions=WidgetPositions(
-            configurations=[
-                WidgetPositionsConfig(
-                    id=0,
-                    moreOrEqual=0,
-                    lessOrEqual=-1,
-                    widget=WidgetConfig(
-                        top=1,
-                        left=2,
-                        zIndex=3,
-                        width=4,
-                        height=5,
-                        relx=False,
-                        rely=False,
-                        relwidth=False,
-                        relheight=False,
-                        fulldragboard=False,
-                        minimized=False,
-                        titlevisible=True,
-                    ),
-                )
-            ]
-        ),
+        layouts={"0": WidgetLayout(x=2, y=1, w=4, h=5)},
     )
     widget_description = SimpleNamespace(
         wiring=SimpleNamespace(outputs=[], inputs=[]),
@@ -814,30 +734,7 @@ async def test_generator_process_widget_instance_property_and_default_paths(monk
         id="w3",
         resource=ObjectId(),
         title="Widget title",
-        layout=1,
-        positions=WidgetPositions(
-            configurations=[
-                WidgetPositionsConfig(
-                    id=0,
-                    moreOrEqual=0,
-                    lessOrEqual=-1,
-                    widget=WidgetConfig(
-                        top=1,
-                        left=2,
-                        zIndex=3,
-                        width=4,
-                        height=5,
-                        relx=False,
-                        rely=False,
-                        relwidth=False,
-                        relheight=False,
-                        fulldragboard=False,
-                        minimized=False,
-                        titlevisible=True,
-                    ),
-                )
-            ]
-        ),
+        layouts={"0": WidgetLayout(x=2, y=1, w=4, h=5)},
     )
     widget_description = SimpleNamespace(
         wiring=SimpleNamespace(outputs=[], inputs=[]),

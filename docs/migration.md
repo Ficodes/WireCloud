@@ -58,6 +58,12 @@ The command displays its source and requests confirmation. Add `--yes` only in r
 !!! warning
     Command-line passwords can be visible in shell history and process listings. Run the migration from a restricted administration host, use short-lived credentials, and rotate them afterward.
 
+## Widget layouts
+
+WireCloud 1.x widget positions and sizes use a different grid than the current one. The importer converts each widget's stored position into an approximate layout on the new grid. Column/grid and full-background states are retained, and the old left, right, bottom, and top sidebar indexes become retracted overlay docks. The old free layout has no exact GridStack equivalent, so pixel-based positions use automatic placement and approximate sizes. Review widget placement after migrating and adjust it if needed.
+
+If the destination database was created by an earlier WireCloud FastAPI 2.0 development build, its workspaces may still store the old `positions` format instead of `layouts`. Such records are converted in memory when they are loaded and persisted in the new format on the next workspace change. Run `python -m manage convert_layouts` once to convert the whole database eagerly; the command is idempotent and is not needed for a database created by the current version or produced by `migrate`.
+
 ## Validate the result
 
 Capture the command output and review every warning or failed record. Then:

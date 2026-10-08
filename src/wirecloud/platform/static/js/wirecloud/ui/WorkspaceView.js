@@ -39,11 +39,6 @@
         this.walletButton.enabled = editing && this.model.isAllowed('edit');
         this.wiringButton.enabled = editing && this.model.isAllowed('edit');
         this.notebook.tabWrapper.toggleClassName("hidden", !(editing || this.tabs.length > 1));
-        this.notebook.tabs.forEach((tab) => {
-            if (tab.dragboard) {
-                tab.dragboard._notifyWindowResizeEvent();
-            }
-        });
 
         if (this.addTabButton) {
             this.addTabButton.toggleClassName("hidden", !editing);
@@ -150,20 +145,13 @@
                     this.walletButton.active = false;
                     this.layout.slideOut();
                     this.tabs.forEach((tab) => {
-                        if (tab.quitEditingInterval) {
-                            tab.quitEditingInterval();
+                        if (tab.quitEditingScreenSize) {
+                            tab.quitEditingScreenSize();
                         }
                     });
                 }
-                this.activeTab.dragboard._updateIWidgetSizes(true, true);
             });
             this.editButton.addEventListener("active", (button) => {
-                if (this.editing) {
-                    this.activeTab.dragboard.topLayout.active = true;
-                    this.activeTab.dragboard.rightLayout.active = true;
-                    this.activeTab.dragboard.bottomLayout.active = true;
-                    this.activeTab.dragboard.leftLayout.active = true;
-                }
                 if (this.model != null) {
                     this.model.contextManager.modify({editing: this.editing});
                 }
@@ -383,11 +371,11 @@
                     listeners: false
                 });
                 this.notebook.addToEastSection(this.editingIntervalAddon);
-                this.updateEditingInterval(this.activeTab.getEditingIntervalElement());
+                this.updateEditingInterval(this.activeTab.getEditingScreenSizeElement());
 
                 this.notebook.addEventListener('changed', (nt, oldTab, newTab) => {
-                    newTab.updateEditingIntervalName();
-                    this.updateEditingInterval(newTab.getEditingIntervalElement());
+                    newTab.updateEditingScreenSizeName();
+                    this.updateEditingInterval(newTab.getEditingScreenSizeElement());
                 });
 
                 this.addTabButton = new StyledElements.Button({
@@ -589,11 +577,7 @@
             const widget = this.findWidget(id);
 
             if (widget !== null) {
-                widget.tab.dragboard.raiseToTop(widget);
                 widget.highlight().tab.highlight();
-                if (widget.layout instanceof Wirecloud.ui.SidebarLayout) {
-                    widget.layout.active = true;
-                }
             }
 
             return this;

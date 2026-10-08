@@ -218,5 +218,5 @@ async def update_workspace_in_index(db: DBSession, workspace: Workspace):
 
     if await es_client.exists(index=WORKSPACES_INDEX, id=str(workspace.id)):
         username = await get_username_by_id(db, workspace.creator)
-        await es_client.update(index=WORKSPACES_INDEX, id=str(workspace.id),
-                               doc=prepare_workspace_for_indexing(workspace, username).model_dump())
+        await es_client.index(index=WORKSPACES_INDEX, id=str(workspace.id),
+                              document=prepare_workspace_for_indexing(workspace, username).model_dump())

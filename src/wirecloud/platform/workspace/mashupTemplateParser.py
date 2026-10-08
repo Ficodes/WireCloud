@@ -30,7 +30,8 @@ from wirecloud.commons.utils.template.schemas.macdschemas import MACType
 from wirecloud.commons.utils.urlify import URLify
 from wirecloud.database import DBSession
 from wirecloud.platform.context.utils import get_context_values
-from wirecloud.platform.iwidget.schemas import WidgetInstanceData, LayoutConfig
+from wirecloud.platform.iwidget.models import WidgetLayout
+from wirecloud.platform.iwidget.schemas import WidgetInstanceData
 from wirecloud.platform.iwidget.utils import save_widget_instance, set_initial_values
 from wirecloud.platform.preferences.crud import update_workspace_preferences, update_tab_preferences
 from wirecloud.platform.preferences.schemas import WorkspacePreference, TabPreference
@@ -217,37 +218,11 @@ async def fill_workspace_using_template(db: DBSession, request: Request, user_fu
             iwidget_data = WidgetInstanceData(
                 widget=widget_resource.local_uri_part,
                 title=resource.title,
-                icon_left=0,
-                icon_top=0,
-                layout=resource.layout,
-                layoutConfig=[]
+                layouts={
+                    screen_size_id: WidgetLayout(**layout.model_dump())
+                    for screen_size_id, layout in resource.layouts.items()
+                }
             )
-
-            for configuration in resource.screenSizes:
-                position = configuration.position
-                rendering = configuration.rendering
-
-                iwidget_layout_config = LayoutConfig(
-                    id=configuration.id,
-                    left=float(position.x),
-                    top=float(position.y),
-                    zIndex=int(position.z),
-                    anchor=position.anchor,
-                    relx=position.relx,
-                    rely=position.rely,
-                    relwidth=rendering.relwidth,
-                    relheight=rendering.relheight,
-                    width=float(rendering.width),
-                    height=float(rendering.height),
-                    minimized=rendering.minimized,
-                    fulldragboard=rendering.fulldragboard,
-                    titlevisible=rendering.titlevisible,
-                    moreOrEqual=configuration.moreOrEqual,
-                    lessOrEqual=configuration.lessOrEqual,
-                    action='update'
-                )
-
-                iwidget_data.layoutConfig.append(iwidget_layout_config)
 
             iwidget = await save_widget_instance(db, workspace, iwidget_data, user_all,
                                                  tab, commit=False, resource_owner=resource_owner)

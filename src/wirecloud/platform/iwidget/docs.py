@@ -20,30 +20,19 @@ widget_instance_data = [
     {
         "id": "67af66aa3ac952bc88cc1a63-0-0",
         "title": "string",
-        "layout": 0,
         "widget": "vendor/name/version",
-        "layoutConfig": [
-            {
-                "id": 0,
-                "top": 0,
-                "left": 0,
-                "zIndex": 0,
-                "height": 1,
-                "width": 1,
+        "layouts": {
+            "0": {
+                "x": 0,
+                "y": 0,
+                "w": 1,
+                "h": 1,
                 "minimized": False,
                 "titlevisible": True,
                 "fulldragboard": False,
-                "relx": True,
-                "rely": True,
-                "relwidth": True,
-                "relheight": True,
-                "anchor": "top-left",
-                "moreOrEqual": 0,
-                "lessOrEqual": -1
+                "visible": True
             }
-        ],
-        "icon_left": 0,
-        "icon_top": 0,
+        },
         "read_only": False,
         "permissions": {
             "editor": {
@@ -94,30 +83,19 @@ widget_instance_data = [
     {
         "id": "67af66aa3ac952bc88cc1a63-0-1",
         "title": "string",
-        "layout": 0,
         "widget": "vendor/name/version",
-        "layoutConfig": [
-            {
-                "id": 0,
-                "top": 0,
-                "left": 0,
-                "zIndex": 0,
-                "height": 1,
-                "width": 1,
+        "layouts": {
+            "0": {
+                "x": 0,
+                "y": 0,
+                "w": 1,
+                "h": 1,
                 "minimized": False,
                 "titlevisible": True,
                 "fulldragboard": False,
-                "relx": True,
-                "rely": True,
-                "relwidth": True,
-                "relheight": True,
-                "anchor": "top-left",
-                "moreOrEqual": 0,
-                "lessOrEqual": -1
+                "visible": True
             }
-        ],
-        "icon_left": 0,
-        "icon_top": 0,
+        },
         "read_only": False,
         "permissions": {
             "editor": {
@@ -191,31 +169,19 @@ create_widget_instance_collection_tab_id_description = "Tab identifier"
 create_widget_instance_collection_widget_instance_description = "Widget instance data"
 create_widget_instance_collection_widget_instance_example = {
     "title": "widget instance",
-    "layout": 0,
     "widget": "vendor/name/version",
-    "layoutConfig": [
-        {
-            "action": "update",
-            "id": 0,
-            "top": 0,
-            "left": 0,
-            "zIndex": 0,
-            "height": 1,
-            "width": 1,
+    "layouts": {
+        "0": {
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 1,
             "minimized": False,
             "titlevisible": True,
             "fulldragboard": False,
-            "relx": True,
-            "rely": False,
-            "relwidth": True,
-            "relheight": False,
-            "anchor": "top-left",
-            "moreOrEqual": 0,
-            "lessOrEqual": -1
+            "visible": True
         }
-    ],
-    "icon_left": 0,
-    "icon_top": 0,
+    },
     "read_only": False,
     "permissions": {},
     "variable_values": {}
@@ -237,28 +203,19 @@ update_widget_instance_collection_widget_instance_description = "Widget instance
 update_widget_instance_collection_widget_instance_example = [{
     "id": "6834371a9c236eb656c30789-0-0",
     "tab": "6834371a9c236eb656c30789-0",
-    "layout": 0,
-    "layoutConfig": [
-        {
-            "action": "update",
-            "id": 0,
-            "top": 0,
-            "left": 0,
-            "zIndex": 0,
-            "height": 1,
-            "width": 1,
+    "layouts": {
+        "0": {
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 1,
             "minimized": False,
             "titlevisible": True,
             "fulldragboard": False,
-            "relx": True,
-            "rely": False,
-            "relwidth": True,
-            "relheight": False,
-            "anchor": "top-left",
-            "moreOrEqual": 0,
-            "lessOrEqual": -1
-        }
-    ],
+            "visible": True
+        },
+        "1": None
+    },
     "title": "new-name-for-widget instance",
     "widget": "vendor/name/version",
     "move": False
@@ -291,28 +248,19 @@ update_widget_instance_entry_widget_instance_id_description = "Widget instance i
 update_widget_instance_entry_widget_instance_description = "Widget instance data"
 update_widget_instance_entry_widget_instance_example = {
     "tab": "6834371a9c236eb656c30789-0",
-    "layout": 0,
-    "layoutConfig": [
-        {
-            "action": "update",
-            "id": 0,
-            "top": 0,
-            "left": 0,
-            "zIndex": 0,
-            "height": 1,
-            "width": 1,
+    "layouts": {
+        "0": {
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 1,
             "minimized": False,
             "titlevisible": True,
             "fulldragboard": False,
-            "relx": True,
-            "rely": False,
-            "relwidth": True,
-            "relheight": False,
-            "anchor": "top-left",
-            "moreOrEqual": 0,
-            "lessOrEqual": -1
-        }
-    ],
+            "visible": True
+        },
+        "1": None
+    },
     "title": "new-name-for-widget-instance",
     "widget": "vendor/name/version",
     "move": False

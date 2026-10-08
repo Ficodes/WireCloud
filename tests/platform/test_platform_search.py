@@ -183,7 +183,8 @@ async def test_rebuild_and_update_workspace_index_paths(monkeypatch, db_session)
 
     await search.update_workspace_in_index(db_session, _workspace())
     assert es.exists_calls[0] == (search.WORKSPACES_INDEX, "507f1f77bcf86cd799439011")
-    assert es.update_calls[0][0] == search.WORKSPACES_INDEX
+    assert es.index_calls[0][0] == search.WORKSPACES_INDEX
+    assert es.update_calls == []
 
     class _NoDocES(_FakeES):
         async def exists(self, index, id):
@@ -197,4 +198,5 @@ async def test_rebuild_and_update_workspace_index_paths(monkeypatch, db_session)
     assert es2.indices.deleted == []
 
     await search.update_workspace_in_index(db_session, _workspace())
+    assert es2.index_calls == []
     assert es2.update_calls == []

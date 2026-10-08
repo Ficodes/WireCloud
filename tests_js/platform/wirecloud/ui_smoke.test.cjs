@@ -415,29 +415,10 @@ const setup = () => {
     StyledElements.Expander = SEExpander;
     StyledElements.Form = SEForm;
 
-    // Wirecloud.ui.DragboardLayout stub (needed by FullDragboardLayout)
-    Wirecloud.DragboardPosition = class DragboardPosition {
-        constructor(x, y) { this.x = x; this.y = y; }
-    };
-    Wirecloud.ui.DragboardLayout = class DragboardLayout {
-        constructor(dragboard, scrollbarSpace) {
-            this.dragboard = dragboard;
-            this.iWidgets = {};
-        }
-        getWidth() { return 800; }
-        getHeight() { return 600; }
-        addWidget() { return new Set(); }
-        removeWidget() { return new Set(); }
-        updatePosition() {}
-    };
-
     // Wirecloud.ui.InputInterfaceFactory (needed by FormWindowMenu)
     Wirecloud.ui.InputInterfaceFactory = {
         createInterface: () => ({ inputElement: { addEventListener() {} }, focus() {} })
     };
-
-    // Wirecloud.ui.MultiValuedSize (needed by FullDragboardLayout) — load real
-    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/MultiValuedSize.js');
 
     // global moment (needed by LogWindowMenu)
     global.moment = () => ({ fromNow: () => 'a few seconds ago' });
@@ -469,15 +450,6 @@ const setup = () => {
 // ============================================================================
 // SMALL FILES (≤150 lines, deep coverage)
 // ============================================================================
-
-// -- MultiValuedSize ----------------------------------------------------------
-
-test('MultiValuedSize smoke', () => {
-    setup();
-    const size = new Wirecloud.ui.MultiValuedSize(100, 5);
-    assert.equal(size.inPixels, 100);
-    assert.equal(size.inLU, 5);
-});
 
 // -- EmbedCodeWindowMenu ------------------------------------------------------
 
@@ -662,50 +634,6 @@ test('UpgradeWindowMenu constructor and show', () => {
     assert.ok(menu instanceof Wirecloud.ui.WindowMenu);
     assert.ok(menu.model === model);
     menu.show();
-});
-
-// -- DragboardCursor ----------------------------------------------------------
-
-test('DragboardCursor constructor, destroy, setPosition', () => {
-    setup();
-
-    const widget = {
-        position: { x: 0, y: 0 },
-        shape: { width: 1, height: 1 },
-        layout: { updatePosition: () => {} },
-        wrapperElement: { offsetHeight: 100, offsetWidth: 100 },
-        tab: { wrapperElement: document.createElement('div') }
-    };
-
-    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/DragboardCursor.js');
-
-    const cursor = new Wirecloud.ui.DragboardCursor(widget);
-    assert.equal(cursor.id, 'cursor');
-    assert.equal(cursor.widget, widget);
-    cursor.setPosition({ x: 1, y: 1 });
-    cursor.destroy();
-});
-
-// -- FullDragboardLayout ------------------------------------------------------
-
-test('FullDragboardLayout constructor and basic methods', () => {
-    setup();
-
-    loadLegacyScripts([
-        'src/wirecloud/platform/static/js/wirecloud/ui/DragboardLayout.js',
-        'src/wirecloud/platform/static/js/wirecloud/ui/FullDragboardLayout.js'
-    ]);
-
-    const dragboard = {
-        tab: { wrapperElement: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } }
-    };
-    const layout = new Wirecloud.ui.FullDragboardLayout(dragboard, 0);
-    assert.ok(layout instanceof Wirecloud.ui.DragboardLayout);
-    assert.equal(layout.initialized, false);
-    assert.equal(layout.fromPixelsToVCells(100), 1);
-    assert.equal(layout.fromPixelsToHCells(100), 1);
-    assert.equal(layout.getCellAt(0, 0).x, 0);
-    assert.equal(layout.getCellAt(0, 0).y, 0);
 });
 
 // ============================================================================
@@ -1023,7 +951,8 @@ test('WorkspaceTabViewMenuItems — loads without errors', () => {
             remove: () => {}
         },
         widgets: [],
-        showSettings: () => {}
+        showSettings: () => {},
+        dragboard: {hiddenWidgets: []}
     };
     const items = new Wirecloud.ui.WorkspaceTabViewMenuItems(tab);
     assert.ok(items instanceof StyledElements.DynamicMenuItems);
@@ -2480,205 +2409,4 @@ test('CatalogueView — constructor wiring, main buttons, current details and re
     view.createUserCommand('showDetails', details, { history: 'push' })();
     assert.equal(view.viewsByName.details.painted, details);
     assert.equal(pushedHistory, true);
-});
-
-// ============================================================================
-// ColumnLayout — constructor smoke test
-// ============================================================================
-
-test('ColumnLayout constructor initializes correctly', () => {
-    setup();
-
-    loadLegacyScripts([
-        'src/wirecloud/platform/static/js/wirecloud/ui/DragboardLayout.js',
-        'src/wirecloud/platform/static/js/wirecloud/ui/ColumnLayout.js'
-    ]);
-
-    const dragboard = {
-        tab: { wrapperElement: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } }
-    };
-
-    const layout = new Wirecloud.ui.ColumnLayout(dragboard, 20, 25, 30, 10, 0);
-
-    assert.ok(layout instanceof Wirecloud.ui.DragboardLayout);
-    assert.equal(layout.initialized, false);
-    assert.equal(layout.columns, 20);
-    assert.equal(layout.cellHeight, 25);
-    assert.equal(layout.topMargin, 15);
-    assert.equal(layout.bottomMargin, 15);
-    assert.equal(layout.leftMargin, 5);
-    assert.equal(layout.rightMargin, 5);
-    assert.equal(typeof layout._buffers, 'object');
-    assert.equal(typeof layout.matrix, 'object');
-    assert.equal(layout.dragboardCursor, null);
-    assert.equal(layout.iwidgetToMove, null);
-
-    // Test rows getter
-    assert.equal(typeof layout.rows, 'number');
-    assert.equal(layout.rows, 0);
-
-    // Test basic calculations
-    assert.equal(layout.fromPixelsToVCells(50), 2);
-    assert.equal(layout.fromPixelsToVCells(-10), 0);
-    assert.equal(layout.fromVCellsToPixels(3), 75);
-    assert.equal(layout.fromPixelsToHCells(0, 100), 0);
-});
-
-test('ColumnLayout constructor with odd margins', () => {
-    setup();
-
-    loadLegacyScripts([
-        'src/wirecloud/platform/static/js/wirecloud/ui/DragboardLayout.js',
-        'src/wirecloud/platform/static/js/wirecloud/ui/ColumnLayout.js'
-    ]);
-
-    const dragboard = {
-        tab: { wrapperElement: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } }
-    };
-
-    const layout = new Wirecloud.ui.ColumnLayout(dragboard, 12, 20, 15, 11, 5);
-
-    assert.equal(layout.topMargin, 7);
-    assert.equal(layout.bottomMargin, 8);
-    assert.equal(layout.leftMargin, 5);
-    assert.equal(layout.rightMargin, 6);
-});
-
-test('ColumnLayout basic positioning methods', () => {
-    setup();
-
-    loadLegacyScripts([
-        'src/wirecloud/platform/static/js/wirecloud/ui/DragboardLayout.js',
-        'src/wirecloud/platform/static/js/wirecloud/ui/ColumnLayout.js'
-    ]);
-
-    const dragboard = {
-        tab: { wrapperElement: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } }
-    };
-
-    const layout = new Wirecloud.ui.ColumnLayout(dragboard, 20, 25, 30, 10, 5);
-
-    // padWidth/Height
-    const paddedW = layout.padWidth(100);
-    const paddedH = layout.padHeight(100);
-    assert.ok(paddedW > 100);
-    assert.ok(paddedH > 100);
-
-    // getColumnOffset / getRowOffset
-    const colOff = layout.getColumnOffset({ x: 1 }, 800);
-    assert.equal(typeof colOff, 'number');
-    const rowOff = layout.getRowOffset({ y: 1 });
-    assert.equal(typeof rowOff, 'number');
-
-    // getColumnOffset with css flag
-    const colOffCss = layout.getColumnOffset({ x: 1 }, 800, true);
-    assert.ok(typeof colOffCss === 'string' && colOffCss.endsWith('px'));
-
-    // getRowOffset with css flag
-    const rowOffCss = layout.getRowOffset({ y: 1 }, true);
-    assert.ok(typeof rowOffCss === 'string' && rowOffCss.endsWith('px'));
-
-    // fromHCellsToPercentage
-    assert.equal(layout.fromHCellsToPercentage(5), 25);
-});
-
-// ============================================================================
-// FreeLayout — constructor smoke test
-// ============================================================================
-
-test('FreeLayout constructor initializes correctly', () => {
-    setup();
-
-    loadLegacyScripts([
-        'src/wirecloud/platform/static/js/wirecloud/ui/DragboardLayout.js',
-        'src/wirecloud/platform/static/js/wirecloud/ui/FreeLayout.js'
-    ]);
-
-    const dragboard = {
-        getWidth: () => 800,
-        getHeight: () => 600,
-        leftMargin: 0,
-        rightMargin: 0,
-        topMargin: 0,
-        bottomMargin: 0,
-        tab: { wrapperElement: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } }
-    };
-
-    const layout = new Wirecloud.ui.FreeLayout(dragboard);
-
-    assert.ok(layout instanceof Wirecloud.ui.DragboardLayout);
-    assert.equal(layout.initialized, false);
-    assert.equal(layout.iwidgetToMove, null);
-
-    // Test basic calculations
-    const vCells = layout.fromPixelsToVCells(100);
-    assert.ok(typeof vCells === 'number' && vCells >= 0);
-
-    const pixelsFromV = layout.fromVCellsToPixels(100);
-    assert.ok(typeof pixelsFromV === 'number');
-
-    const hCells = layout.fromPixelsToHCells(100, 800);
-    assert.ok(typeof hCells === 'number' && hCells >= 0);
-
-    const pixelsFromH = layout.fromHCellsToPixels(100, 800);
-    assert.ok(typeof pixelsFromH === 'number');
-
-    const widthPx = layout.getWidthInPixels(100, 800);
-    assert.ok(typeof widthPx === 'number');
-
-    const heightPx = layout.getHeightInPixels(100);
-    assert.ok(typeof heightPx === 'number');
-});
-
-test('FreeLayout adaptHeight and positioning', () => {
-    setup();
-
-    loadLegacyScripts([
-        'src/wirecloud/platform/static/js/wirecloud/ui/DragboardLayout.js',
-        'src/wirecloud/platform/static/js/wirecloud/ui/FreeLayout.js'
-    ]);
-
-    const dragboard = {
-        getWidth: () => 800,
-        getHeight: () => 600,
-        leftMargin: 0,
-        rightMargin: 0,
-        topMargin: 0,
-        bottomMargin: 0,
-        tab: { wrapperElement: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } }
-    };
-
-    const layout = new Wirecloud.ui.FreeLayout(dragboard);
-
-    // adaptHeight with pixels
-    const sizePx = layout.adaptHeight(100);
-    assert.ok(sizePx instanceof Wirecloud.ui.MultiValuedSize, 'adaptHeight returns MultiValuedSize');
-
-    // adaptHeight with percentage string
-    const sizePct = layout.adaptHeight('50%');
-    assert.ok(sizePct instanceof Wirecloud.ui.MultiValuedSize);
-
-    // adaptColumnOffset
-    const colOff = layout.adaptColumnOffset(50, 800);
-    assert.ok(colOff instanceof Wirecloud.ui.MultiValuedSize);
-
-    // adaptRowOffset
-    const rowOff = layout.adaptRowOffset(50);
-    assert.ok(rowOff instanceof Wirecloud.ui.MultiValuedSize);
-
-    // getColumnOffset with anchor
-    const colOffAnchored = layout.getColumnOffset({ x: 10, anchor: 'top-left', relx: true }, 800);
-    assert.ok(typeof colOffAnchored === 'number');
-
-    // getColumnOffset with CSS
-    const colOffCss = layout.getColumnOffset({ x: 10, anchor: 'top-left', relx: false }, 800, true);
-    assert.ok(typeof colOffCss === 'string');
-
-    // getRowOffset with anchor
-    const rowOffAnchored = layout.getRowOffset({ y: 10, anchor: 'top-left', rely: true });
-    assert.ok(typeof rowOffAnchored === 'number');
-
-    // getRowOffset with CSS
-    const rowOffCss = layout.getRowOffset({ y: 10, anchor: 'top-left', rely: false }, true);
-    assert.ok(typeof rowOffCss === 'string');
 });

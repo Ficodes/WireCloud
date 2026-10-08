@@ -10,84 +10,81 @@ const {
 // HELPERS
 // ============================================================================
 
+// Builds the DOM tree that the mocked GUIBuilder returns, matching the new
+// theme template: an outer wrapper div (the GridStack item) whose first
+// child is the content div (`.grid-stack-item-content`) holding
+// `.wc-widget-heading` and `.wc-widget-body`.
 const fakeParseResult = () => {
     const wrapper = document.createElement('div');
 
-    // Build heading element with proper DOM children so getElementsByClassName works
-    const heading = document.createElement('div');
-    heading.className = 'wc-widget-heading';
-
-    const titleSpan = document.createElement('span');
-    titleSpan.className = 'wc-widget-title';
-    heading.appendChild(titleSpan);
-
-    const toolbar = document.createElement('div');
-    toolbar.className = 'wc-widget-toolbar';
-    heading.appendChild(toolbar);
-
-    wrapper.appendChild(heading);
-
-    // Build content element
     const content = document.createElement('div');
-    content.className = 'wc-widget-content';
+    content.className = 'grid-stack-item-content panel panel-default fade';
 
-    const iframeWrapper = document.createElement('div');
-    iframeWrapper.className = 'wc-iframe-wrapper';
-    content.appendChild(iframeWrapper);
+    const heading = document.createElement('div');
+    heading.className = 'wc-widget-heading panel-heading';
+    content.appendChild(heading);
+
+    const body = document.createElement('div');
+    body.className = 'wc-widget-body';
+    content.appendChild(body);
 
     wrapper.appendChild(content);
 
-    wrapper.offsetHeight = 200;
     wrapper.offsetWidth = 300;
+    wrapper.offsetHeight = 200;
 
+    // The real GUIBuilder returns a Fragment whose second child (index 1)
+    // is the parsed template root; WidgetView.js does `.children[1]`.
     const fragment = {
         children: [
             document.createElement('div'), // dummy first child
             wrapper,
         ],
     };
-    return { fragment, wrapper };
+    return { fragment, wrapper, content, heading, body };
 };
 
 const makeModel = (overrides = {}) => {
     const wrapperElement = document.createElement('div');
-    wrapperElement.offsetHeight = 300;
-    wrapperElement.offsetWidth = 400;
     wrapperElement.contentDocument = { defaultView: { addEventListener() {} } };
 
-    return Object.assign({
+    const model = Object.assign({
         id: 'widget-1',
         volatile: false,
         missing: false,
+        loaded: false,
         title: 'Test Widget',
-        titlevisible: true,
-        minimized: false,
-        fulldragboard: false,
-        layout: 0,
-        loaded: true,
         meta: { macversion: 1, doc: 'manual', version: '1.0' },
-        position: { x: 10, y: 20, z: 1, anchor: 'top-left', relx: false, rely: false },
-        shape: { width: 2, height: 3, relwidth: false, relheight: false },
-        permissions: { viewer: { move: true, close: true, resize: true, rename: true, upgrade: true, minimize: true } },
+
+        permissions: {
+            editor: { close: true, configure: true, move: true, rename: true, resize: true, minimize: true, upgrade: true },
+            viewer: { close: false, configure: false, move: false, rename: false, resize: false, minimize: false, upgrade: false },
+        },
 
         wrapperElement,
 
-        isAllowed(perm, role) {
-            if (role === 'viewer' && perm === 'close') return false;
-            if (role === 'viewer' && this.volatile) return true;
-            return !this.volatile || role === 'editor';
+        isAllowed(name, role) {
+            role = role || 'viewer';
+            if (this.volatile) {
+                return true;
+            }
+            return !!this.permissions[role][name];
         },
+
         contextManager: {
             _lastModify: null,
             _allModifies: [],
-            modify(data) { this._lastModify = data; this._allModifies.push(data); },
+            modify(data) {
+                this._lastModify = data;
+                this._allModifies.push(data);
+            },
         },
+
         logManager: {
             errorCount: 0,
             _listeners: {},
             addEventListener(event, handler) {
-                if (!this._listeners[event]) this._listeners[event] = [];
-                this._listeners[event].push(handler);
+                (this._listeners[event] = this._listeners[event] || []).push(handler);
             },
             _dispatch(event) {
                 (this._listeners[event] || []).forEach((h) => h());
@@ -96,13 +93,26 @@ const makeModel = (overrides = {}) => {
 
         _eventListeners: {},
         addEventListener(event, handler) {
-            if (!this._eventListeners[event]) this._eventListeners[event] = [];
-            this._eventListeners[event].push(handler);
+            (this._eventListeners[event] = this._eventListeners[event] || []).push(handler);
         },
         removeEventListener() {},
         _dispatchEvent(event, ...args) {
-            // Always pass model as first argument to match real dispatch behavior
-            (this._eventListeners[event] || []).forEach((h) => h(this, ...args));
+            // Real dispatchEvent always passes the model itself as the first
+            // argument to every listener.
+            (this._eventListeners[event] || []).forEach((h) => h(model, ...args));
+        },
+
+        _layoutCalls: [],
+        setLayout(id, changes, persist) {
+            this._layoutCalls.push({ id: String(id), changes, persist });
+            return Promise.resolve(this);
+        },
+
+        _permissionCalls: [],
+        setPermissions(changes, persist) {
+            this._permissionCalls.push({ changes, persist });
+            Object.assign(this.permissions.viewer, changes);
+            return Promise.resolve(this);
         },
 
         load() { this._loaded = true; },
@@ -111,146 +121,95 @@ const makeModel = (overrides = {}) => {
         rename(title) { this._renamed = title; },
         showLogs() { this._logsShown = true; },
         showSettings() { this._settingsShown = true; },
-
-        setPosition(pos) { Object.assign(this.position, pos); },
-        setShape(shape) { Object.assign(this.shape, shape); },
-        setLayoutPosition() {},
-        setLayoutShape() {},
-        setTitleVisibility(v, p) {
-            this.titlevisible = v;
-            return Promise.resolve();
-        },
-        setPermissions(changes, p) {
-            Object.keys(changes).forEach((k) => {
-                this.permissions.viewer[k] = changes[k];
-            });
-            return Promise.resolve();
-        },
-        setLayoutMinimizedStatus() {},
-        setLayoutIndex() {},
-        setLayoutFulldragboard() {},
-        updateWindowSize() {},
-        changeTab(model) { return Promise.resolve(); },
-
-        layoutConfig: [{ id: 'config-1', lessOrEqual: -1, moreOrEqual: 0, width: 100, height: 60, relwidth: false, relheight: false, left: 0, top: 0, zIndex: 1, relx: false, rely: false, anchor: 'top-left' }],
-        currentLayoutConfig: { id: 'config-1' },
-    }, overrides);
-};
-
-const makeLayout = (overrides = {}) => {
-    return Object.assign({
-        name: 'free',
-        dragboard: null,
-        widgets: {},
-        iWidgets: {},
-        _on_remove_widget_bound() {},
-        _notifyResizeEventCalls: [],
-        _notifyResizeEvent(widget, oldW, oldH, newW, newH, resizeLS, resizeTS, persist, reserveSpace) {
-            this._notifyResizeEventCalls.push({ widget, oldW, oldH, newW, newH, resizeLS, resizeTS, persist, reserveSpace });
-        },
-        _searchFreeSpaceCalls: [],
-        _searchFreeSpace(w, h) {
-            this._searchFreeSpaceCalls.push({ w, h });
-            return { x: 0, y: 0, relx: false, rely: false, anchor: 'top-left' };
-        },
-        _searchFreeSpace2Calls: [],
-        _searchFreeSpace2(w, h, matrix) {
-            this._searchFreeSpace2Calls.push({ w, h, matrix });
-            return { x: 0, y: 0, relx: false, rely: false, anchor: 'top-left' };
-        },
-        fromHCellsToPixels(w, as) { return w * 50; },
-        fromVCellsToPixels(h) { return h * 40; },
-        adaptWidth(val, avgScreen) { return { inLU: 2, inPixels: 100 }; },
-        adaptHeight(val) { return { inLU: 3, inPixels: 120 }; },
-        adaptColumnOffset(val, avgScreen) { return { inLU: 4, inPixels: 200 }; },
-        adaptRowOffset(val) { return { inLU: 5, inPixels: 150 }; },
-        getColumnOffset(pos, avgScreen) { return pos.x * 10; },
-        getRowOffset(pos) { return pos.y * 10; },
-        getHeightInPixels(h) { return h * 40; },
-        getWidthInPixels(w) { return w * 50; },
-        updatePosition(widget, wrapper) {},
-        updateShape(widget, wrapper) {},
-        addWidget(widget, affectsDragboard) {
-            widget.layout = this;
-            if (affectsDragboard && this.dragboard) {
-                this.dragboard._addWidget(widget);
-            }
-            this._on_remove_widget_bound = () => {};
-            this.widgets[widget.id] = widget;
-            this.iWidgets[widget.id] = widget;
-            widget.addEventListener('remove', this._on_remove_widget_bound);
-            return new Set([widget.id]);
-        },
-        removeWidget(widget, affectsDragboard) {
-            delete this.widgets[widget.id];
-            delete this.iWidgets[widget.id];
-            if (affectsDragboard && this.dragboard) {
-                this.dragboard._removeWidget(widget);
-            }
-            widget.layout = null;
-            widget.removeEventListener('remove', this._on_remove_widget_bound);
-            return new Set([widget.id]);
-        },
-        removeWidgetEventListeners() {},
-        removeHandle() {},
-        lowerToBottom() {},
-    }, overrides);
-};
-
-const makeFreeLayout = (overrides = {}) => {
-    const layout = makeLayout(Object.assign({ name: 'free' }, overrides));
-    Object.setPrototypeOf(layout, Wirecloud.ui.FreeLayout.prototype);
-    return layout;
-};
-
-const makeFullDragboardLayout = (overrides = {}) => {
-    const layout = makeLayout(Object.assign({ name: 'fulldragboard' }, overrides));
-    Object.setPrototypeOf(layout, Wirecloud.ui.FullDragboardLayout.prototype);
-    return layout;
-};
-
-const makeDragboard = (overrides = {}) => {
-    const freeLayout = makeFreeLayout();
-    const fulldragboardLayout = makeFullDragboardLayout();
-    const baseLayout = makeLayout({ name: 'base' });
-    const tab = { id: 'tab-1', hidden: false, dragboard: null, model: {}, workspace: null, wrapperElement: document.createElement('div') };
-    const layouts = [freeLayout, baseLayout]; // index 0 is freeLayout (common default)
-
-    const dragboard = Object.assign({
-        tab,
-        layouts,
-        fulldragboardLayout,
-        widgets: {},
-        _addWidget(widget) { this.widgets[widget.id] = widget; },
-        _removeWidget(widget) { delete this.widgets[widget.id]; },
-        update(ids, p) { this._updateCalls = (this._updateCalls || []).concat([ids]); },
-        _updateCalls: [],
-        raiseToTop() {},
-        lowerToBottom() {},
     }, overrides);
 
-    dragboard.tab.dragboard = dragboard;
-    freeLayout.dragboard = dragboard;
-    fulldragboardLayout.dragboard = dragboard;
-    baseLayout.dragboard = dragboard;
-
-    return dragboard;
+    return model;
 };
 
-const makeWorkspace = (overrides = {}) => {
-    const ws = Object.assign({
-        editing: true,
+const makeGrid = (overrides = {}) => Object.assign({
+    calls: [],
+    update(el, opts) {
+        this.calls.push({ el, opts });
+        el.gridstackNode = Object.assign({}, el.gridstackNode, opts);
+    },
+    getCellHeight() { return 40; },
+}, overrides);
+
+const makeWorkspace = (overrides = {}) => Object.assign({
+    editing: true,
+    hidden: false,
+    _listeners: {},
+    addEventListener(event, handler) {
+        (this._listeners[event] = this._listeners[event] || []).push(handler);
+    },
+    _dispatch(event, ...args) {
+        (this._listeners[event] || []).forEach((h) => h(...args));
+    },
+}, overrides);
+
+const makeDragboard = (overrides = {}) => Object.assign({
+    activeScreenSize: { id: 0, name: 'Phone', moreOrEqual: 0, lessOrEqual: 767, columns: 12 },
+    grid: null,
+    views: [],
+    cellheight: 40,
+    margin: 5,
+    applying: false,
+    withApplying(fn) {
+        const was = this.applying;
+        this.applying = true;
+        try {
+            fn();
+        } finally {
+            this.applying = was;
+        }
+    },
+    addWidget(view) {
+        if (this.views.indexOf(view) === -1) {
+            this.views.push(view);
+        }
+    },
+    _refreshCalls: [],
+    refreshWidget(view) {
+        this._refreshCalls.push(view);
+    },
+    _removeCalls: [],
+    removeWidget(view) {
+        this._removeCalls.push(view);
+        const index = this.views.indexOf(view);
+        if (index !== -1) {
+            this.views.splice(index, 1);
+        }
+    },
+    _moveCalls: [],
+    moveWidgetToTab(view, tabView) {
+        this._moveCalls.push({ view, tabView });
+        return Promise.resolve(view.model);
+    },
+    resolveLayout(model) {
+        return null;
+    },
+    hiddenWidgets: [],
+}, overrides);
+
+const makeTab = (overrides = {}) => {
+    const workspace = overrides.workspace || makeWorkspace();
+    const dragboard = overrides.dragboard || makeDragboard();
+    const tab = Object.assign({
+        id: 'tab-1',
         hidden: false,
+        wrapperElement: document.createElement('div'),
         _listeners: {},
         addEventListener(event, handler) {
-            if (!this._listeners[event]) this._listeners[event] = [];
-            this._listeners[event].push(handler);
+            (this._listeners[event] = this._listeners[event] || []).push(handler);
         },
         _dispatch(event, ...args) {
             (this._listeners[event] || []).forEach((h) => h(...args));
         },
     }, overrides);
-    return ws;
+    tab.workspace = workspace;
+    tab.dragboard = dragboard;
+    dragboard.tab = tab;
+    return tab;
 };
 
 // ============================================================================
@@ -258,13 +217,13 @@ const makeWorkspace = (overrides = {}) => {
 // ============================================================================
 
 let _guibuilderParseResult;
-let _guibuilderParseCalled;
 
 const setup = (overrides = {}) => {
     resetLegacyRuntime();
     bootstrapStyledElementsBase();
 
-    // Augment Element prototype with missing DOM methods needed by WidgetView
+    // Augment Element prototype with the DOM helpers WidgetView relies on
+    // and that the hand-written browser shim does not provide.
     if (!Element.prototype.getElementsByClassName) {
         Element.prototype.getElementsByClassName = function (className) {
             const results = [];
@@ -280,40 +239,31 @@ const setup = (overrides = {}) => {
             return results;
         };
     }
-
-    // Prepare parse result
-    if (overrides.parseResult) {
-        _guibuilderParseResult = overrides.parseResult;
-    } else {
-        const { fragment, wrapper } = fakeParseResult();
-        _guibuilderParseResult = fragment;
+    if (!Object.getOwnPropertyDescriptor(Element.prototype, 'children')) {
+        Object.defineProperty(Element.prototype, 'children', {
+            configurable: true,
+            get() {
+                return (this.childNodes || []).filter((n) => n.nodeType === 1);
+            },
+        });
     }
-    _guibuilderParseCalled = false;
 
-    // Mock StyledElements classes
+    _guibuilderParseResult = overrides.parseResult || null;
+
     StyledElements.GUIBuilder = class GUIBuilder {
         constructor() {}
         parse(doc, tcomponents, context) {
-            _guibuilderParseCalled = { doc, tcomponents, context };
-
-            // Simulate processing the template: call each tcomponent function
-            // to properly initialize the view's child components.
-            // The real GUIBuilder calls tcomponents for matched t: namespace elements;
-            // here we call all of them to ensure closebutton, errorbutton, etc. are set.
             if (tcomponents && typeof tcomponents === 'object') {
-                // Call each tcomponent function to initialize component references on the view
                 Object.keys(tcomponents).forEach((key) => {
                     const fn = tcomponents[key];
                     if (typeof fn === 'function') {
                         fn({}, tcomponents, context);
-                    } else if (fn != null) {
-                        // Non-function tcomponents are used directly as the return value
-                        // This handles cases like strings or DOM elements
                     }
                 });
             }
-
-            return _guibuilderParseResult;
+            // A fresh DOM fragment per call, so widget views constructed in
+            // the same test never share a wrapper element.
+            return _guibuilderParseResult || fakeParseResult().fragment;
         }
     };
 
@@ -358,8 +308,7 @@ const setup = (overrides = {}) => {
             return this;
         }
         getTitle() { return this._title; }
-        disable() { this.enabled = false; return this; }
-        enable() { this.enabled = true; return this; }
+        addClassName(name) { this.wrapperElement.classList.add(name); return this; }
     };
 
     StyledElements.PopupMenu = class PopupMenu extends StyledElements.StyledElement {
@@ -367,12 +316,8 @@ const setup = (overrides = {}) => {
             super(['visibilityChange']);
             this.wrapperElement = document.createElement('ul');
             this._items = [];
-            this._visible = false;
         }
         append(item) { this._items.push(item); return this; }
-        isVisible() { return this._visible; }
-        show() { this._visible = true; return this; }
-        hide() { this._visible = false; return this; }
     };
 
     StyledElements.PopupButton = class PopupButton extends StyledElements.Button {
@@ -388,43 +333,18 @@ const setup = (overrides = {}) => {
             super(['change']);
             this.wrapperElement = document.createElement('span');
             this.wrapperElement.setAttribute('role', 'textbox');
-            this.wrapperElement.setAttribute('tabindex', '0');
             this.setTextContent(options.initialContent || '');
         }
         setTextContent(text) {
             this.wrapperElement.textContent = text;
             return this;
         }
-        enableEdition() {}
-        disableEdition() {}
+        enableEdition() { this._editionEnabled = true; }
     };
 
-    StyledElements.Fragment = class Fragment extends StyledElements.StyledElement {
-        constructor(elements) {
-            super();
-            this.children = [];
-            if (Array.isArray(elements)) {
-                elements.forEach((e) => this.children.push(e));
-            } else if (elements != null) {
-                this.children.push(elements);
-            }
-        }
-    };
-
-    // Set up Wirecloud globals
     global.Wirecloud = {
         Utils: Object.assign({}, StyledElements.Utils),
         ui: {},
-    };
-
-    // Add layout utility functions used by WidgetView
-    Wirecloud.Utils.getLayoutMatrix = (layout, widgets, avgScreenSize) => {
-        return [];
-    };
-    Wirecloud.Utils.setupdate = (a, b) => {
-        const result = new Set(a);
-        b.forEach((v) => result.add(v));
-        return result;
     };
 
     Wirecloud.currentTheme = {
@@ -434,363 +354,54 @@ const setup = (overrides = {}) => {
     };
 
     Wirecloud.UserInterfaceManager = {
-        handleEscapeEvent() {},
+        _escapeCalls: [],
+        handleEscapeEvent(...args) { this._escapeCalls.push(args); },
     };
-
-    Wirecloud.ui.FreeLayout = class FreeLayout {};
-    Wirecloud.ui.FullDragboardLayout = class FullDragboardLayout {};
 
     Wirecloud.ui.LogWindowMenu = class LogWindowMenu {
-        constructor(manager) { this.manager = manager; }
-        show() {}
+        constructor(manager) { this.manager = manager; Wirecloud.ui._lastLogWindow = this; }
+        show() { this._shown = true; }
     };
 
+    // Stub: menu building itself is tested separately against the real
+    // WidgetViewMenuItems implementation.
     Wirecloud.ui.WidgetViewMenuItems = class WidgetViewMenuItems {
         constructor(view) { this.view = view; }
     };
 
-    Wirecloud.ui.WidgetViewResizeHandle = class WidgetViewResizeHandle extends StyledElements.StyledElement {
-        constructor(view, options = {}) {
-            super();
-            this.view = view;
-            this.options = options;
-            this.wrapperElement = document.createElement('div');
-            this._resizableElement = null;
-        }
-        setResizableElement(el) {
-            this._resizableElement = el;
-            return this;
-        }
-        addClassName(name) {
-            this.wrapperElement.classList.add(name);
-            return this;
-        }
-    };
-
-    Wirecloud.ui.WidgetViewDraggable = class WidgetViewDraggable {
-        constructor(widget, options = {}) {
-            this.widget = widget;
-            this.options = options;
-        }
-        canDrag(b, c, role) { return true; }
-        setXOffset(x) { this.xOffset = x; return this; }
-        setYOffset(y) { this.yOffset = y; return this; }
-    };
-
-    // Load the WidgetView module
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WidgetView.js');
 };
 
-let _view;
-
 const createWidgetView = (options = {}) => {
     const model = options.model || makeModel();
-    const layout = options.layout || makeFreeLayout();
-    const dragboard = options.dragboard || makeDragboard();
-    const workspace = options.workspace || makeWorkspace();
-    const tab = options.tab || {
-        id: 'tab-1',
-        hidden: false,
-        workspace,
-        dragboard,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener(event, handler) {
-            if (!this._listeners) this._listeners = {};
-            if (!this._listeners[event]) this._listeners[event] = [];
-            this._listeners[event].push(handler);
-        },
-        _dispatch(event, ...args) {
-            (this._listeners?.[event] || []).forEach((h) => h(...args));
-        },
-        _listeners: {},
-    };
-
-    // Wire layout into dragboard so constructor finds it
-    dragboard.tab = tab;
-    layout.dragboard = dragboard;
-    tab.dragboard = dragboard;
-    tab.workspace = workspace;
-
-    // Replace the free layout at index 0 with the user-provided layout
-    // so the constructor picks it up via model.layout (default 0)
-    dragboard.layouts[0] = layout;
-
+    const tab = options.tab || makeTab(options);
     return new Wirecloud.ui.WidgetView(tab, model, {});
 };
 
 // ============================================================================
-// TESTS: Module-level functions (via internal access)
+// CONSTRUCTION
 // ============================================================================
 
-test('update_buttons: sets grip visibility and icon correctly', (t) => {
+test('constructor: sets up base classes, attribute and DOM references', () => {
     setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const workspace = makeWorkspace({ editing: true });
-    const model = makeModel({ volatile: false });
-    const view = createWidgetView({ model, layout: layout, dragboard, workspace });
-
-    // After construction, update has been called
-    assert.equal(view.grip.hidden, false);
-    assert.equal(view.grip.enabled, true);
-    assert.equal(view.titlevisibilitybutton.hidden, false);
-    assert.equal(view.closebutton.hidden, false);
-    assert.equal(view.menubutton.hidden, false);
-
-    // Switch to viewer mode
-    workspace.editing = false;
-    workspace._dispatch('editmode');
-    assert.equal(view.titlevisibilitybutton.hidden, true);
-    assert.equal(view.menubutton.hidden, true);
-});
-
-test('update_buttons: grip hidden when not moveable in viewer mode', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const workspace = makeWorkspace({ editing: false });
-    const model = makeModel({ volatile: false });
-    const view = createWidgetView({ model, layout: layout, dragboard, workspace });
-
-    // canDrag returns true by default, so grip is visible (moveable) but not enabled
-    assert.equal(view.grip.hidden, false); // moveable keeps it visible
-    assert.equal(view.grip.enabled, false); // not editable
-
-    // Make draggable.canDrag return false for viewer to hide grip
-    view.draggable.canDrag = () => false;
-    workspace._dispatch('editmode'); // re-trigger update_buttons
-    assert.equal(view.grip.hidden, true);
-});
-
-test('update_buttons: grip icon anchor when not moveable', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const workspace = makeWorkspace({ editing: true });
-    const model = makeModel({ volatile: false });
-    const view = createWidgetView({ model, layout: layout, dragboard, workspace });
-
-    // canDrag returns true by default -> moveable = true -> fa-grip-vertical, not fa-anchor
-    assert.equal(view.grip.icon.classList.contains('fa-anchor'), false);
-    assert.equal(view.grip.icon.classList.contains('fa-grip-vertical'), true);
-
-    // Make draggable not moveable to show fa-anchor
-    view.draggable.canDrag = () => false;
-    workspace._dispatch('editmode');
-    assert.equal(view.grip.icon.classList.contains('fa-anchor'), true);
-    assert.equal(view.grip.icon.classList.contains('fa-grip-vertical'), false);
-});
-
-test('update_buttons: titlevisibilitybutton hidden when not editing', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const workspace = makeWorkspace({ editing: false });
-    const model = makeModel({ volatile: false });
-    const view = createWidgetView({ model, layout: layout, dragboard, workspace });
-
-    assert.equal(view.titlevisibilitybutton.hidden, true);
-});
-
-test('update_buttons: titlevisibilitybutton title and icon reflect model state', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const workspace = makeWorkspace({ editing: true });
-    const model = makeModel({ titlevisible: true, volatile: false });
-    const view = createWidgetView({ model, layout: layout, dragboard, workspace });
-
-    // When titlevisible is true, button shows "Hide title" (action to hide it)
-    assert.equal(view.titlevisibilitybutton.getTitle(), 'Hide title');
-    assert.ok(view.titlevisibilitybutton.icon);
-
-    // Change titlevisible
-    model.titlevisible = false;
-    model._dispatchEvent('change', ['titlevisible']);
-    // When titlevisible is false, button shows "Show title" (action to show it)
-    assert.equal(view.titlevisibilitybutton.getTitle(), 'Show title');
-});
-
-test('update_buttons: closebutton hidden for non-volatile viewer', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const workspace = makeWorkspace({ editing: false });
-    const model = makeModel({ volatile: false });
-    model.isAllowed = (perm, role) => role === 'editor';
-    const view = createWidgetView({ model, layout: layout, dragboard, workspace });
-
-    assert.equal(view.closebutton.hidden, true);
-});
-
-test('update_buttons: resize handles enabled based on editing', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const workspace = makeWorkspace({ editing: true });
-    const model = makeModel({ volatile: false });
-    const view = createWidgetView({ model, layout: layout, dragboard, workspace });
-
-    assert.equal(view.bottomresizehandle.enabled, true);
-    assert.equal(view.leftresizehandle.enabled, true);
-    assert.equal(view.rightresizehandle.enabled, true);
-
-    workspace.editing = false;
-    workspace._dispatch('editmode');
-    assert.equal(view.bottomresizehandle.enabled, false);
-});
-
-test('update_className: sets wrapper classes based on model and layout', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ missing: false, titlevisible: true });
-    const view = createWidgetView({ model, layout: layout, dragboard });
-
-    assert.equal(view.wrapperElement.classList.contains('wc-missing-widget'), false);
-    assert.equal(view.wrapperElement.classList.contains('wc-floating-widget'), true);
-    assert.equal(view.wrapperElement.classList.contains('wc-titled-widget'), true);
-
-    // Test missing widget class
-    model.missing = true;
-    model._dispatchEvent('change', ['meta']);
-    assert.equal(view.wrapperElement.classList.contains('wc-missing-widget'), true);
-});
-
-test('update_position: delegates to layout.updatePosition', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    let updatePosCalled = false;
-    layout.updatePosition = (w, we) => { updatePosCalled = { widget: w, wrapperEl: we }; };
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel({ position: { x: 5, y: 10, z: 3 } }), layout, dragboard });
-
-    view.repaint();
-    assert.ok(updatePosCalled);
-    assert.equal(view.wrapperElement.style.zIndex, 4);
-});
-
-test('update_shape: delegates to layout.updateShape', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    let updateShapeCalled = false;
-    layout.updateShape = (w, we) => { updateShapeCalled = { widget: w, wrapperEl: we }; };
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    view.repaint();
-    assert.ok(updateShapeCalled);
-});
-
-test('notify_position: calls contextManager.modify with position', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ position: { x: 10, y: 20, z: 1 } });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    model.contextManager._allModifies = [];
-    view.repaint();
-    // notify_position is called before notify_shape in repaint,
-    // so position data should be in the first modify call
-    assert.deepStrictEqual(model.contextManager._allModifies[0], {
-        xPosition: 10,
-        yPosition: 20,
-        zPosition: 1,
-    });
-});
-
-test('notify_shape: calls contextManager.modify with shape and pixel dimensions', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ shape: { width: 2, height: 3 } });
-    model.wrapperElement.offsetHeight = 300;
-    model.wrapperElement.offsetWidth = 400;
-    const view = createWidgetView({ model, layout, dragboard });
-
-    model.contextManager._lastModify = null;
-    view.repaint();
-    assert.deepStrictEqual(model.contextManager._lastModify, {
-        height: 3,
-        width: 2,
-        heightInPixels: 300,
-        widthInPixels: 400,
-    });
-});
-
-test('update_widget_visibility: visible when not minimized, tab not hidden, workspace not hidden', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const workspace = makeWorkspace({ hidden: false });
-    const tab = {
-        id: 'tab-1', hidden: false, workspace, dragboard,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener() {},
-        _dispatch() {},
-        _listeners: {},
-    };
-    const view = createWidgetView({ model: makeModel(), layout, dragboard, workspace, tab });
-
-    view.model.contextManager._lastModify = null;
-    assert.equal(view.model.contextManager._lastModify, null); // Not called until visibility event
-
-    workspace._dispatch('show');
-    assert.deepStrictEqual(view.model.contextManager._lastModify, { visible: true });
-});
-
-test('on_add_log: updates error button based on log count', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel();
-    model.logManager.errorCount = 3;
-    const view = createWidgetView({ model, layout, dragboard });
-
-    // After construction, initial state
-    model.logManager._dispatch('newentry');
-    assert.equal(view.errorbutton.hidden, false);
-
-    model.logManager.errorCount = 0;
-    model.logManager._dispatch('newentry');
-    assert.equal(view.errorbutton.hidden, true);
-});
-
-test('on_remove: dispatches remove event from widget view', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    let removed = false;
-    const model = makeModel();
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.addEventListener('remove', () => { removed = true; });
-    model._dispatchEvent('remove');
-    assert.equal(removed, true);
-});
-
-// ============================================================================
-// TESTS: Constructor
-// ============================================================================
-
-test('constructor: creates WidgetView with all component references', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel();
-    const view = createWidgetView({ model, layout, dragboard });
+    const view = createWidgetView();
 
     assert.ok(view instanceof Wirecloud.ui.WidgetView);
+    assert.equal(view.wrapperElement.classList.contains('wc-widget'), true);
+    assert.equal(view.wrapperElement.classList.contains('grid-stack-item'), true);
+    assert.equal(view.wrapperElement.getAttribute('data-id'), 'widget-1');
     assert.equal(view.id, 'widget-1');
-    assert.equal(view.model, model);
-    assert.equal(view.layout, layout);
-    assert.equal(view.tab.id, 'tab-1');
+    assert.equal(view.model.id, 'widget-1');
+    assert.equal(view.contentElement, view.wrapperElement.children[0]);
+    assert.ok(view.heading);
+    assert.equal(view.heading.classList.contains('wc-widget-heading'), true);
     assert.equal(view.title, 'Test Widget');
-    assert.equal(view.titlevisible, true);
-    assert.ok(view.wrapperElement);
+});
+
+test('constructor: builds every button/component declared by the template', () => {
+    setup();
+    const view = createWidgetView();
+
     assert.ok(view.closebutton);
     assert.ok(view.errorbutton);
     assert.ok(view.grip);
@@ -798,1703 +409,1162 @@ test('constructor: creates WidgetView with all component references', (t) => {
     assert.ok(view.minimizebutton);
     assert.ok(view.titleelement);
     assert.ok(view.titlevisibilitybutton);
-    assert.ok(view.bottomresizehandle);
-    assert.ok(view.leftresizehandle);
-    assert.ok(view.rightresizehandle);
-    assert.ok(view.draggable);
-    assert.ok(view.heading);
-    assert.equal(view.wrapperElement.classList.contains('wc-widget'), true);
-    assert.equal(view.wrapperElement.getAttribute('data-id'), 'widget-1');
-    assert.ok(view.position);
-    assert.ok(view.shape);
+    assert.equal(view.errorbutton.hidden, true, 'errorbutton starts hidden');
 });
 
-test('constructor: fulldragboard mode saves previous layout/position/shape', (t) => {
+test('constructor: registers the view with the tab dragboard', () => {
     setup();
-    const layout = makeFreeLayout();
     const dragboard = makeDragboard();
-    const model = makeModel({ fulldragboard: true, layout: 0 });
-    dragboard.layouts = [layout]; // index 0
+    const tab = makeTab({ dragboard });
+    const view = createWidgetView({ tab });
 
-    const { fragment, wrapper } = fakeParseResult();
-    _guibuilderParseResult = fragment;
-    _guibuilderParseCalled = false;
-
-    const workspace = makeWorkspace();
-    const tab = {
-        id: 'tab-1', hidden: false, workspace, dragboard,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener(event, handler) {
-            if (!this._listeners) this._listeners = {};
-            if (!this._listeners[event]) this._listeners[event] = [];
-            this._listeners[event].push(handler);
-        },
-        _listeners: {},
-    };
-    dragboard.tab = tab;
-
-    const view = new Wirecloud.ui.WidgetView(tab, model, {});
-
-    assert.notEqual(view.previousLayout, null);
-    assert.notEqual(view.previousPosition, null);
-    assert.notEqual(view.previousShape, null);
+    assert.equal(dragboard.views.includes(view), true);
 });
 
-test('constructor: handles empty wrapper height (0) on first load', (t) => {
+test('constructor: layout starts null and title delegates to the model', () => {
     setup();
-    const { fragment, wrapper } = fakeParseResult();
-    wrapper.offsetHeight = 0;
-    _guibuilderParseResult = fragment;
+    const model = makeModel({ title: 'Initial' });
+    const view = createWidgetView({ model });
 
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ minimized: false });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    assert.ok(view);
+    assert.equal(view.layout, null);
+    assert.equal(view.title, 'Initial');
+    model.title = 'Renamed';
+    assert.equal(view.title, 'Renamed');
 });
 
-test('constructor: adds wc-widget class and data-id attribute', (t) => {
+test('constructor: closebutton click removes the widget', () => {
     setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ id: 'custom-id' });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    assert.equal(view.wrapperElement.classList.contains('wc-widget'), true);
-    assert.equal(view.wrapperElement.getAttribute('data-id'), 'custom-id');
-});
-
-test('constructor: registers model change listener for title, meta, permissions, titlevisible', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ title: 'Original' });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    model.title = 'Changed Title';
-    model._dispatchEvent('change', ['title']);
-    assert.equal(view.titleelement.wrapperElement.textContent, 'Changed Title');
-
-    model.missing = true;
-    model._dispatchEvent('change', ['meta']);
-    assert.equal(view.wrapperElement.classList.contains('wc-missing-widget'), true);
-});
-
-test('constructor: registers model unload listener', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
     const model = makeModel();
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.highlight();
-    assert.equal(view.wrapperElement.classList.contains('wc-widget-highlight'), true);
-
-    model._dispatchEvent('unload');
-    assert.equal(view.wrapperElement.classList.contains('wc-widget-highlight'), false);
-});
-
-test('constructor: registers model load listener for key events and repaint', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ loaded: false, meta: { macversion: 1 } });
-    model.wrapperElement.contentDocument = { defaultView: { addEventListener() {} } };
-
-    let escapeCalled = false;
-    Wirecloud.UserInterfaceManager.handleEscapeEvent = () => { escapeCalled = true; };
-
-    const view = createWidgetView({ model, layout, dragboard });
-
-    model._dispatchEvent('load');
-
-    assert.equal(view.wrapperElement.classList.contains('in'), true);
-
-    // Simulate escape key on wrapperElement
-    model.wrapperElement.dispatchEvent({ type: 'keydown', keyCode: 27 });
-    // For macversion 1, the keydown listener is on contentDocument.defaultView,
-    // not on wrapperElement directly. Test that instead.
-});
-
-test('constructor: registers model load listener on wrapperElement when macversion > 1', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ loaded: false, meta: { macversion: 2 } });
-
-    let escapeCalled = false;
-    Wirecloud.UserInterfaceManager.handleEscapeEvent = () => { escapeCalled = true; };
-
-    const view = createWidgetView({ model, layout, dragboard });
-
-    model._dispatchEvent('load');
-
-    assert.equal(view.wrapperElement.classList.contains('in'), true);
-
-    // For macversion > 1, keydown is on model.wrapperElement directly
-    model.wrapperElement.dispatchEvent({ type: 'keydown', keyCode: 27 });
-    // Note: handleEscapeEvent uses the view but the listener is on model,
-    // not view's wrapperElement
-});
-
-test('constructor: registers editmode listener on workspace', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const workspace = makeWorkspace({ editing: true });
-    const tab = {
-        id: 'tab-1', hidden: false, workspace, dragboard,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener(event, handler) {
-            if (!this._listeners) this._listeners = {};
-            if (!this._listeners[event]) this._listeners[event] = [];
-            this._listeners[event].push(handler);
-        },
-        _listeners: {},
-    };
-    dragboard.tab = tab;
-    const model = makeModel({ volatile: false });
-    const view = createWidgetView({ model, layout, dragboard, workspace, tab });
-
-    // In editing mode, closebutton should be visible for editor
-    assert.equal(view.closebutton.hidden, false);
-
-    workspace.editing = false;
-    workspace._dispatch('editmode');
-    assert.equal(view.menubutton.hidden, true);
-});
-
-test('constructor: registers visibility listeners', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const workspace = makeWorkspace({ hidden: false });
-    const tab = {
-        id: 'tab-1', hidden: false, workspace, dragboard,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener(event, handler) {
-            if (!this._listeners) this._listeners = {};
-            if (!this._listeners[event]) this._listeners[event] = [];
-            this._listeners[event].push(handler);
-        },
-        _dispatch(event, ...args) {
-            (this._listeners?.[event] || []).forEach((h) => h(...args));
-        },
-        _listeners: {},
-    };
-    dragboard.tab = tab;
-    const model = makeModel();
-    const view = createWidgetView({ model, layout, dragboard, workspace, tab });
-
-    model.contextManager._lastModify = null;
-    tab.hidden = true;
-    tab._dispatch('hide');
-    assert.deepStrictEqual(model.contextManager._lastModify, { visible: false });
-});
-
-// ============================================================================
-// TESTS: setMinimizeStatus
-// ============================================================================
-
-test('setMinimizeStatus: changes minimize status and propagates to model', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ minimized: false });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.setMinimizeStatus(true);
-    // Minimize class should be added to wrapper
-    assert.equal(view.wrapperElement.classList.contains('wc-minimized-widget'), true);
-    // The minimize button title should change to "Maximize"
-    assert.equal(view.minimizebutton.getTitle(), 'Maximize');
-    // The model's context manager should be notified about visibility
-    assert.ok(model.contextManager._lastModify);
-});
-
-test('setMinimizeStatus: toggles minimize button icon and title', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ minimized: false });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.setMinimizeStatus(true);
-    assert.equal(view.minimizebutton.getTitle(), 'Maximize');
-
-    view.setMinimizeStatus(false);
-    assert.equal(view.minimizebutton.getTitle(), 'Minimize');
-});
-
-test('setMinimizeStatus: calls _notifyResizeEvent when reserveSpace is true', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ minimized: false });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.setMinimizeStatus(true, true, true);
-    assert.equal(layout._notifyResizeEventCalls.length, 1);
-});
-
-test('setMinimizeStatus: does not call _notifyResizeEvent when reserveSpace is false', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ minimized: false });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.setMinimizeStatus(true, true, false);
-    assert.equal(layout._notifyResizeEventCalls.length, 0);
-});
-
-test('setMinimizeStatus: returns this for chaining', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel();
-    const view = createWidgetView({ model, layout, dragboard });
-
-    assert.equal(view.setMinimizeStatus(true), view);
-});
-
-// ============================================================================
-// TESTS: _setMinimizeStatusStyle
-// ============================================================================
-
-test('_setMinimizeStatusStyle: no-op when newStatus equals current minimized', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ minimized: false });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    const result = view._setMinimizeStatusStyle(false, layout);
-    assert.equal(result, view);
-});
-
-test('_setMinimizeStatusStyle: sets minimize shape on minimize', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ minimized: false, shape: { width: 2, height: 3, relwidth: false, relheight: false } });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    layout.adaptHeight = (v) => ({ inLU: 5 });
-    view._setMinimizeStatusStyle(true, layout);
-
-    assert.equal(view.wrapperElement.classList.contains('wc-minimized-widget'), true);
-    // title should be forced visible
-    assert.equal(view.model.titlevisible, true); // Because setTitleVisibility(true, false) -> titlevisible = true
-});
-
-test('_setMinimizeStatusStyle: restores shape on maximize', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ minimized: true, shape: { width: 2, height: 3, relwidth: false, relheight: false } });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    layout.getHeightInPixels = (h) => h * 40;
-    assert.equal(view.wrapperElement.classList.contains('wc-minimized-widget'), true);
-
-    view._setMinimizeStatusStyle(false, layout);
-    assert.equal(view.wrapperElement.classList.contains('wc-minimized-widget'), false);
-});
-
-test('_setMinimizeStatusStyle: uses provided height when available', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ minimized: false, shape: { width: 2, height: 3, relwidth: false, relheight: false } });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    layout.adaptHeight = (v) => {
-        layout._adaptHeightArg = v;
-        return { inLU: 5 };
-    };
-    view._setMinimizeStatusStyle(true, layout, 500);
-
-    assert.ok(layout._adaptHeightArg.includes('500'));
-});
-
-// ============================================================================
-// TESTS: toggleTitleVisibility
-// ============================================================================
-
-test('toggleTitleVisibility: toggles title visibility via model', async (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ titlevisible: true });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    const result = await view.toggleTitleVisibility(true);
-    assert.equal(model.titlevisible, false);
-});
-
-test('toggleTitleVisibility: disables and re-enables the button', async (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ titlevisible: true });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    await view.toggleTitleVisibility(true);
-    assert.equal(view.titlevisibilitybutton.enabled, true);
-});
-
-// ============================================================================
-// TESTS: togglePermission
-// ============================================================================
-
-test('togglePermission: toggles a viewer permission', async (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel();
-    model.permissions.viewer.move = true;
-    const view = createWidgetView({ model, layout, dragboard });
-
-    const result = await view.togglePermission('move', true);
-    assert.equal(model.permissions.viewer.move, false);
-});
-
-// ============================================================================
-// TESTS: setPosition
-// ============================================================================
-
-test('setPosition: updates internal position and model', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ position: { x: 0, y: 0, z: 0 } });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.setPosition({ x: 50, y: 100, z: 2 });
-    assert.deepStrictEqual(view.position, { x: 50, y: 100, z: 2 });
-    assert.equal(model.position.x, 50);
-    assert.equal(model.position.y, 100);
-    assert.equal(model.position.z, 2);
-});
-
-test('setPosition: does not update model when updateModel is false', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    let setPositionCalled = false;
-    let setLayoutPositionCalled = false;
-    const model = makeModel({ position: { x: 0, y: 0, z: 0 } });
-    model.setPosition = () => { setPositionCalled = true; };
-    model.setLayoutPosition = () => { setLayoutPositionCalled = true; };
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.setPosition({ x: 99, y: 88, z: 7 }, false);
-    // Model's setPosition/setLayoutPosition should NOT be called
-    assert.equal(setPositionCalled, false);
-    assert.equal(setLayoutPositionCalled, false);
-    // Internal position should be updated
-    assert.equal(view.position.x, 99);
-});
-
-test('setPosition: does not update layout position when layout is null', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ position: { x: 0, y: 0, z: 0 } });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.layout = null;
-    const result = view.setPosition({ x: 50, y: 100, z: 2 });
-    assert.equal(result, view);
-});
-
-// ============================================================================
-// TESTS: setShape
-// ============================================================================
-
-test('setShape: updates internal shape and model', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ shape: { width: 2, height: 3 } });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.setShape({ width: 5, height: 8 });
-    assert.equal(view.shape.width, 5);
-    assert.equal(view.shape.height, 8);
-    assert.equal(model.shape.width, 5);
-});
-
-test('setShape: does not update model when updateModel is false', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    let setShapeCalled = false;
-    let setLayoutShapeCalled = false;
-    const model = makeModel({ shape: { width: 2, height: 3 } });
-    model.setShape = () => { setShapeCalled = true; };
-    model.setLayoutShape = () => { setLayoutShapeCalled = true; };
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.setShape({ width: 5, height: 8 }, false, false, false, false);
-    // Model's setShape/setLayoutShape should NOT be called
-    assert.equal(setShapeCalled, false);
-    assert.equal(setLayoutShapeCalled, false);
-    // Internal shape should be updated
-    assert.equal(view.shape.width, 5);
-});
-
-test('setShape: returns early when layout is null', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ shape: { width: 2, height: 3 } });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.layout = null;
-    view.setShape({ width: 5, height: 8 });
-    // Should not throw
-});
-
-test('setShape: notifies resize event on layout', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ shape: { width: 2, height: 3 } });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.setShape({ width: 5, height: 8 }, true, true, true);
-    assert.equal(layout._notifyResizeEventCalls.length, 1);
-    const call = layout._notifyResizeEventCalls[0];
-    assert.equal(call.widget, view);
-    assert.equal(call.oldW, 2);
-    assert.equal(call.oldH, 3);
-    assert.equal(call.newW, 5);
-    assert.equal(call.newH, 8);
-    assert.equal(call.resizeLS, true);
-    assert.equal(call.resizeTS, true);
-    assert.equal(call.persist, true);
-});
-
-// ============================================================================
-// TESTS: load
-// ============================================================================
-
-test('load: loads model if not already loaded', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ loaded: false });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.load();
-    assert.equal(model._loaded, true);
-});
-
-test('load: does not load model if already loaded', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    let loadCalled = false;
-    const model = makeModel({ loaded: true });
-    model.load = () => { loadCalled = true; };
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.load();
-    assert.equal(loadCalled, false); // Not called because already loaded
-});
-
-test('load: returns repaint result', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel();
-    const view = createWidgetView({ model, layout, dragboard });
-
-    assert.equal(view.load(), view);
-});
-
-// ============================================================================
-// TESTS: repaint
-// ============================================================================
-
-test('repaint: updates position and shape, notifies context manager', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ position: { x: 5, y: 5, z: 0 } });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    let positionUpdated = false;
-    let shapeUpdated = false;
-    layout.updatePosition = () => { positionUpdated = true; };
-    layout.updateShape = () => { shapeUpdated = true; };
-
-    view.repaint();
-    assert.equal(positionUpdated, true);
-    assert.equal(shapeUpdated, true);
-    assert.ok(model.contextManager._lastModify);
-});
-
-test('repaint: returns this for chaining', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    assert.equal(view.repaint(), view);
-});
-
-// ============================================================================
-// TESTS: reload
-// ============================================================================
-
-test('reload: delegates to model.reload', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel();
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.reload();
-    assert.equal(model._reloaded, true);
-});
-
-test('reload: returns this for chaining', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    assert.equal(view.reload(), view);
-});
-
-// ============================================================================
-// TESTS: showLogs
-// ============================================================================
-
-test('showLogs: delegates to model.showLogs', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel();
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.showLogs();
-    assert.equal(model._logsShown, true);
-});
-
-test('showLogs: returns this for chaining', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    assert.equal(view.showLogs(), view);
-});
-
-// ============================================================================
-// TESTS: showSettings
-// ============================================================================
-
-test('showSettings: delegates to model.showSettings', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel();
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.showSettings();
-    assert.equal(model._settingsShown, true);
-});
-
-test('showSettings: returns this for chaining', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    assert.equal(view.showSettings(), view);
-});
-
-// ============================================================================
-// TESTS: highlight
-// ============================================================================
-
-test('highlight: adds panel-success and wc-widget-highlight classes', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    view.highlight();
-    assert.equal(view.wrapperElement.classList.contains('panel-success'), true);
-    assert.equal(view.wrapperElement.classList.contains('panel-default'), false);
-    assert.equal(view.wrapperElement.classList.contains('wc-widget-highlight'), true);
-});
-
-test('highlight: dispatches highlight event', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    let highlighted = false;
-    view.addEventListener('highlight', () => { highlighted = true; });
-    view.highlight();
-    assert.equal(highlighted, true);
-});
-
-test('highlight: resets animation when already highlighted', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    view.highlight(); // First highlight adds the class
-    assert.equal(view.wrapperElement.classList.contains('wc-widget-highlight'), true);
-
-    let events = 0;
-    view.addEventListener('highlight', () => { events++; });
-    view.highlight(); // Already highlighted - goes to else branch
-
-    // The else branch does NOT dispatch any event, it just resets animation
-    assert.equal(events, 0);
-});
-
-test('highlight: returns this for chaining', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    assert.equal(view.highlight(), view);
-});
-
-// ============================================================================
-// TESTS: unhighlight
-// ============================================================================
-
-test('unhighlight: removes panel-success and wc-widget-highlight classes', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    view.wrapperElement.classList.add('panel-success', 'wc-widget-highlight');
-    view.wrapperElement.classList.remove('panel-default');
-    view.unhighlight();
-
-    assert.equal(view.wrapperElement.classList.contains('panel-success'), false);
-    assert.equal(view.wrapperElement.classList.contains('panel-default'), true);
-    assert.equal(view.wrapperElement.classList.contains('wc-widget-highlight'), false);
-});
-
-test('unhighlight: dispatches unhighlight event', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    view.wrapperElement.classList.add('wc-widget-highlight');
-    let unhighlighted = false;
-    view.addEventListener('unhighlight', () => { unhighlighted = true; });
-    view.unhighlight();
-    assert.equal(unhighlighted, true);
-});
-
-test('unhighlight: no-op when not highlighted', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    let events = 0;
-    view.addEventListener('unhighlight', () => { events++; });
-    view.unhighlight();
-    assert.equal(events, 0);
-});
-
-test('unhighlight: returns this for chaining', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    assert.equal(view.unhighlight(), view);
-});
-
-// ============================================================================
-// TESTS: moveToLayout
-// ============================================================================
-
-test('moveToLayout: no-op when newLayout equals current layout', async (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    const result = await view.moveToLayout(layout);
-    assert.equal(result, undefined); // Promise.resolve() returns undefined
-});
-
-test('moveToLayout: moves to a different layout', async (t) => {
-    setup();
-    const layout1 = makeFreeLayout({ name: 'layout1' });
-    const layout2 = makeFreeLayout({ name: 'layout2' });
-    const dragboard = makeDragboard();
-    dragboard.layouts = [layout1, layout2];
-    layout1.dragboard = dragboard;
-    layout2.dragboard = dragboard;
-    const model = makeModel({ layoutConfig: [
-        { id: 'c1', lessOrEqual: -1, moreOrEqual: 0, width: 100, height: 80, relwidth: false, relheight: false, left: 0, top: 0, zIndex: 1, relx: false, rely: false, anchor: 'top-left' },
-    ] });
-    const tab = {
-        id: 'tab-1', hidden: false, workspace: makeWorkspace(), dragboard,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener() {},
-        _listeners: {},
-    };
-    dragboard.tab = tab;
-
-    const view = new Wirecloud.ui.WidgetView(tab, model, {});
-    // Override layout to be layout1
-    view.layout = layout1;
-
-    view.moveToLayout(layout2);
-    // The move is async via changeTab, but the sync portions should have worked
-    // layout2.addWidget should have been called
-    assert.ok(layout2.widgets[view.id]);
-});
-
-test('moveToLayout: minimizes first if currently minimized, then restores', async (t) => {
-    setup();
-    const layout1 = makeFreeLayout({ name: 'layout1' });
-    const layout2 = makeFreeLayout({ name: 'layout2' });
-    const dragboard = makeDragboard();
-    dragboard.layouts = [layout1, layout2];
-    layout1.dragboard = dragboard;
-    layout2.dragboard = dragboard;
-    const model = makeModel({ minimized: true, layoutConfig: [
-        { id: 'c1', lessOrEqual: -1, moreOrEqual: 0, width: 100, height: 80, relwidth: false, relheight: false, left: 0, top: 0, zIndex: 1, relx: false, rely: false, anchor: 'top-left' },
-    ] });
-    const tab = {
-        id: 'tab-1', hidden: false, workspace: makeWorkspace(), dragboard,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener() {},
-        _listeners: {},
-    };
-    dragboard.tab = tab;
-
-    const view = new Wirecloud.ui.WidgetView(tab, model, {});
-    view.layout = layout1;
-
-    view.moveToLayout(layout2);
-    // After move, widget should be in new layout
-    assert.ok(layout2.widgets[view.id]);
-});
-
-test('moveToLayout: handles FreeLayout destination shape conversion', async (t) => {
-    setup();
-    const layout1 = makeFreeLayout({ name: 'layout1' });
-    const layout2 = makeFreeLayout({ name: 'layout2' });
-    const dragboard = makeDragboard();
-    dragboard.layouts = [layout1, layout2];
-    layout1.dragboard = dragboard;
-    layout2.dragboard = dragboard;
-    const model = makeModel({ layoutConfig: [
-        { id: 'c1', lessOrEqual: -1, moreOrEqual: 0, width: 100, height: 80, relwidth: false, relheight: false, left: 0, top: 0, zIndex: 1, relx: false, rely: false, anchor: 'top-left' },
-    ] });
-    const tab = {
-        id: 'tab-1', hidden: false, workspace: makeWorkspace(), dragboard,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener() {},
-        _listeners: {},
-    };
-    dragboard.tab = tab;
-
-    const view = new Wirecloud.ui.WidgetView(tab, model, {});
-    view.layout = layout1;
-
-    view.moveToLayout(layout2);
-    assert.ok(layout2.widgets[view.id]);
-});
-
-test('moveToLayout: handles FullDragboardLayout source restore', async (t) => {
-    setup();
-    const freeLayout = makeFreeLayout({ name: 'free' });
-    const fullLayout = makeFullDragboardLayout({ name: 'full' });
-    const dragboard = makeDragboard();
-    dragboard.layouts = [freeLayout];
-    dragboard.fulldragboardLayout = fullLayout;
-    freeLayout.dragboard = dragboard;
-    fullLayout.dragboard = dragboard;
-    const model = makeModel({ layoutConfig: [
-        { id: 'c1', lessOrEqual: -1, moreOrEqual: 0, width: 100, height: 80, relwidth: false, relheight: false, left: 0, top: 0, zIndex: 1, relx: false, rely: false, anchor: 'top-left' },
-    ] });
-    const tab = {
-        id: 'tab-1', hidden: false, workspace: makeWorkspace(), dragboard,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener() {},
-        _listeners: {},
-    };
-    dragboard.tab = tab;
-
-    const view = new Wirecloud.ui.WidgetView(tab, model, {});
-    view.layout = fullLayout; // Start in full dragboard
-    view.previousShape = { width: 4, height: 6 };
-    view.previousPosition = { x: 20, y: 30 };
-
-    view.moveToLayout(freeLayout);
-    assert.ok(freeLayout.widgets[view.id]);
-});
-
-test('moveToLayout: calls changeTab on model and updates dragboards', async (t) => {
-    setup();
-    const layout1 = makeFreeLayout({ name: 'layout1' });
-    const layout2 = makeFreeLayout({ name: 'layout2' });
-    const dragboard = makeDragboard();
-    dragboard.layouts = [layout1, layout2];
-    layout1.dragboard = dragboard;
-    layout2.dragboard = dragboard;
-    let changeTabCalled = false;
-    const model = makeModel({
-        changeTab(m) { changeTabCalled = true; return Promise.resolve(); },
-        layoutConfig: [
-            { id: 'c1', lessOrEqual: -1, moreOrEqual: 0, width: 100, height: 80, relwidth: false, relheight: false, left: 0, top: 0, zIndex: 1, relx: false, rely: false, anchor: 'top-left' },
-        ],
-    });
-    const tab = {
-        id: 'tab-1', hidden: false, workspace: makeWorkspace(), dragboard,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener() {},
-        _listeners: {},
-    };
-    dragboard.tab = tab;
-
-    const view = new Wirecloud.ui.WidgetView(tab, model, {});
-    view.layout = layout1;
-
-    view.moveToLayout(layout2);
-    // changeTab is called in the 'then' callback - it's async.
-    // We verify the sync portion is correct.
-    assert.ok(layout2.widgets[view.id]);
-});
-
-// ============================================================================
-// TESTS: toggleMinimizeStatus
-// ============================================================================
-
-test('toggleMinimizeStatus: toggles minimize state', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ minimized: false });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.toggleMinimizeStatus(true);
-    assert.equal(view.minimized, true);
-
-    view.toggleMinimizeStatus(true);
-    assert.equal(view.minimized, false);
-});
-
-// ============================================================================
-// TESTS: setFullDragboardMode
-// ============================================================================
-
-test('setFullDragboardMode: no-op when already in requested mode', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    const result = view.setFullDragboardMode(false);
-    assert.equal(result, view);
-});
-
-test('setFullDragboardMode: enables full dragboard mode', (t) => {
-    setup();
-    const freeLayout = makeFreeLayout({ name: 'free' });
-    const fullLayout = makeFullDragboardLayout({ name: 'full' });
-    const dragboard = makeDragboard();
-    dragboard.layouts = [freeLayout];
-    dragboard.fulldragboardLayout = fullLayout;
-    freeLayout.dragboard = dragboard;
-    fullLayout.dragboard = dragboard;
-    const model = makeModel({ fulldragboard: false, layoutConfig: [
-        { id: 'c1', lessOrEqual: -1, moreOrEqual: 0, width: 100, height: 80, relwidth: false, relheight: false, left: 0, top: 0, zIndex: 1, relx: false, rely: false, anchor: 'top-left' },
-    ] });
-    const tab = {
-        id: 'tab-1', hidden: false, workspace: makeWorkspace(), dragboard,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener() {},
-        _listeners: {},
-    };
-    dragboard.tab = tab;
-
-    const view = new Wirecloud.ui.WidgetView(tab, model, {});
-    view.layout = freeLayout;
-
-    view.setFullDragboardMode(true);
-    assert.equal(model.fulldragboard, true);
-    assert.ok(fullLayout.widgets[view.id]);
-});
-
-test('setFullDragboardMode: disables full dragboard mode', (t) => {
-    setup();
-    const freeLayout = makeFreeLayout({ name: 'free' });
-    const fullLayout = makeFullDragboardLayout({ name: 'full' });
-    const dragboard = makeDragboard();
-    dragboard.layouts = [freeLayout];
-    dragboard.fulldragboardLayout = fullLayout;
-    freeLayout.dragboard = dragboard;
-    fullLayout.dragboard = dragboard;
-    const model = makeModel({ fulldragboard: true, layoutConfig: [
-        { id: 'c1', lessOrEqual: -1, moreOrEqual: 0, width: 100, height: 80, relwidth: false, relheight: false, left: 0, top: 0, zIndex: 1, relx: false, rely: false, anchor: 'top-left' },
-    ] });
-    const tab = {
-        id: 'tab-1', hidden: false, workspace: makeWorkspace(), dragboard,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener() {},
-        _listeners: {},
-    };
-    dragboard.tab = tab;
-
-    const view = new Wirecloud.ui.WidgetView(tab, model, {});
-    view.layout = fullLayout;
-    view.previousLayout = freeLayout;
-
-    view.setFullDragboardMode(false);
-    assert.equal(model.fulldragboard, false);
-});
-
-// ============================================================================
-// TESTS: updateWindowSize
-// ============================================================================
-
-test('updateWindowSize: updates model window size', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel();
-    let updateWindowSizeCalled = false;
-    model.updateWindowSize = (size) => { updateWindowSizeCalled = size; };
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.updateWindowSize({ width: 1200, height: 800 });
-    assert.deepStrictEqual(updateWindowSizeCalled, { width: 1200, height: 800 });
-});
-
-test('updateWindowSize: removes from current layout and re-adds (non-fulldragboard)', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    let removeWidgetEventsCalled = false;
-    layout.removeWidgetEventListeners = (w) => { removeWidgetEventsCalled = true; };
-    const model = makeModel({ fulldragboard: false, layout: 0 });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.updateWindowSize({ width: 1200, height: 800 });
-    assert.equal(removeWidgetEventsCalled, true);
-    assert.ok(layout.widgets[view.id]);
-});
-
-test('updateWindowSize: handles fulldragboard mode re-add', (t) => {
-    setup();
-    const freeLayout = makeFreeLayout({ name: 'free' });
-    const fullLayout = makeFullDragboardLayout({ name: 'full' });
-    const dragboard = makeDragboard();
-    dragboard.layouts = [freeLayout];
-    dragboard.fulldragboardLayout = fullLayout;
-    freeLayout.dragboard = dragboard;
-    fullLayout.dragboard = dragboard;
-    let removeWidgetEventsCalled = false;
-    fullLayout.removeWidgetEventListeners = (w) => { removeWidgetEventsCalled = true; };
-    const model = makeModel({ fulldragboard: true, layout: 0, minimized: false });
-    const tab = {
-        id: 'tab-1', hidden: false, workspace: makeWorkspace(), dragboard,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener() {},
-        _listeners: {},
-    };
-    dragboard.tab = tab;
-
-    const view = new Wirecloud.ui.WidgetView(tab, model, {});
-    view.layout = fullLayout;
-    view.previousLayout = freeLayout;
-
-    view.updateWindowSize({ width: 1200, height: 800 });
-    assert.equal(removeWidgetEventsCalled, true);
-    assert.ok(fullLayout.widgets[view.id]);
-    assert.notEqual(view.previousPosition, null);
-    assert.notEqual(view.previousShape, null);
-});
-
-// ============================================================================
-// TESTS: toJSON
-// ============================================================================
-
-test('toJSON: returns widget data with action=update and all configs when allLayoutConfigurations', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    dragboard.layouts = [layout]; // layout is at index 0
-    const model = makeModel({
-        layoutConfig: [
-            { id: 'c1', width: 100, height: 80 },
-            { id: 'c2', width: 200, height: 120 },
-        ],
-        currentLayoutConfig: { id: 'c1' },
-    });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    const json = view.toJSON('update', true);
-    assert.equal(json.id, 'widget-1');
-    assert.equal(json.tab, 'tab-1');
-    assert.equal(json.layout, 0);
-    assert.equal(json.layoutConfig.length, 2);
-    assert.equal(json.layoutConfig[0].action, 'update');
-    assert.equal(json.layoutConfig[1].action, 'update');
-});
-
-test('toJSON: filters to only current layout config when allLayoutConfigurations is false', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    dragboard.layouts = [layout];
-    const model = makeModel({
-        layoutConfig: [
-            { id: 'c1', width: 100 },
-            { id: 'c2', width: 200 },
-        ],
-        currentLayoutConfig: { id: 'c1' },
-    });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    const json = view.toJSON('remove', false);
-    assert.equal(json.layoutConfig.length, 1);
-    assert.equal(json.layoutConfig[0].id, 'c1');
-    assert.equal(json.layoutConfig[0].action, 'remove');
-});
-
-test('toJSON: uses previousLayout index when in fulldragboard', (t) => {
-    setup();
-    const freeLayout = makeFreeLayout({ name: 'free' });
-    const fullLayout = makeFullDragboardLayout({ name: 'full' });
-    const dragboard = makeDragboard();
-    dragboard.layouts = [freeLayout];
-    dragboard.fulldragboardLayout = fullLayout;
-    freeLayout.dragboard = dragboard;
-    fullLayout.dragboard = dragboard;
-    const model = makeModel({ layoutConfig: [{ id: 'c1' }], currentLayoutConfig: { id: 'c1' } });
-    const workspace = makeWorkspace();
-    const tab = {
-        id: 'tab-1', hidden: false, workspace, dragboard,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener() {},
-        _listeners: {},
-    };
-    dragboard.tab = tab;
-    const view = new Wirecloud.ui.WidgetView(tab, model, {});
-    view.layout = fullLayout; // In full dragboard
-    view.previousLayout = freeLayout;
-
-    const json = view.toJSON();
-    assert.equal(json.layout, 0); // index of previousLayout
-});
-
-// ============================================================================
-// TESTS: persist
-// ============================================================================
-
-test('persist: saves position and shape to model when not volatile', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    let positionSet = false;
-    let shapeSet = false;
-    const model = makeModel({ volatile: false });
-    model.setPosition = (p) => { positionSet = p; };
-    model.setShape = (s) => { shapeSet = s; };
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.persist();
-    assert.ok(positionSet);
-    assert.ok(shapeSet);
-});
-
-test('persist: does not save when volatile', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    let positionSet = false;
-    const model = makeModel({ volatile: true });
-    model.setPosition = () => { positionSet = true; };
-    model.setShape = () => {};
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.persist();
-    assert.equal(positionSet, false);
-});
-
-test('persist: returns this for chaining', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    assert.equal(view.persist(), view);
-});
-
-// ============================================================================
-// TESTS: remove
-// ============================================================================
-
-test('remove: delegates to model.remove', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel();
-    const view = createWidgetView({ model, layout, dragboard });
-
-    view.remove();
-    assert.equal(model._removed, true);
-});
-
-test('remove: returns this for chaining', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    assert.equal(view.remove(), view);
-});
-
-// ============================================================================
-// TESTS: Properties
-// ============================================================================
-
-test('id property: returns model id', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel({ id: 'my-widget' }), layout, dragboard });
-
-    assert.equal(view.id, 'my-widget');
-});
-
-test('layout property: get/set updates privates and model', (t) => {
-    setup();
-    const layout1 = makeFreeLayout({ name: 'layout1' });
-    const layout2 = makeFreeLayout({ name: 'layout2' });
-    const dragboard = makeDragboard();
-    dragboard.layouts = [layout1, layout2];
-    layout1.dragboard = dragboard;
-    layout2.dragboard = dragboard;
-    const model = makeModel();
-    let setFulldragboardCalled = false;
-    let setLayoutIndexCalled = -1;
-    model.setLayoutFulldragboard = (v) => { setFulldragboardCalled = v; };
-    model.setLayoutIndex = (v) => { setLayoutIndexCalled = v; };
-    const view = createWidgetView({ model, layout: layout1, dragboard });
-
-    view.layout = layout2;
-    assert.equal(view.layout, layout2);
-    assert.equal(setFulldragboardCalled, false);
-    assert.equal(setLayoutIndexCalled, 1);
-});
-
-test('position property: returns a clone', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ position: { x: 10, y: 20, z: 5 } });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    const pos = view.position;
-    assert.deepStrictEqual(pos, { x: 10, y: 20, z: 5 });
-    pos.x = 99;
-    assert.equal(view.position.x, 10); // Original unchanged (clone)
-});
-
-test('shape property: returns clone of shape or minimized_shape', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ minimized: false, shape: { width: 2, height: 3 } });
-    const view = createWidgetView({ model, layout, dragboard });
-
-    assert.deepStrictEqual(view.shape, { width: 2, height: 3 });
-
-    // Minimize to test minimized_shape path
-    view.setMinimizeStatus(true, false, false);
-    assert.equal(view.minimized, true);
-    const shape = view.shape;
-    assert.ok(shape.width !== undefined);
-});
-
-test('tab property: returns the tab', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel(), layout, dragboard });
-
-    assert.equal(view.tab.id, 'tab-1');
-});
-
-test('title property: returns model.title', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel({ title: 'Hello World' }), layout, dragboard });
-
-    assert.equal(view.title, 'Hello World');
-});
-
-test('titlevisible property: returns model.titlevisible', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const view = createWidgetView({ model: makeModel({ titlevisible: false }), layout, dragboard });
-
-    assert.equal(view.titlevisible, false);
-});
-
-// ============================================================================
-// TESTS: Template components (closebutton, errorbutton, grip, menubutton, etc.)
-// ============================================================================
-
-test('closebutton: clicking closes the widget', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel();
-    const view = createWidgetView({ model, layout, dragboard });
+    const view = createWidgetView({ model });
 
     view.closebutton.dispatchEvent('click');
     assert.equal(model._removed, true);
 });
 
-test('grip: clicking toggles move permission', async (t) => {
+test('constructor: grip click toggles the viewer move permission', () => {
     setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
     const model = makeModel();
-    model.permissions.viewer.move = true;
-    const view = createWidgetView({ model, layout, dragboard });
+    const view = createWidgetView({ model });
 
     view.grip.dispatchEvent('click');
-    // togglePermission is async, so we check the model change
-    // The mock setPermissions resolves immediately
-    await new Promise((r) => setTimeout(r, 10));
-    assert.equal(model.permissions.viewer.move, false);
+    assert.equal(model._permissionCalls.length, 1);
+    assert.deepEqual(model._permissionCalls[0].changes, { move: true });
+    assert.equal(model._permissionCalls[0].persist, true);
 });
 
-test('titleelement: change event renames the model', (t) => {
+test('constructor: minimizebutton click toggles minimize status with persistence', () => {
     setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ title: 'Old Title' });
-    const view = createWidgetView({ model, layout, dragboard });
+    const model = makeModel();
+    const view = createWidgetView({ model });
+
+    // change_layout_flag() persists the *whole* currentLayout (not just the
+    // changed flag) so a screen size with no stored layout yet keeps its
+    // derived position/size; starting from a null view.layout, x/y/w/h stay
+    // undefined.
+    view.minimizebutton.dispatchEvent('click');
+    assert.equal(model._layoutCalls.length, 1);
+    assert.deepEqual(model._layoutCalls[0].changes, {
+        x: undefined, y: undefined, w: undefined, h: undefined,
+        minimized: true, titlevisible: false, fulldragboard: false, visible: true,
+    });
+    assert.equal(model._layoutCalls[0].persist, true);
+});
+
+test('constructor: titlevisibilitybutton click toggles title visibility with persistence', () => {
+    setup();
+    const model = makeModel();
+    const view = createWidgetView({ model });
+
+    // Starting from a null layout, "not titlevisible" is truthy, so the
+    // first click makes the title visible.
+    view.titlevisibilitybutton.dispatchEvent('click');
+    assert.equal(model._layoutCalls.length, 1);
+    assert.deepEqual(model._layoutCalls[0].changes, {
+        x: undefined, y: undefined, w: undefined, h: undefined,
+        minimized: false, titlevisible: true, fulldragboard: false, visible: true,
+    });
+    assert.equal(model._layoutCalls[0].persist, true);
+});
+
+test('constructor: title element change renames the model', () => {
+    setup();
+    const model = makeModel();
+    const view = createWidgetView({ model });
 
     view.titleelement.dispatchEvent('change', 'New Title');
     assert.equal(model._renamed, 'New Title');
 });
 
-test('titlevisibilitybutton: clicking toggles title visibility', async (t) => {
+test('constructor: errorbutton click opens a LogWindowMenu bound to the widget logManager', () => {
     setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ titlevisible: true });
-    const view = createWidgetView({ model, layout, dragboard });
+    const model = makeModel();
+    const view = createWidgetView({ model });
 
-    view.titlevisibilitybutton.dispatchEvent('click');
-    await new Promise((r) => setTimeout(r, 10));
-    assert.equal(model.titlevisible, false);
+    view.errorbutton.dispatchEvent('click', view.errorbutton);
+    assert.equal(Wirecloud.ui._lastLogWindow.manager, model.logManager);
+    assert.equal(Wirecloud.ui._lastLogWindow._shown, true);
+});
+
+test('constructor: menubutton popup menu holds a WidgetViewMenuItems instance for this view', () => {
+    setup();
+    const view = createWidgetView();
+
+    assert.equal(view.menubutton.popup_menu._items.length, 1);
+    assert.ok(view.menubutton.popup_menu._items[0] instanceof Wirecloud.ui.WidgetViewMenuItems);
+    assert.equal(view.menubutton.popup_menu._items[0].view, view);
 });
 
 // ============================================================================
-// TESTS: transitionend listener on wrapperElement
+// currentLayout
 // ============================================================================
 
-test('transitionend: repaints and notifies shape on width/height/top/left transition', (t) => {
+test('currentLayout: reads x/y/w from the gridstack node and h from the node when not minimized', () => {
     setup();
-    const layout = makeFreeLayout();
+    const view = createWidgetView();
+    view.applyLayout({ x: 1, y: 2, w: 3, h: 4, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+    view.wrapperElement.gridstackNode = { x: 5, y: 6, w: 7, h: 8 };
+
+    const current = view.currentLayout;
+    assert.deepEqual(current, { x: 5, y: 6, w: 7, h: 8, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+});
+
+test('currentLayout: uses the remembered un-minimized height while minimized', () => {
+    setup();
+    const view = createWidgetView();
+    view.applyLayout({ x: 0, y: 0, w: 4, h: 6, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+    // Minimize afterwards: the node height collapses to the header row count,
+    // but currentLayout must still report the remembered height (6).
+    view.applyLayout({ x: 0, y: 0, w: 4, h: 6, minimized: true, titlevisible: true, fulldragboard: false, visible: true });
+    view.wrapperElement.gridstackNode = { x: 0, y: 0, w: 4, h: 1 };
+
+    assert.equal(view.currentLayout.h, 6);
+});
+
+test('currentLayout: falls back to the applied layout fields when there is no gridstack node', () => {
+    setup();
+    const view = createWidgetView();
+    view.applyLayout({ x: 2, y: 3, w: 4, h: 5, minimized: false, titlevisible: false, fulldragboard: true, visible: false });
+    delete view.wrapperElement.gridstackNode;
+
+    assert.deepEqual(view.currentLayout, { x: 2, y: 3, w: 4, h: 5, minimized: false, titlevisible: false, fulldragboard: true, visible: false });
+});
+
+test('currentLayout: booleans are coerced even when the layout stores falsy/undefined flags', () => {
+    setup();
+    const view = createWidgetView();
+    view.layout = { x: 0, y: 0, w: 1, h: 1 };
+    view.wrapperElement.gridstackNode = { x: 0, y: 0, w: 1, h: 1 };
+
+    const current = view.currentLayout;
+    assert.equal(current.minimized, false);
+    assert.equal(current.titlevisible, false);
+    assert.equal(current.fulldragboard, false);
+    assert.equal(current.visible, true); // visible !== false -> true
+});
+
+// ============================================================================
+// canMove / canResize
+// ============================================================================
+
+test('canMove: false whenever the layout is in full dragboard mode', () => {
+    setup();
+    const model = makeModel();
+    const view = createWidgetView({ model });
+    view.layout = { fulldragboard: true };
+    assert.equal(view.canMove, false);
+});
+
+test('canMove: uses the editor role while editing and the viewer role otherwise', () => {
+    setup();
+    const model = makeModel();
+    model.permissions.editor.move = true;
+    model.permissions.viewer.move = false;
+    const workspace = makeWorkspace({ editing: true });
+    const view = createWidgetView({ model, tab: makeTab({ workspace }) });
+    view.layout = { fulldragboard: false };
+
+    assert.equal(view.canMove, true);
+    workspace.editing = false;
+    assert.equal(view.canMove, false);
+});
+
+test('canResize: false when full dragboard or minimized', () => {
+    setup();
+    const model = makeModel();
+    model.permissions.editor.resize = true;
+    const view = createWidgetView({ model });
+
+    view.layout = { fulldragboard: true, minimized: false };
+    assert.equal(view.canResize, false);
+
+    view.layout = { fulldragboard: false, minimized: true };
+    assert.equal(view.canResize, false);
+
+    view.layout = { fulldragboard: false, minimized: false };
+    assert.equal(view.canResize, true);
+});
+
+test('canResize: delegates to model.isAllowed("resize", role)', () => {
+    setup();
+    const model = makeModel();
+    model.permissions.editor.resize = false;
+    const view = createWidgetView({ model, tab: makeTab({ workspace: makeWorkspace({ editing: true }) }) });
+    view.layout = { fulldragboard: false, minimized: false };
+    assert.equal(view.canResize, false);
+});
+
+// ============================================================================
+// applyLayout
+// ============================================================================
+
+test('applyLayout: stores the layout and toggles CSS classes accordingly', () => {
+    setup();
+    const model = makeModel({ missing: true });
+    model.permissions.editor.move = true;
+    const view = createWidgetView({ model });
+
+    view.applyLayout({ x: 0, y: 0, w: 4, h: 3, minimized: true, titlevisible: true, fulldragboard: true, visible: true });
+
+    assert.equal(view.layout.minimized, true);
+    assert.equal(view.wrapperElement.classList.contains('wc-missing-widget'), true);
+    assert.equal(view.wrapperElement.classList.contains('wc-titled-widget'), true);
+    assert.equal(view.wrapperElement.classList.contains('wc-minimized-widget'), true);
+    assert.equal(view.wrapperElement.classList.contains('wc-widget-fulldragboard'), true);
+});
+
+test('applyLayout: wc-moveable-widget class reflects canMove', () => {
+    setup();
+    const model = makeModel();
+    model.permissions.editor.move = true;
+    const view = createWidgetView({ model });
+
+    view.applyLayout({ x: 0, y: 0, w: 1, h: 1, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+    assert.equal(view.wrapperElement.classList.contains('wc-moveable-widget'), true);
+});
+
+test('applyLayout: sets _unminimizedHeight from a non-minimized layout and keeps it while minimized', () => {
+    setup();
+    const view = createWidgetView();
+
+    view.applyLayout({ x: 0, y: 0, w: 4, h: 9, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+    assert.equal(view._unminimizedHeight, 9);
+
+    view.applyLayout({ x: 0, y: 0, w: 4, h: 1, minimized: true, titlevisible: true, fulldragboard: false, visible: true });
+    assert.equal(view._unminimizedHeight, 9, 'must remember the height from before minimizing');
+});
+
+test('applyLayout: toggles wc-fulldragboard-active on the tab when any view is in full dragboard mode', () => {
+    setup();
     const dragboard = makeDragboard();
-    const model = makeModel({ shape: { width: 2, height: 3 } });
-    model.wrapperElement.offsetHeight = 300;
-    model.wrapperElement.offsetWidth = 400;
-    const view = createWidgetView({ model, layout, dragboard });
+    const tab = makeTab({ dragboard });
+    const viewA = createWidgetView({ tab, model: makeModel({ id: 'a' }) });
+    const viewB = createWidgetView({ tab, model: makeModel({ id: 'b' }) });
 
+    viewA.applyLayout({ x: 0, y: 0, w: 1, h: 1, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+    assert.equal(tab.wrapperElement.classList.contains('wc-fulldragboard-active'), false);
+
+    viewB.applyLayout({ x: 0, y: 0, w: 1, h: 1, minimized: false, titlevisible: true, fulldragboard: true, visible: true });
+    assert.equal(tab.wrapperElement.classList.contains('wc-fulldragboard-active'), true);
+
+    viewB.applyLayout({ x: 0, y: 0, w: 1, h: 1, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+    assert.equal(tab.wrapperElement.classList.contains('wc-fulldragboard-active'), false);
+});
+
+test('applyLayout: a hidden full-dragboard layout does not activate the tab background mode', () => {
+    setup();
+    const dragboard = makeDragboard();
+    const tab = makeTab({ dragboard });
+    const view = createWidgetView({ tab });
+
+    view.applyLayout({ x: 0, y: 0, w: 1, h: 1, minimized: false, titlevisible: true, fulldragboard: true, visible: false });
+
+    assert.equal(tab.wrapperElement.classList.contains('wc-fulldragboard-active'), false);
+});
+
+test('applyLayout: when minimized, updates the grid with the computed collapsed row count and noResize', () => {
+    setup();
+    const grid = makeGrid();
+    const dragboard = makeDragboard({ grid });
+    const view = createWidgetView({ tab: makeTab({ dragboard }) });
+    view.wrapperElement.gridstackNode = { x: 0, y: 0, w: 4, h: 5 };
+    view.heading.offsetHeight = 40;
+
+    view.applyLayout({ x: 0, y: 0, w: 4, h: 5, minimized: true, titlevisible: true, fulldragboard: false, visible: true });
+
+    const call = grid.calls.find((c) => c.el === view.wrapperElement);
+    assert.ok(call);
+    assert.equal(call.opts.noResize, true);
+    assert.equal(call.opts.h, 1); // 40px heading / 40px cell height, no margins in the shim
+});
+
+test('applyLayout: when not minimized, updates the grid height to layout.h', () => {
+    setup();
+    const grid = makeGrid();
+    const dragboard = makeDragboard({ grid });
+    const view = createWidgetView({ tab: makeTab({ dragboard }) });
+    view.wrapperElement.gridstackNode = { x: 0, y: 0, w: 4, h: 1 };
+
+    view.applyLayout({ x: 0, y: 0, w: 4, h: 7, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+
+    const call = grid.calls.find((c) => c.el === view.wrapperElement);
+    assert.deepEqual(call.opts, { h: 7 });
+});
+
+test('applyLayout: updates the node.grid if different from dragboard.grid (docked widget)', () => {
+    setup();
+    const mainGrid = makeGrid();
+    const dockGrid = makeGrid();
+    const dragboard = makeDragboard({ grid: mainGrid });
+    const view = createWidgetView({ tab: makeTab({ dragboard }) });
+    view.wrapperElement.gridstackNode = { x: 0, y: 0, w: 4, h: 1, grid: dockGrid };
+
+    view.applyLayout({ x: 0, y: 0, w: 4, h: 8, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+
+    // dockGrid must receive the updates, not mainGrid
+    assert.equal(mainGrid.calls.length, 0);
+    assert.ok(dockGrid.calls.some((c) => c.el === view.wrapperElement && c.opts.h === 8));
+    assert.ok(dockGrid.calls.some((c) => c.el === view.wrapperElement && 'noMove' in c.opts));
+});
+
+test('applyLayout: does not touch the grid when there is no gridstack node yet', () => {
+    setup();
+    const grid = makeGrid();
+    const dragboard = makeDragboard({ grid });
+    const view = createWidgetView({ tab: makeTab({ dragboard }) });
+    // No gridstackNode assigned.
+
+    view.applyLayout({ x: 0, y: 0, w: 1, h: 1, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+
+    assert.equal(grid.calls.length, 0);
+});
+
+test('applyLayout: does not touch the grid when the dragboard has no grid yet', () => {
+    setup();
+    const dragboard = makeDragboard({ grid: null });
+    const view = createWidgetView({ tab: makeTab({ dragboard }) });
+    view.wrapperElement.gridstackNode = { x: 0, y: 0, w: 1, h: 1 };
+
+    assert.doesNotThrow(() => {
+        view.applyLayout({ x: 0, y: 0, w: 1, h: 1, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+    });
+});
+
+test('applyLayout: refreshes grid move/resize permissions', () => {
+    setup();
+    const grid = makeGrid();
+    const dragboard = makeDragboard({ grid });
+    const model = makeModel();
+    model.permissions.editor.move = false;
+    model.permissions.editor.resize = false;
+    const view = createWidgetView({ model, tab: makeTab({ dragboard }) });
+    view.wrapperElement.gridstackNode = { x: 0, y: 0, w: 1, h: 1 };
+
+    view.applyLayout({ x: 0, y: 0, w: 1, h: 1, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+
+    const permissionCall = grid.calls.find((c) => 'noMove' in c.opts);
+    assert.ok(permissionCall);
+    assert.equal(permissionCall.opts.noMove, true);
+    assert.equal(permissionCall.opts.noResize, true);
+});
+
+test('applyLayout: re-notifies the widget context', () => {
+    setup();
+    const model = makeModel();
+    const view = createWidgetView({ model });
+    view.wrapperElement.gridstackNode = { x: 3, y: 4, w: 5, h: 6 };
     model.contextManager._lastModify = null;
-    view.layout.iwidgetToMove = null;
 
-    view.wrapperElement.dispatchEvent({ type: 'transitionend', propertyName: 'width' });
+    view.applyLayout({ x: 3, y: 4, w: 5, h: 6, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+
+    assert.ok(model.contextManager._lastModify);
+    assert.equal(model.contextManager._lastModify.xPosition, 3);
+    assert.equal(model.contextManager._lastModify.yPosition, 4);
+    assert.equal(model.contextManager._lastModify.width, 5);
+    assert.equal(model.contextManager._lastModify.height, 6);
+});
+
+test('compute_minimized_rows: factors in the heading CSS margins when window.getComputedStyle is available', () => {
+    setup();
+    const grid = makeGrid();
+    const dragboard = makeDragboard({ grid });
+    const view = createWidgetView({ tab: makeTab({ dragboard }) });
+    view.wrapperElement.gridstackNode = { x: 0, y: 0, w: 4, h: 3 };
+    view.heading.offsetHeight = 40;
+
+    const original = global.getComputedStyle;
+    global.getComputedStyle = () => ({ marginTop: '10px', marginBottom: '10px' });
+    try {
+        view.applyLayout({ x: 0, y: 0, w: 4, h: 3, minimized: true, titlevisible: true, fulldragboard: false, visible: true });
+    } finally {
+        if (original === undefined) {
+            delete global.getComputedStyle;
+        } else {
+            global.getComputedStyle = original;
+        }
+    }
+
+    const call = grid.calls.find((c) => c.el === view.wrapperElement);
+    assert.equal(call.opts.h, 2); // (40 + 10 + 10) / 40 = 1.5 -> ceil -> 2
+});
+
+// ============================================================================
+// syncLayoutFromNode
+// ============================================================================
+
+test('syncLayoutFromNode: no-op when there is no gridstack node or no applied layout', () => {
+    setup();
+    const view = createWidgetView();
+    assert.equal(view.syncLayoutFromNode(), view);
+
+    view.applyLayout({ x: 0, y: 0, w: 1, h: 1, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+    delete view.wrapperElement.gridstackNode;
+    const before = Object.assign({}, view.layout);
+    view.syncLayoutFromNode();
+    assert.deepEqual(view.layout, before);
+});
+
+test('syncLayoutFromNode: copies x/y/w/h from the node when not minimized and remembers the height', () => {
+    setup();
+    const view = createWidgetView();
+    view.applyLayout({ x: 0, y: 0, w: 1, h: 1, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+    view.wrapperElement.gridstackNode = { x: 2, y: 3, w: 4, h: 5 };
+
+    view.syncLayoutFromNode();
+
+    assert.equal(view.layout.x, 2);
+    assert.equal(view.layout.y, 3);
+    assert.equal(view.layout.w, 4);
+    assert.equal(view.layout.h, 5);
+    assert.equal(view._unminimizedHeight, 5);
+});
+
+test('syncLayoutFromNode: leaves h untouched while minimized (node height is the collapsed one)', () => {
+    setup();
+    const view = createWidgetView();
+    view.applyLayout({ x: 0, y: 0, w: 4, h: 8, minimized: true, titlevisible: true, fulldragboard: false, visible: true });
+    view.wrapperElement.gridstackNode = { x: 1, y: 1, w: 4, h: 1 };
+
+    view.syncLayoutFromNode();
+
+    assert.equal(view.layout.h, 8, 'height must stay at the remembered value while minimized');
+    assert.equal(view.layout.x, 1);
+    assert.equal(view.layout.y, 1);
+});
+
+// ============================================================================
+// updateGridPermissions
+// ============================================================================
+
+test('updateGridPermissions: no-op when there is no grid', () => {
+    setup();
+    const dragboard = makeDragboard({ grid: null });
+    const view = createWidgetView({ tab: makeTab({ dragboard }) });
+    view.wrapperElement.gridstackNode = { x: 0, y: 0, w: 1, h: 1 };
+    assert.doesNotThrow(() => view.updateGridPermissions());
+});
+
+test('updateGridPermissions: no-op when there is no gridstack node', () => {
+    setup();
+    const grid = makeGrid();
+    const dragboard = makeDragboard({ grid });
+    const view = createWidgetView({ tab: makeTab({ dragboard }) });
+    view.updateGridPermissions();
+    assert.equal(grid.calls.length, 0);
+});
+
+test('updateGridPermissions: writes noMove/noResize matching canMove/canResize', () => {
+    setup();
+    const grid = makeGrid();
+    const dragboard = makeDragboard({ grid });
+    const model = makeModel();
+    model.permissions.editor.move = true;
+    model.permissions.editor.resize = false;
+    const view = createWidgetView({ model, tab: makeTab({ dragboard }) });
+    view.layout = { fulldragboard: false, minimized: false };
+    view.wrapperElement.gridstackNode = { x: 0, y: 0, w: 1, h: 1 };
+
+    view.updateGridPermissions();
+
+    assert.equal(grid.calls.length, 1);
+    assert.deepEqual(grid.calls[0].opts, { noMove: false, noResize: true });
+});
+
+// ============================================================================
+// setMinimizeStatus / toggleMinimizeStatus
+// ============================================================================
+
+test('setMinimizeStatus: resolves without side effects when the status is unchanged', async () => {
+    setup();
+    const model = makeModel();
+    const view = createWidgetView({ model });
+    view.layout = { minimized: true };
+
+    const result = await view.setMinimizeStatus(true);
+    assert.equal(result, view);
+    assert.equal(model._layoutCalls.length, 0);
+});
+
+test('setMinimizeStatus: applies the new layout and persists through the model', async () => {
+    setup();
+    const model = makeModel();
+    const dragboard = makeDragboard({ activeScreenSize: { id: 2, columns: 12 } });
+    const view = createWidgetView({ model, tab: makeTab({ dragboard }) });
+    view.layout = { minimized: false, titlevisible: true, fulldragboard: false, visible: true, x: 0, y: 0, w: 1, h: 1 };
+
+    const result = await view.setMinimizeStatus(true, true);
+
+    assert.equal(view.layout.minimized, true);
+    assert.equal(result, view);
+    assert.equal(model._layoutCalls.length, 1);
+    assert.equal(model._layoutCalls[0].id, '2');
+    assert.deepEqual(model._layoutCalls[0].changes, {
+        x: 0, y: 0, w: 1, h: 1, minimized: true, titlevisible: true, fulldragboard: false, visible: true,
+    });
+    assert.equal(model._layoutCalls[0].persist, true);
+});
+
+test('toggleMinimizeStatus: flips the current minimized flag', async () => {
+    setup();
+    const model = makeModel();
+    const view = createWidgetView({ model });
+    view.layout = { minimized: false, x: 0, y: 0, w: 1, h: 1, titlevisible: true, fulldragboard: false, visible: true };
+
+    await view.toggleMinimizeStatus(false);
+    assert.equal(view.layout.minimized, true);
+
+    await view.toggleMinimizeStatus(false);
+    assert.equal(view.layout.minimized, false);
+});
+
+// ============================================================================
+// toggleTitleVisibility
+// ============================================================================
+
+test('toggleTitleVisibility: flips titlevisible, manages busy state on the button and persists', async () => {
+    setup();
+    const model = makeModel();
+    const view = createWidgetView({ model });
+    view.layout = { titlevisible: true, x: 0, y: 0, w: 1, h: 1, minimized: false, fulldragboard: false, visible: true };
+
+    const promise = view.toggleTitleVisibility(true);
+    // The button is marked busy immediately; applyLayout() (called
+    // synchronously as part of change_layout_flag) then recomputes
+    // `.enabled` from the model/layout state through update_buttons(), so
+    // only the "busy" class survives as a synchronous visual cue.
+    assert.equal(view.titlevisibilitybutton.hasClassName('busy'), true);
+
+    const result = await promise;
+
+    assert.equal(result, view);
+    assert.equal(view.layout.titlevisible, false);
+    assert.equal(view.titlevisibilitybutton.enabled, true);
+    assert.equal(view.titlevisibilitybutton.hasClassName('busy'), false);
+    assert.equal(model._layoutCalls.length, 1);
+    assert.deepEqual(model._layoutCalls[0].changes, {
+        x: 0, y: 0, w: 1, h: 1, minimized: false, titlevisible: false, fulldragboard: false, visible: true,
+    });
+    assert.equal(model._layoutCalls[0].persist, true);
+});
+
+test('toggleTitleVisibility: re-enables the button even when persistence rejects', async () => {
+    setup();
+    const model = makeModel();
+    model.setLayout = () => Promise.reject(new Error('boom'));
+    const view = createWidgetView({ model });
+    view.layout = { titlevisible: true, x: 0, y: 0, w: 1, h: 1, minimized: false, fulldragboard: false, visible: true };
+
+    await assert.rejects(view.toggleTitleVisibility(true), /boom/);
+    assert.equal(view.titlevisibilitybutton.enabled, true);
+    assert.equal(view.titlevisibilitybutton.hasClassName('busy'), false);
+});
+
+// ============================================================================
+// setFullDragboardMode
+// ============================================================================
+
+test('setFullDragboardMode: resolves without side effects when unchanged', async () => {
+    setup();
+    const model = makeModel();
+    const view = createWidgetView({ model });
+    view.layout = { fulldragboard: true };
+
+    const result = await view.setFullDragboardMode(true);
+    assert.equal(result, view);
+    assert.equal(model._layoutCalls.length, 0);
+});
+
+test('setFullDragboardMode: applies the layout and persists through the model', async () => {
+    setup();
+    const model = makeModel();
+    const view = createWidgetView({ model });
+    view.layout = { fulldragboard: false, x: 0, y: 0, w: 1, h: 1, minimized: false, titlevisible: true, visible: true };
+
+    const result = await view.setFullDragboardMode(true, true);
+
+    assert.equal(view.layout.fulldragboard, true);
+    assert.equal(result, view);
+    assert.deepEqual(model._layoutCalls[0].changes, {
+        x: 0, y: 0, w: 1, h: 1, minimized: false, titlevisible: true, fulldragboard: true, visible: true,
+    });
+    assert.equal(model._layoutCalls[0].persist, true);
+    assert.equal(view.wrapperElement.classList.contains('wc-widget-fulldragboard'), true);
+    assert.equal(view.tab.wrapperElement.scrollTop, 0);
+    assert.deepEqual(view.tab.dragboard._refreshCalls, [view]);
+});
+
+test('setFullDragboardMode: restores the previous background before enabling a new one', async () => {
+    setup();
+    const dragboard = makeDragboard();
+    const tab = makeTab({ dragboard });
+    const firstModel = makeModel({ id: 'first' });
+    const secondModel = makeModel({ id: 'second' });
+    const first = createWidgetView({ model: firstModel, tab });
+    const second = createWidgetView({ model: secondModel, tab });
+    const callOrder = [];
+    const firstSetLayout = firstModel.setLayout.bind(firstModel);
+    const secondSetLayout = secondModel.setLayout.bind(secondModel);
+    firstModel.setLayout = (...args) => {
+        callOrder.push('restore-first');
+        return firstSetLayout(...args);
+    };
+    secondModel.setLayout = (...args) => {
+        callOrder.push('enable-second');
+        return secondSetLayout(...args);
+    };
+
+    first.applyLayout({ x: 1, y: 2, w: 3, h: 4, minimized: false, titlevisible: true, fulldragboard: true, visible: true });
+    second.applyLayout({ x: 5, y: 6, w: 2, h: 3, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+    dragboard._refreshCalls.length = 0;
+
+    await second.setFullDragboardMode(true, true);
+
+    assert.equal(first.layout.fulldragboard, false);
+    assert.equal(second.layout.fulldragboard, true);
+    assert.deepEqual(callOrder, ['restore-first', 'enable-second']);
+    assert.deepEqual(dragboard._refreshCalls, [first, second]);
+    assert.equal(firstModel._layoutCalls[0].persist, true);
+    assert.equal(secondModel._layoutCalls[0].persist, true);
+});
+
+// ============================================================================
+// hideInCurrentScreenSize / showInCurrentScreenSize
+// ============================================================================
+
+test('hideInCurrentScreenSize: persists the whole layout with visible:false, then refreshes the widget', async () => {
+    setup();
+    const model = makeModel();
+    const dragboard = makeDragboard({ activeScreenSize: { id: 1, columns: 6 } });
+    const view = createWidgetView({ model, tab: makeTab({ dragboard }) });
+    view.applyLayout({ x: 2, y: 3, w: 4, h: 5, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+
+    const result = await view.hideInCurrentScreenSize();
+
+    assert.equal(result, view);
+    assert.equal(model._layoutCalls.length, 1);
+    assert.equal(model._layoutCalls[0].id, '1');
+    // The geometry travels with the flag: the widget must come back to the same
+    // place when shown again, and the screen sizes that derive their layout from
+    // this one must keep a full layout to derive from.
+    assert.deepEqual(model._layoutCalls[0].changes, {
+        x: 2, y: 3, w: 4, h: 5,
+        minimized: false, titlevisible: true, fulldragboard: false, visible: false,
+    });
+    assert.equal(model._layoutCalls[0].persist, true);
+    assert.deepEqual(dragboard._refreshCalls, [view]);
+});
+
+test('hideInCurrentScreenSize: never persists a "derived" marker', async () => {
+    setup();
+    const model = makeModel();
+    const dragboard = makeDragboard({ activeScreenSize: { id: 1, columns: 6 } });
+    const view = createWidgetView({ model, tab: makeTab({ dragboard }) });
+    view.applyLayout({ x: 0, y: 0, w: 2, h: 2, minimized: false, titlevisible: true, fulldragboard: false, visible: true, derived: true });
+
+    await view.hideInCurrentScreenSize();
+
+    assert.equal('derived' in model._layoutCalls[0].changes, false);
+});
+
+test('showInCurrentScreenSize: persists the whole layout with visible:true, then refreshes the widget', async () => {
+    setup();
+    const model = makeModel();
+    const dragboard = makeDragboard({ activeScreenSize: { id: 0, columns: 12 } });
+    const view = createWidgetView({ model, tab: makeTab({ dragboard }) });
+    view.applyLayout({ x: 1, y: 6, w: 3, h: 7, minimized: false, titlevisible: true, fulldragboard: false, visible: false });
+
+    const result = await view.showInCurrentScreenSize();
+
+    assert.equal(result, view);
+    assert.deepEqual(model._layoutCalls[0].changes, {
+        x: 1, y: 6, w: 3, h: 7,
+        minimized: false, titlevisible: true, fulldragboard: false, visible: true,
+    });
+    assert.equal(model._layoutCalls[0].persist, true);
+    assert.deepEqual(dragboard._refreshCalls, [view]);
+});
+
+// ============================================================================
+// moveToTab
+// ============================================================================
+
+test('moveToTab: delegates to dragboard.moveWidgetToTab', () => {
+    setup();
+    const dragboard = makeDragboard();
+    const view = createWidgetView({ tab: makeTab({ dragboard }) });
+    const targetTab = { id: 'other-tab' };
+
+    view.moveToTab(targetTab);
+
+    assert.equal(dragboard._moveCalls.length, 1);
+    assert.equal(dragboard._moveCalls[0].view, view);
+    assert.equal(dragboard._moveCalls[0].tabView, targetTab);
+});
+
+// ============================================================================
+// togglePermission
+// ============================================================================
+
+test('togglePermission: negates the current viewer permission and delegates to the model', () => {
+    setup();
+    const model = makeModel();
+    model.permissions.viewer.move = false;
+    const view = createWidgetView({ model });
+
+    view.togglePermission('move', true);
+
+    assert.equal(model._permissionCalls.length, 1);
+    assert.deepEqual(model._permissionCalls[0].changes, { move: true });
+    assert.equal(model._permissionCalls[0].persist, true);
+});
+
+// ============================================================================
+// load / repaint / reload / showLogs / showSettings
+// ============================================================================
+
+test('load: loads the model and adds the "in" class when not already loaded', () => {
+    setup();
+    const model = makeModel({ loaded: false });
+    const view = createWidgetView({ model });
+
+    const result = view.load();
+
+    assert.equal(model._loaded, true);
+    assert.equal(view.contentElement.classList.contains('in'), true);
+    assert.equal(result, view);
+});
+
+test('load: does not reload an already-loaded model but still repaints', () => {
+    setup();
+    const model = makeModel({ loaded: true });
+    const view = createWidgetView({ model });
+    model.contextManager._lastModify = null;
+
+    view.load();
+
+    assert.equal(model._loaded, undefined);
     assert.ok(model.contextManager._lastModify);
 });
 
-test('transitionend: does not repaint when iwidgetToMove is set', (t) => {
+test('repaint: re-notifies context and returns the view', () => {
     setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
     const model = makeModel();
-    const view = createWidgetView({ model, layout, dragboard });
-
-    model.contextManager._lastModify = null;
-    view.layout.iwidgetToMove = 'some-widget';
-
-    view.wrapperElement.dispatchEvent({ type: 'transitionend', propertyName: 'width' });
-    assert.equal(model.contextManager._lastModify, null);
-});
-
-test('transitionend: does not repaint on non-size/position property transitions', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel();
-    const view = createWidgetView({ model, layout, dragboard });
-
+    const view = createWidgetView({ model });
     model.contextManager._lastModify = null;
 
-    view.wrapperElement.dispatchEvent({ type: 'transitionend', propertyName: 'opacity' });
-    assert.equal(model.contextManager._lastModify, null);
+    const result = view.repaint();
+
+    assert.equal(result, view);
+    assert.ok(model.contextManager._lastModify);
+});
+
+test('reload: delegates to the model and returns the view', () => {
+    setup();
+    const model = makeModel();
+    const view = createWidgetView({ model });
+    assert.equal(view.reload(), view);
+    assert.equal(model._reloaded, true);
+});
+
+test('showLogs: delegates to the model and returns the view', () => {
+    setup();
+    const model = makeModel();
+    const view = createWidgetView({ model });
+    assert.equal(view.showLogs(), view);
+    assert.equal(model._logsShown, true);
+});
+
+test('showSettings: delegates to the model and returns the view', () => {
+    setup();
+    const model = makeModel();
+    const view = createWidgetView({ model });
+    assert.equal(view.showSettings(), view);
+    assert.equal(model._settingsShown, true);
 });
 
 // ============================================================================
-// TESTS: getUpdatedLayoutConfigurations (module-level function)
+// highlight / unhighlight
 // ============================================================================
 
-test('getUpdatedLayoutConfigurations: skips FullDragboardLayout source', (t) => {
+test('highlight: marks the content panel as success and dispatches highlight once', () => {
     setup();
-    const freeLayout = makeFreeLayout();
-    const fullLayout = makeFullDragboardLayout();
-    const dragboard = makeDragboard();
-    freeLayout.dragboard = dragboard;
-    fullLayout.dragboard = dragboard;
-    const model = makeModel({
-        layoutConfig: [
-            { id: 'c1', lessOrEqual: -1, moreOrEqual: 0, width: 100, height: 80, relwidth: false, relheight: false, left: 0, top: 0, zIndex: 1, relx: false, rely: false, anchor: 'top-left' },
-        ],
-    });
-    const view = createWidgetView({ model, layout: fullLayout, dragboard });
+    const view = createWidgetView();
+    let highlighted = 0;
+    view.addEventListener('highlight', () => { highlighted += 1; });
 
-    view.layout = fullLayout;
-    // moveToLayout to freeLayout - since source is FullDragboardLayout, configs should be skipped
-    view.moveToLayout(freeLayout);
-    // The result is async; verify freeLayout received the widget
-    assert.ok(freeLayout.widgets[view.id]);
+    view.highlight();
+
+    assert.equal(view.contentElement.classList.contains('panel-success'), true);
+    assert.equal(view.contentElement.classList.contains('panel-default'), false);
+    assert.equal(view.wrapperElement.classList.contains('wc-widget-highlight'), true);
+    assert.equal(highlighted, 1);
 });
 
-test('getUpdatedLayoutConfigurations: skips FullDragboardLayout destination', (t) => {
+test('highlight: calling it again resets the animation without re-dispatching the event', () => {
     setup();
-    const freeLayout = makeFreeLayout({ name: 'free' });
-    const fullLayout = makeFullDragboardLayout({ name: 'full' });
-    const dragboard = makeDragboard();
-    dragboard.layouts = [freeLayout];
-    dragboard.fulldragboardLayout = fullLayout;
-    freeLayout.dragboard = dragboard;
-    fullLayout.dragboard = dragboard;
-    const model = makeModel({
-        layoutConfig: [
-            { id: 'c1', lessOrEqual: -1, moreOrEqual: 0, width: 100, height: 80, relwidth: false, relheight: false, left: 0, top: 0, zIndex: 1, relx: false, rely: false, anchor: 'top-left' },
-        ],
-    });
-    const tab = {
-        id: 'tab-1', hidden: false, workspace: makeWorkspace(), dragboard,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener() {},
-        _listeners: {},
-    };
-    dragboard.tab = tab;
+    const view = createWidgetView();
+    let highlighted = 0;
+    view.addEventListener('highlight', () => { highlighted += 1; });
 
-    const view = new Wirecloud.ui.WidgetView(tab, model, {});
-    view.layout = freeLayout;
+    view.highlight();
+    view.highlight();
 
-    view.moveToLayout(fullLayout);
-    assert.ok(fullLayout.widgets[view.id]);
+    assert.equal(highlighted, 1, 'event only fires the first time the highlight is applied');
+    assert.equal(view.wrapperElement.classList.contains('wc-widget-highlight'), false, 'class removed synchronously to restart the CSS animation');
 });
 
-test('getUpdatedLayoutConfigurations: handles layoutConfig with lessOrEqual -1', (t) => {
+test('unhighlight: restores the default panel look and dispatches unhighlight only if it was highlighted', () => {
     setup();
-    const layout1 = makeFreeLayout({ name: 'src' });
-    const layout2 = makeFreeLayout({ name: 'dst' });
-    const dragboard = makeDragboard();
-    dragboard.layouts = [layout1, layout2];
-    layout1.dragboard = dragboard;
-    layout2.dragboard = dragboard;
-    const model = makeModel({
-        layoutConfig: [
-            { id: 'c1', lessOrEqual: -1, moreOrEqual: 1024, width: 200, height: 100, relwidth: true, relheight: true, left: 10, top: 20, zIndex: 1, relx: true, rely: true, anchor: 'top-left' },
-        ],
-    });
-    const tab = {
-        id: 'tab-1', hidden: false, workspace: makeWorkspace(), dragboard,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener() {},
-        _listeners: {},
-    };
-    dragboard.tab = tab;
+    const view = createWidgetView();
+    let unhighlighted = 0;
+    view.addEventListener('unhighlight', () => { unhighlighted += 1; });
 
-    layout1.fromHCellsToPixels = (w, as) => w;
-    layout1.fromVCellsToPixels = (h) => h;
-    layout2.fromHCellsToPixels = (w, as) => w;
-    layout2.fromVCellsToPixels = (h) => h;
+    view.unhighlight();
+    assert.equal(unhighlighted, 0, 'nothing to undo yet');
 
-    const view = new Wirecloud.ui.WidgetView(tab, model, {});
-    view.layout = layout1;
+    view.highlight();
+    view.unhighlight();
 
-    view.moveToLayout(layout2);
-    assert.ok(layout2.widgets[view.id]);
-});
-
-test('getUpdatedLayoutConfigurations: adapts config when dragboard changes and not FreeLayout dest', (t) => {
-    setup();
-    const layout1 = makeFreeLayout({ name: 'src' });
-    const layout2 = makeFreeLayout({ name: 'dst' });
-    const dragboard1 = makeDragboard();
-    dragboard1.layouts = [layout1];
-    layout1.dragboard = dragboard1;
-    const dragboard2 = makeDragboard();
-    dragboard2.layouts = [layout2];
-    layout2.dragboard = dragboard2;
-    const model = makeModel({
-        layoutConfig: [
-            { id: 'c1', lessOrEqual: -1, moreOrEqual: 0, width: 200, height: 100, relwidth: true, relheight: true, left: 10, top: 20, zIndex: 1, relx: true, rely: true, anchor: 'top-left' },
-        ],
-    });
-    const tab = {
-        id: 'tab-1', hidden: false, workspace: makeWorkspace(), dragboard: dragboard1,
-        model: {},
-        wrapperElement: document.createElement('div'),
-        addEventListener() {},
-        _listeners: {},
-    };
-    dragboard1.tab = tab;
-    dragboard2.tab = { ...tab, id: 'tab-2', dragboard: dragboard2, _listeners: {} };
-
-    layout1.fromHCellsToPixels = (w, as) => w;
-    layout1.fromVCellsToPixels = (h) => h;
-    layout2.fromHCellsToPixels = (w, as) => w;
-    layout2.fromVCellsToPixels = (h) => h;
-
-    const view = new Wirecloud.ui.WidgetView(tab, model, {});
-    view.layout = layout1;
-
-    view.moveToLayout(layout2);
-    assert.ok(layout2.widgets[view.id]);
+    assert.equal(view.contentElement.classList.contains('panel-success'), false);
+    assert.equal(view.contentElement.classList.contains('panel-default'), true);
+    assert.equal(view.wrapperElement.classList.contains('wc-widget-highlight'), false);
+    assert.equal(unhighlighted, 1);
 });
 
 // ============================================================================
-// TESTS: load event handler (macversion branch)
+// toJSON
 // ============================================================================
 
-test('load event: uses model wrapperElement when macversion > 1', (t) => {
+test('toJSON: returns the id and the current layout keyed by the active screen size', () => {
     setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ loaded: false, meta: { macversion: 2 } });
-    const view = createWidgetView({ model, layout, dragboard });
+    const dragboard = makeDragboard({ activeScreenSize: { id: 2, columns: 12 } });
+    const view = createWidgetView({ tab: makeTab({ dragboard }) });
+    view.applyLayout({ x: 1, y: 2, w: 3, h: 4, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+    view.wrapperElement.gridstackNode = { x: 1, y: 2, w: 3, h: 4 };
 
-    model._dispatchEvent('load');
-    assert.equal(view.wrapperElement.classList.contains('in'), true);
+    const json = view.toJSON();
 
-    // For macversion > 1, model.wrapperElement is used directly for event listeners
-    let clickReceived = false;
-    model.wrapperElement.addEventListener('click', () => { clickReceived = true; });
-    model.wrapperElement.dispatchEvent({ type: 'click' });
-    // HandleEscapeEvent should be called
-});
-
-test('load event: uses contentDocument.defaultView when macversion <= 1', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ loaded: false, meta: { macversion: 1 } });
-    model.wrapperElement.contentDocument = {
-        defaultView: {
-            _listeners: {},
-            addEventListener(event, handler) {
-                if (!this._listeners[event]) this._listeners[event] = [];
-                this._listeners[event].push(handler);
-            },
+    assert.deepEqual(json, {
+        id: view.id,
+        layouts: {
+            '2': { x: 1, y: 2, w: 3, h: 4, minimized: false, titlevisible: true, fulldragboard: false, visible: true },
         },
+    });
+});
+
+// ============================================================================
+// remove
+// ============================================================================
+
+test('remove: delegates to the model and returns the view', () => {
+    setup();
+    const model = makeModel();
+    const view = createWidgetView({ model });
+    assert.equal(view.remove(), view);
+    assert.equal(model._removed, true);
+});
+
+// ============================================================================
+// MODEL EVENTS
+// ============================================================================
+
+test('model "change" with title updates the title element text content', () => {
+    setup();
+    const model = makeModel({ title: 'Old' });
+    const view = createWidgetView({ model });
+
+    model.title = 'New';
+    model._dispatchEvent('change', ['title']);
+
+    assert.equal(view.titleelement.wrapperElement.textContent, 'New');
+});
+
+test('model "change" with meta refreshes classes and buttons', () => {
+    setup();
+    const model = makeModel({ missing: false });
+    const view = createWidgetView({ model });
+    assert.equal(view.wrapperElement.classList.contains('wc-missing-widget'), false);
+
+    model.missing = true;
+    model._dispatchEvent('change', ['meta']);
+
+    assert.equal(view.wrapperElement.classList.contains('wc-missing-widget'), true);
+});
+
+test('model "change" with permissions refreshes classes, buttons and grid permissions', () => {
+    setup();
+    const grid = makeGrid();
+    const dragboard = makeDragboard({ grid });
+    const model = makeModel();
+    model.permissions.editor.move = false;
+    const view = createWidgetView({ model, tab: makeTab({ dragboard }) });
+    view.layout = { fulldragboard: false, minimized: false };
+    view.wrapperElement.gridstackNode = { x: 0, y: 0, w: 1, h: 1 };
+    grid.calls = [];
+
+    model.permissions.editor.move = true;
+    model._dispatchEvent('change', ['permissions']);
+
+    assert.ok(grid.calls.some((c) => 'noMove' in c.opts && c.opts.noMove === false));
+});
+
+test('model "unload" un-highlights the widget', () => {
+    setup();
+    const model = makeModel();
+    const view = createWidgetView({ model });
+    view.highlight();
+
+    model._dispatchEvent('unload');
+
+    assert.equal(view.wrapperElement.classList.contains('wc-widget-highlight'), false);
+});
+
+test('model "load" adds the "in" class, installs keydown/click listeners and repaints', () => {
+    setup();
+    const model = makeModel({ meta: { macversion: 1 } });
+    const view = createWidgetView({ model });
+    model.contextManager._lastModify = null;
+
+    let keydownHandler = null;
+    let clickHandler = null;
+    model.wrapperElement.contentDocument.defaultView.addEventListener = (type, handler, useCapture) => {
+        if (type === 'keydown') keydownHandler = handler;
+        if (type === 'click') clickHandler = handler;
     };
-    const view = createWidgetView({ model, layout, dragboard });
 
     model._dispatchEvent('load');
-    assert.equal(view.wrapperElement.classList.contains('in'), true);
+
+    assert.equal(view.contentElement.classList.contains('in'), true);
+    assert.ok(model.contextManager._lastModify, 'repaint() was called');
+    assert.equal(typeof keydownHandler, 'function');
+    assert.equal(typeof clickHandler, 'function');
+
+    keydownHandler({ keyCode: 27 });
+    assert.equal(Wirecloud.UserInterfaceManager._escapeCalls.length, 1);
+
+    view.highlight();
+    clickHandler();
+    assert.equal(Wirecloud.UserInterfaceManager._escapeCalls.length, 2);
+    assert.equal(Wirecloud.UserInterfaceManager._escapeCalls[1][0], true);
+    assert.equal(view.wrapperElement.classList.contains('wc-widget-highlight'), false);
 });
 
-// ============================================================================
-// TESTS: Permission/role logic in update_buttons
-// ============================================================================
-
-test('update_buttons: editor can close', (t) => {
+test('model "load" listens on the wrapperElement itself for macversion > 1 widgets', () => {
     setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const workspace = makeWorkspace({ editing: true });
-    const model = makeModel({ volatile: false });
-    model.isAllowed = (perm, role) => perm === 'close' && role === 'editor';
-    const view = createWidgetView({ model, layout, dragboard, workspace });
+    const model = makeModel({ meta: { macversion: 2 } });
+    let listenedOn = null;
+    model.wrapperElement.addEventListener = (type) => { listenedOn = model.wrapperElement; };
+    const view = createWidgetView({ model });
 
-    assert.equal(view.closebutton.hidden, false);
+    model._dispatchEvent('load');
+
+    assert.equal(listenedOn, model.wrapperElement);
 });
 
-test('update_buttons: volatile widget always visible close button', (t) => {
+test('model "remove" removes the widget from the dragboard and dispatches the view remove event', () => {
     setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const workspace = makeWorkspace({ editing: true });
-    const model = makeModel({ volatile: true });
-    model.isAllowed = (perm, role) => true;
-    const view = createWidgetView({ model, layout, dragboard, workspace });
-
-    // Editing=true, volatile=true => closebutton.should be shown
-    assert.equal(view.closebutton.hidden, false);
-
-    // Switch to viewer mode - volatile still shows close button
-    workspace.editing = false;
-    workspace._dispatch('editmode');
-    // volatile || editing = true || false = true, and isAllowed returns true
-    assert.equal(view.closebutton.hidden, false);
-});
-
-test('update_buttons: grip editable when editing, not volatile, and FreeLayout', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const workspace = makeWorkspace({ editing: true });
-    const model = makeModel({ volatile: false });
-    const view = createWidgetView({ model, layout, dragboard, workspace });
-
-    assert.equal(view.grip.enabled, true);
-});
-
-test('errorbutton click: creates LogWindowMenu with model logManager', (t) => {
-    setup();
-    const layout = makeFreeLayout();
     const dragboard = makeDragboard();
     const model = makeModel();
-    model.logManager.errorCount = 3;
-    const view = createWidgetView({ model, layout, dragboard });
+    const view = createWidgetView({ model, tab: makeTab({ dragboard }) });
 
+    let removed = false;
+    view.addEventListener('remove', () => { removed = true; });
+
+    model._dispatchEvent('remove');
+
+    assert.deepEqual(dragboard._removeCalls, [view]);
+    assert.equal(removed, true);
+});
+
+test('workspace "editmode" refreshes classes, buttons and grid permissions', () => {
+    setup();
+    const workspace = makeWorkspace({ editing: false });
+    const view = createWidgetView({ tab: makeTab({ workspace }) });
+
+    assert.equal(view.menubutton.hidden, true);
+
+    workspace.editing = true;
+    workspace._dispatch('editmode');
+
+    assert.equal(view.menubutton.hidden, false);
+});
+
+test('workspace/tab "show" and "hide" re-notify the widget context', () => {
+    setup();
+    const model = makeModel();
+    const workspace = makeWorkspace();
+    const tab = makeTab({ workspace });
+    const view = createWidgetView({ model, tab });
+
+    model.contextManager._lastModify = null;
+    workspace._dispatch('show');
+    assert.ok(model.contextManager._lastModify);
+
+    model.contextManager._lastModify = null;
+    workspace._dispatch('hide');
+    assert.ok(model.contextManager._lastModify);
+
+    model.contextManager._lastModify = null;
+    tab._dispatch('show');
+    assert.ok(model.contextManager._lastModify);
+
+    model.contextManager._lastModify = null;
+    tab._dispatch('hide');
+    assert.ok(model.contextManager._lastModify);
+});
+
+test('logManager "newentry" updates the error button', () => {
+    setup();
+    const model = makeModel();
+    const view = createWidgetView({ model });
+
+    model.logManager.errorCount = 2;
     model.logManager._dispatch('newentry');
+    assert.equal(view.errorbutton.hidden, false);
+    assert.equal(view.errorbutton.getTitle(), '2 errors');
 
-    let logManagerArg = null;
-    const OrigLogWindowMenu = Wirecloud.ui.LogWindowMenu;
-    Wirecloud.ui.LogWindowMenu = class MockLogWindowMenu {
-        constructor(manager) { logManagerArg = manager; }
-        show() {}
-    };
+    model.logManager.errorCount = 1;
+    model.logManager._dispatch('newentry');
+    assert.equal(view.errorbutton.getTitle(), '1 error');
 
-    view.errorbutton.dispatchEvent('click');
-    assert.equal(logManagerArg, model.logManager);
-    Wirecloud.ui.LogWindowMenu = OrigLogWindowMenu;
+    model.logManager.errorCount = 0;
+    model.logManager._dispatch('newentry');
+    assert.equal(view.errorbutton.hidden, true);
 });
 
-test('minimizebutton click: calls toggleMinimizeStatus', (t) => {
-    setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
-    const model = makeModel({ minimized: false });
-    const view = createWidgetView({ model, layout, dragboard });
+// ============================================================================
+// notify_context: visibility flag
+// ============================================================================
 
-    view.minimizebutton.dispatchEvent('click');
-    assert.equal(view.minimized, true);
+test('notify_context: visible is false while minimized, tab hidden or workspace hidden', () => {
+    setup();
+    const model = makeModel();
+    const workspace = makeWorkspace({ hidden: false });
+    const tab = makeTab({ workspace });
+    const view = createWidgetView({ model, tab });
+
+    view.applyLayout({ x: 0, y: 0, w: 1, h: 1, minimized: false, titlevisible: true, fulldragboard: false, visible: true });
+    assert.equal(model.contextManager._lastModify.visible, true);
+
+    view.applyLayout({ x: 0, y: 0, w: 1, h: 1, minimized: true, titlevisible: true, fulldragboard: false, visible: true });
+    assert.equal(model.contextManager._lastModify.visible, false);
+
+    view.applyLayout({ x: 0, y: 0, w: 1, h: 1, minimized: false, titlevisible: true, fulldragboard: false, visible: false });
+    assert.equal(model.contextManager._lastModify.visible, false);
+
+    tab.hidden = true;
+    view.repaint();
+    assert.equal(model.contextManager._lastModify.visible, false);
 });
 
-test('getUpdatedLayoutConfigurations non-FreeLayout else branches (lines 135-141)', (t) => {
-    setup();
-    const layout1 = makeFreeLayout({ name: 'free' });
-    const layout2 = makeLayout({ name: 'grid' });
-    const dragboard = makeDragboard();
-    dragboard.layouts = [layout1, layout2];
-    layout1.dragboard = dragboard;
-    layout2.dragboard = dragboard;
-    const model = makeModel({
-        layoutConfig: [
-            { id: 'c1', lessOrEqual: -1, moreOrEqual: 0, width: 4, height: 3, relwidth: true, relheight: true, left: 1, top: 2, zIndex: 1, relx: true, rely: true, anchor: 'top-left' },
-        ],
-    });
-    const view = createWidgetView({ model, layout: layout1, dragboard });
+// ============================================================================
+// update_buttons (constructed at different editing/permission states)
+// ============================================================================
 
-    const result = view.moveToLayout(layout2);
-    // Non-FreeLayout paths should be taken for the else branches
-    assert.ok(layout2.widgets[view.id]);
+test('update_buttons: grip is hidden for volatile widgets even while editing', () => {
+    setup();
+    const model = makeModel({ volatile: true });
+    const view = createWidgetView({ model, tab: makeTab({ workspace: makeWorkspace({ editing: true }) }) });
+    assert.equal(view.grip.hidden, true);
 });
 
-test('getUpdatedLayoutConfigurations non-FreeLayout with dragboardChange (lines 144-149)', (t) => {
+test('update_buttons: grip icon and title reflect whether viewers may move the widget', () => {
     setup();
-    const layout1 = makeFreeLayout({ name: 'free1' });
-    const layout2 = makeLayout({ name: 'grid2' });
-    const dragboard1 = makeDragboard();
-    dragboard1.layouts = [layout1];
-    layout1.dragboard = dragboard1;
-    const dragboard2 = makeDragboard();
-    dragboard2.layouts = [layout2];
-    layout2.dragboard = dragboard2;
-    const model = makeModel({
-        layoutConfig: [
-            { id: 'c1', lessOrEqual: -1, moreOrEqual: 0, width: 4, height: 3, relwidth: true, relheight: true, left: 1, top: 2, zIndex: 1, relx: true, rely: true, anchor: 'top-left' },
-        ],
-    });
-    const tab = { id: 'tab-1', hidden: false, workspace: makeWorkspace(), dragboard: dragboard1, model: {}, wrapperElement: document.createElement('div'), addEventListener() {}, _listeners: {} };
-    dragboard1.tab = tab;
-    dragboard2.tab = { ...tab, id: 'tab-2', dragboard: dragboard2, _listeners: {} };
-    const view = new Wirecloud.ui.WidgetView(tab, model, {});
-    view.layout = layout1;
+    const model = makeModel();
+    model.permissions.viewer.move = false;
+    const view = createWidgetView({ model, tab: makeTab({ workspace: makeWorkspace({ editing: true }) }) });
 
-    view.moveToLayout(layout2);
-    assert.ok(layout2.widgets[view.id]);
+    assert.equal(view.grip.hidden, false);
+    assert.equal(view.grip.icon.classList.contains('fa-anchor'), true);
+    assert.equal(view.grip.getTitle(), 'Allow to move this widget');
+
+    model.permissions.viewer.move = true;
+    model._dispatchEvent('change', ['meta']);
+
+    assert.equal(view.grip.icon.classList.contains('fa-grip-vertical'), true);
+    assert.equal(view.grip.getTitle(), 'Disallow to move this widget');
 });
 
-test('moveToLayout uses _searchFreeSpace when dragboard changes and newLayout is not FreeLayout', (t) => {
+test('update_buttons: titlevisibilitybutton hidden unless editing, disabled when minimized or volatile', () => {
     setup();
-    const layout = makeFreeLayout();
-    const dragboard = makeDragboard();
+    const model = makeModel();
+    const workspace = makeWorkspace({ editing: false });
+    const view = createWidgetView({ model, tab: makeTab({ workspace }) });
+    assert.equal(view.titlevisibilitybutton.hidden, true);
+
+    workspace.editing = true;
+    workspace._dispatch('editmode');
+    assert.equal(view.titlevisibilitybutton.hidden, false);
+    assert.equal(view.titlevisibilitybutton.enabled, true);
+
+    view.applyLayout({ x: 0, y: 0, w: 1, h: 1, minimized: true, titlevisible: true, fulldragboard: false, visible: true });
+    assert.equal(view.titlevisibilitybutton.enabled, false);
+});
+
+test('update_buttons: minimizebutton.enabled follows model.isAllowed("minimize", role)', () => {
+    setup();
+    const model = makeModel();
+    model.permissions.editor.minimize = false;
     const workspace = makeWorkspace({ editing: true });
+    const view = createWidgetView({ model, tab: makeTab({ workspace }) });
+    assert.equal(view.minimizebutton.enabled, false);
+
+    model.permissions.editor.minimize = true;
+    model._dispatchEvent('change', ['meta']);
+    assert.equal(view.minimizebutton.enabled, true);
+});
+
+test('update_buttons: closebutton is hidden unless volatile or editing, and the model allows close', () => {
+    setup();
     const model = makeModel({ volatile: false });
-    const view = createWidgetView({ model, layout, dragboard, workspace });
+    model.permissions.editor.close = true;
+    const workspace = makeWorkspace({ editing: false });
+    const view = createWidgetView({ model, tab: makeTab({ workspace }) });
+    assert.equal(view.closebutton.hidden, true, 'not volatile and not editing');
 
-    const otherDragboard = makeDragboard();
-    const baseLayout = makeLayout({ name: 'base' });
-    baseLayout.dragboard = otherDragboard;
-    Object.setPrototypeOf(baseLayout, Wirecloud.ui.FullDragboardLayout.prototype);
+    workspace.editing = true;
+    workspace._dispatch('editmode');
+    assert.equal(view.closebutton.hidden, false);
 
-    let searchCalled = false;
-    baseLayout._searchFreeSpace = function (w, h) {
-        searchCalled = true;
-        return { x: 5, y: 5 };
-    };
+    model.permissions.editor.close = false;
+    model._dispatchEvent('change', ['meta']);
+    assert.equal(view.closebutton.hidden, true, 'model denies close even while editing');
+});
 
-    let setPositionCalled = null;
-    view.setPosition = function (pos) {
-        setPositionCalled = pos;
-    };
+test('update_buttons: closebutton is visible for volatile widgets in viewer mode when close is allowed', () => {
+    setup();
+    const model = makeModel({ volatile: true });
+    const workspace = makeWorkspace({ editing: false });
+    const view = createWidgetView({ model, tab: makeTab({ workspace }) });
+    assert.equal(view.closebutton.hidden, false);
+});
 
-    view.moveToLayout(baseLayout);
-    assert.ok(searchCalled, '_searchFreeSpace should be called');
-    assert.equal(setPositionCalled.x, 5);
-    assert.equal(setPositionCalled.y, 5);
-    assert.equal(setPositionCalled.relx, true);
-    assert.equal(setPositionCalled.rely, true);
-    assert.equal(setPositionCalled.anchor, 'top-left');
+test('update_buttons: menubutton is only shown while editing', () => {
+    setup();
+    const workspace = makeWorkspace({ editing: false });
+    const view = createWidgetView({ tab: makeTab({ workspace }) });
+    assert.equal(view.menubutton.hidden, true);
+
+    workspace.editing = true;
+    workspace._dispatch('editmode');
+    assert.equal(view.menubutton.hidden, false);
 });

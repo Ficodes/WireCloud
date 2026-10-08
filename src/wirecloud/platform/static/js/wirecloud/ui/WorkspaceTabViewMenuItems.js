@@ -74,6 +74,17 @@
             item.setDisabled(!this.tab.model.isAllowed('remove'));
             items.push(item);
 
+            const hiddenWidgets = this.tab.dragboard.hiddenWidgets;
+            if (hiddenWidgets.length > 0) {
+                const submenu = new se.SubMenuItem(utils.gettext("Hidden widgets"), {iconClass: 'fas fa-eye-slash'});
+                hiddenWidgets.forEach((view) => {
+                    submenu.append(new se.MenuItem(view.title, () => {
+                        view.showInCurrentScreenSize();
+                    }));
+                });
+                items.push(submenu);
+            }
+
             return items;
         }
 

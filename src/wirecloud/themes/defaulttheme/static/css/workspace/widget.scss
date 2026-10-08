@@ -2,27 +2,44 @@
 @use 'base/z-depth_mixins' as *;
 @use 'utils' as *;
 
+// GridStack owns left/top/width/height (and their transitions, via
+// .grid-stack.grid-stack-animate) of the grid item itself, so `.wc-widget`
+// (== the GridStack item, `wrapperElement`) must not declare position,
+// size or position-related transitions.
 .wc-widget {
-    position: absolute;
-    transition: opacity 0.35s ease-in, top 0.2s ease-in, left 0.2s ease-in, right 0.2s ease-in, width 0.2s ease-in, height 0.2s ease-in, box-shadow 0.7s ease-in;
     overflow: visible;
-    @include z-depth(1);
     box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
     margin: 0px;
     background: none;
 
-    &.dragging {
-        transition: opacity 0.35s ease-in;
-        @include z-depth(3);
-
-        & > .wc-widget-heading {
-            cursor: -webkit-grabbing;
-            cursor: -moz-grabbing;
-            cursor: grabbing;
-        }
+    &.ui-draggable-dragging > .grid-stack-item-content > .wc-widget-heading {
+        cursor: -webkit-grabbing;
+        cursor: -moz-grabbing;
+        cursor: grabbing;
     }
+}
+
+// While a widget is being dragged or resized, its neighbours' contents (and
+// its own) must not capture the pointer: an iframe under the cursor would
+// swallow the mousemove/mouseup events and the operation would stay stuck.
+// The class is toggled by WorkspaceTabViewDragboard on the grid element.
+.wc-dragboard-interacting .wc-widget-body,
+.wc-dock-interacting .wc-widget-body,
+.wc-dragboard-interacting iframe,
+.wc-dock-interacting iframe {
+    pointer-events: none !important;
+}
+
+// `.grid-stack-item-content` (== `contentElement`) is the actual panel:
+// it carries the panel background/border (via the `panel`/`panel-default`
+// classes already present in the template) plus the depth shadow and the
+// opacity fade, and lays out the heading/body as a flex column.
+.grid-stack-item-content {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden !important;
+    transition: opacity 0.35s ease-in, box-shadow 0.7s ease-in;
+    @include z-depth(1);
 }
 
 .wc-widget-heading {
@@ -32,18 +49,18 @@
     width: 100%;
     z-index: 4;
 
-    .wc-moveable-widget > & {
+    .wc-moveable-widget > .grid-stack-item-content > & {
         cursor: -webkit-grab;
         cursor: -moz-grab;
         cursor: grab;
     }
 
-    .wc-titled-widget > & {
+    .wc-titled-widget > .grid-stack-item-content > & {
         position: relative;
     }
     .wc-workspace-editing &,
-    .wc-minimized-widget &,
-    .wc-titled-widget > & {
+    .wc-minimized-widget > .grid-stack-item-content > &,
+    .wc-titled-widget > .grid-stack-item-content > & {
         display: flex;
     }
 
@@ -75,12 +92,12 @@
     position: relative;
     border-radius: ($panel-border-radius - 1);
 
-    .wc-titled-widget > & {
+    .wc-titled-widget > .grid-stack-item-content > & {
         border-top-left-radius: 0px;
         border-top-right-radius: 0px;
     }
 
-    .wc-workspace-editing > & {
+    .wc-workspace-editing & {
         border-bottom-left-radius: 0px;
         border-bottom-right-radius: 0px;
     }
@@ -93,106 +110,57 @@
     }
 }
 
-.wc-widget-footer {
-    height: 3px;
-    padding: 0 32px;
-    position: static;
-    flex-grow: 0;
-    display: none;
-
-    @if ($widget-footer-bg == 'transparent') {
-        color: contrast-color($body-bg, $text-color-light, $text-color-dark, $text-color-threshold);
-    } @else {
-        color: contrast-color($widget-footer-bg, $text-color-light, $text-color-dark, $text-color-threshold);
-        background: $widget-footer-bg;
-    }
-
-    .wc-workspace-editing & {
-        display: block;
-    }
-}
-
-.wc-widget .wc-bottom-resize-handle {
-    position: absolute;
-    height: 12px;
-    bottom: -6px;
-    left: 34px;
-    right: 34px;
-    cursor: s-resize;
-}
-
-.wc-widget .wc-bottom-left-resize-handle {
-    position: absolute;
-    width: 40px;
-    height: 12px;
-    bottom: -6px;
-    left: -6px;
-    cursor: sw-resize;
-
-    &.inUse {
-        right: 0px;
-        top: 0px;
-        bottom: auto;
-        left: auto;
-    }
-}
-
-.wc-widget .wc-bottom-right-resize-handle {
-    position: absolute;
-    width: 40px;
-    height: 12px;
-    bottom: -6px;
-    right: -6px;
-    cursor: se-resize;
-
-    &.inUse {
-        left: 0px;
-        top: 0px;
-        bottom: auto;
-        right: auto;
-    }
-}
-
-.wc-widget .inUse {
-    width: 200%;
-    height: 200%;
-}
-
 .wc-widget-fulldragboard {
+    // GridStack (re)writes left/top/width/height on the item (either as
+    // inline styles or as dynamically injected per-node rules when
+    // `styleInHead` is used); beat those with !important so the widget
+    // always fills the tab regardless of its grid position/size. Full
+    // dragboard is a background mode, so keep it below the other widgets.
+    position: fixed !important;
+    // Full-dragboard widgets use viewport coordinates copied from the tab.
+    // This makes them sticky backgrounds without changing the main grid's
+    // positioning, margins, height or scrolling behaviour.
+    left: var(--wc-fulldragboard-left, 0px) !important;
+    top: var(--wc-fulldragboard-top, 0px) !important;
+    width: var(--wc-fulldragboard-width, 100%) !important;
+    height: var(--wc-fulldragboard-height, 100%) !important;
+    z-index: 0 !important;
+    // Background iframe documents swallow wheel events before they can reach
+    // the workspace scroller. Background content must let the pointer through.
+    pointer-events: none;
 
-    top: 0px;
-    right: 0px;
-    left: 0px;
-    bottom: 0px;
+    & > .grid-stack-item-content > .wc-widget-body {
+        pointer-events: none !important;
 
-    @include z-depth(0);
-    border: 0px none;
-
-    & > .wc-widget-footer {
-        display: none;
+        & > * {
+            pointer-events: none !important;
+        }
     }
 
-    & > .wc-widget-heading {
+    & > .grid-stack-item-content {
+        @include z-depth(0);
+        border: 0px none;
+    }
+
+    & > .grid-stack-item-content > .wc-widget-heading {
         cursor: default;
+        pointer-events: auto;
+
         & > .fa-minus {
             display: none;
         }
     }
-
 }
 
-/*div.dragboard.fixed*/
-.fixed .wc-widget {
-
-    & > .wc-widget-heading {
-        cursor: default;
-    }
-
-    .wc-bottom-left-resize-handle, .wc-bottom-right-resize-handle, .wc-bottom-resize-handle {
-        display: none;
+// Tab wrapper while one of its widgets is in full dragboard mode.
+.wc-workspace-tab-content.wc-fulldragboard-active > .grid-stack {
+    // Keep every regular widget above the fixed background. Do not alter the
+    // grid's positioning or the tab's overflow: docks and tall content must
+    // behave exactly as they do without a background widget.
+    & > .wc-widget:not(.wc-widget-fulldragboard):not(.wc-docked-widget):not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+        z-index: 1;
     }
 }
-
 
 @include keyframes(highlight_iwidget) {
     0% { }
@@ -203,36 +171,122 @@
     100% { @include z-depth(2, $color: $state-success-border); }
 }
 
-.wc-widget-highlight {
+.wc-widget-highlight > .grid-stack-item-content {
     @include z-depth(2, $color: $state-success-border);
     @include animation(highlight_iwidget 5s linear);
 }
 
 .wc-minimized-widget {
-    .wc-widget-heading {
+    & > .grid-stack-item-content > .wc-widget-heading {
         border-bottom-left-radius: ($panel-border-radius - 1);
         border-bottom-right-radius: ($panel-border-radius - 1);
     }
 
-    .wc-widget-body {
+    & > .grid-stack-item-content > .wc-widget-body {
         visibility: hidden;
         height: 0px;
     }
-
-    .wc-widget-footer {
-        display: none;
-    }
 }
 
-.wc-missing-widget {
+.wc-missing-widget > .grid-stack-item-content {
     @include z-depth(0);
 }
 
-.wc-floating-widget {
-    @include z-depth(2);
-    transition: none;
+// GridStack's drop placeholder: shown as a dashed, tinted drop target
+// using the same look the old drag cursor used.
+.grid-stack-placeholder > .placeholder-content {
+    background-color: $state-info-bg !important;
+    border: 2px dashed $state-info-border;
+    border-radius: $panel-border-radius;
+    box-sizing: border-box;
+}
 
-    &.wc-missing-widget {
-        @include z-depth(2, $color: $state-danger-border);
-    }
+// Resize handles: subtle and theme-coloured, only shown while editing
+// (`.wc-workspace-editing` on an ancestor) or on a viewer-movable widget.
+.grid-stack > .grid-stack-item > .ui-resizable-handle {
+    opacity: 0;
+    background-image: none;
+    transition: opacity 0.15s ease-in;
+}
+
+.wc-workspace-editing .grid-stack > .grid-stack-item > .ui-resizable-handle,
+.grid-stack > .grid-stack-item.wc-moveable-widget > .ui-resizable-handle {
+    opacity: 1;
+}
+
+.grid-stack > .grid-stack-item > .ui-resizable-handle::after {
+    content: "";
+    position: absolute;
+    background-color: $brand-primary;
+    border-radius: 2px;
+    opacity: 0.5;
+}
+
+.grid-stack > .grid-stack-item > .ui-resizable-handle:hover::after {
+    opacity: 0.9;
+}
+
+.grid-stack > .grid-stack-item > .ui-resizable-e::after,
+.grid-stack > .grid-stack-item > .ui-resizable-w::after {
+    top: 50%;
+    left: 50%;
+    width: 4px;
+    height: 20px;
+    margin: -10px 0 0 -2px;
+}
+
+.grid-stack > .grid-stack-item > .ui-resizable-s::after,
+.grid-stack > .grid-stack-item > .ui-resizable-n::after {
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 4px;
+    margin: -2px 0 0 -10px;
+}
+
+.grid-stack > .grid-stack-item > .ui-resizable-se::after {
+    right: 4px;
+    bottom: 4px;
+    width: 8px;
+    height: 8px;
+}
+
+.grid-stack > .grid-stack-item > .ui-resizable-sw::after {
+    left: 4px;
+    bottom: 4px;
+    width: 8px;
+    height: 8px;
+}
+
+.grid-stack > .grid-stack-item > .ui-resizable-ne::after {
+    right: 4px;
+    top: 4px;
+    width: 8px;
+    height: 8px;
+}
+
+.grid-stack > .grid-stack-item > .ui-resizable-nw::after {
+    left: 4px;
+    top: 4px;
+    width: 8px;
+    height: 8px;
+}
+
+.grid-stack.grid-stack-animate:not(.wc-dragboard) {
+    transition: none;
+}
+
+// Fluid animation for widgets inside the grid when pushed or resized
+.grid-stack.grid-stack-animate > .grid-stack-item:not(.wc-docked-widget):not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    transition: left 0.3s cubic-bezier(0.2, 0, 0, 1),
+                right 0.3s cubic-bezier(0.2, 0, 0, 1),
+                top 0.3s cubic-bezier(0.2, 0, 0, 1),
+                height 0.3s cubic-bezier(0.2, 0, 0, 1),
+                width 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.grid-stack.grid-stack-animate > .grid-stack-item.ui-draggable-dragging,
+.grid-stack.grid-stack-animate > .grid-stack-item.ui-resizable-resizing,
+.grid-stack.grid-stack-animate > .grid-stack-item.grid-stack-placeholder {
+    transition: none !important;
 }

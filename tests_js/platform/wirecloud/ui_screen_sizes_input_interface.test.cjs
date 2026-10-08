@@ -137,8 +137,8 @@ const setup = () => {
     Wirecloud.activeWorkspace = {
         view: {
             activeTab: {
-                quitEditingInterval: () => {},
-                setEditingInterval: () => {},
+                _editingScreenSizeCalls: [],
+                setEditingScreenSize(id) { this._editingScreenSizeCalls.push(id); },
             },
         },
     };
@@ -178,6 +178,7 @@ test('on_addScreenSize with empty value creates first screen size with moreOrEqu
     assert.equal(field.value[0].moreOrEqual, 0);
     assert.equal(field.value[0].lessOrEqual, -1);
     assert.equal(field.value[0].name, 'Default-1');
+    assert.equal(field.value[0].rows, 0);
 });
 
 test('on_addScreenSize with existing sizes chains lessOrEqual+1', () => {
@@ -282,11 +283,65 @@ test('_checkValue returns NO_ERROR for valid contiguous ranges', () => {
     setup();
     const field = new Wirecloud.ui.ScreenSizesInputInterface('test-field', {});
     const val = [
-        { id: 1, name: 'phone', moreOrEqual: 0, lessOrEqual: 480 },
-        { id: 2, name: 'tablet', moreOrEqual: 481, lessOrEqual: 1024 },
-        { id: 3, name: 'desktop', moreOrEqual: 1025, lessOrEqual: -1 },
+        { id: 1, name: 'phone', moreOrEqual: 0, lessOrEqual: 480, columns: 1 },
+        { id: 2, name: 'tablet', moreOrEqual: 481, lessOrEqual: 1024, columns: 6 },
+        { id: 3, name: 'desktop', moreOrEqual: 1025, lessOrEqual: -1, columns: 12 },
     ];
     assert.equal(field._checkValue(val), StyledElements.InputValidationError.NO_ERROR);
+});
+
+// =============================================================================
+// _checkValue - columns validation and unique ids
+// =============================================================================
+
+test('_checkValue returns error when columns is missing or not an integer', () => {
+    setup();
+    const field = new Wirecloud.ui.ScreenSizesInputInterface('test-field', {});
+    const base = [
+        { id: 1, moreOrEqual: 0, lessOrEqual: -1 },
+    ];
+    assert.equal(field._checkValue(base), StyledElements.InputValidationError.SCREEN_SIZES_ERROR, 'columns missing');
+    assert.equal(field._checkValue([{ id: 1, moreOrEqual: 0, lessOrEqual: -1, columns: 1.5 }]), StyledElements.InputValidationError.SCREEN_SIZES_ERROR, 'columns not an integer');
+});
+
+test('_checkValue returns error when columns is less than 1', () => {
+    setup();
+    const field = new Wirecloud.ui.ScreenSizesInputInterface('test-field', {});
+    assert.equal(field._checkValue([{ id: 1, moreOrEqual: 0, lessOrEqual: -1, columns: 0 }]), StyledElements.InputValidationError.SCREEN_SIZES_ERROR);
+    assert.equal(field._checkValue([{ id: 1, moreOrEqual: 0, lessOrEqual: -1, columns: -3 }]), StyledElements.InputValidationError.SCREEN_SIZES_ERROR);
+});
+
+test('_checkValue accepts missing or non-negative integer rows', () => {
+    setup();
+    const field = new Wirecloud.ui.ScreenSizesInputInterface('test-field', {});
+
+    assert.equal(field._checkValue([{ id: 1, moreOrEqual: 0, lessOrEqual: -1, columns: 4 }]), StyledElements.InputValidationError.NO_ERROR);
+    assert.equal(field._checkValue([{ id: 1, moreOrEqual: 0, lessOrEqual: -1, columns: 4, rows: 0 }]), StyledElements.InputValidationError.NO_ERROR);
+    assert.equal(field._checkValue([{ id: 1, moreOrEqual: 0, lessOrEqual: -1, columns: 4, rows: 8 }]), StyledElements.InputValidationError.NO_ERROR);
+});
+
+test('_checkValue rejects negative or fractional rows', () => {
+    setup();
+    const field = new Wirecloud.ui.ScreenSizesInputInterface('test-field', {});
+
+    assert.equal(field._checkValue([{ id: 1, moreOrEqual: 0, lessOrEqual: -1, columns: 4, rows: -1 }]), StyledElements.InputValidationError.SCREEN_SIZES_ERROR);
+    assert.equal(field._checkValue([{ id: 1, moreOrEqual: 0, lessOrEqual: -1, columns: 4, rows: 2.5 }]), StyledElements.InputValidationError.SCREEN_SIZES_ERROR);
+});
+
+test('_checkValue accepts columns === 1 (minimum valid value)', () => {
+    setup();
+    const field = new Wirecloud.ui.ScreenSizesInputInterface('test-field', {});
+    assert.equal(field._checkValue([{ id: 1, moreOrEqual: 0, lessOrEqual: -1, columns: 1 }]), StyledElements.InputValidationError.NO_ERROR);
+});
+
+test('_checkValue returns error when two entries share the same id', () => {
+    setup();
+    const field = new Wirecloud.ui.ScreenSizesInputInterface('test-field', {});
+    const val = [
+        { id: 1, moreOrEqual: 0, lessOrEqual: 480, columns: 1 },
+        { id: 1, moreOrEqual: 481, lessOrEqual: -1, columns: 12 },
+    ];
+    assert.equal(field._checkValue(val), StyledElements.InputValidationError.SCREEN_SIZES_ERROR);
 });
 
 // =============================================================================
@@ -315,8 +370,20 @@ test('_normalize returns value as-is', () => {
 
 test('getValue returns current value', () => {
     setup();
-    const field = new Wirecloud.ui.ScreenSizesInputInterface('test-field', { defaultValue: [{ id: 1, moreOrEqual: 0, lessOrEqual: -1 }] });
-    assert.deepEqual(field.getValue(), [{ id: 1, moreOrEqual: 0, lessOrEqual: -1 }]);
+    const field = new Wirecloud.ui.ScreenSizesInputInterface('test-field', { defaultValue: [{ id: 1, moreOrEqual: 0, lessOrEqual: -1, columns: 12 }] });
+    assert.deepEqual(field.getValue(), [{ id: 1, moreOrEqual: 0, lessOrEqual: -1, columns: 12, rows: 0 }]);
+});
+
+test('_update renders a rows field and defaults it to zero', () => {
+    setup();
+    const field = new Wirecloud.ui.ScreenSizesInputInterface('test-field', {
+        defaultValue: [{ id: 1, moreOrEqual: 0, lessOrEqual: -1, columns: 12 }],
+    });
+
+    const rowsContainer = field.screenSizesInputs[1]._children[4];
+    const rowsInput = rowsContainer._children[1];
+    assert.equal(rowsInput.opts.name, 'rows');
+    assert.equal(rowsInput.getValue(), 0);
 });
 
 // =============================================================================

@@ -1,4 +1,3 @@
-@use "sass:color";
 @use "variables" as *;
 
 
@@ -12,11 +11,25 @@
     background: white;
 }
 
+// Keep the workspace's own bottom tab strip above fixed bottom docks. The
+// direct-child chain avoids changing the stacking of notebooks inside widgets.
+.wc-workspace > .se-offcanvas > .se-offcanvas-content >
+.se-notebook-bottom > .se-notebook-tabs-wrapper {
+    background-color: $body-bg;
+    box-shadow: inset 0 1px 0 $nav-tabs-border-color;
+    z-index: 200;
+}
+
 .wc-workspace-tab-content {
     padding-left: $margin-horizontal-small;
     padding-right: $margin-horizontal-small;
     overflow-x: hidden;
     overflow-y: auto;
+    // Opening or resizing a top push dock changes the main grid's top margin.
+    // Browser scroll anchoring would otherwise compensate for that insertion
+    // by advancing scrollTop, making tall widgets appear to grow upwards.
+    overflow-anchor: none;
+    box-sizing: border-box;
 
     &.dragging {
         cursor: -webkit-grabbing;
@@ -29,90 +42,365 @@
     display: none;
 }
 
+.wc-dragboard {
+    min-height: 100% !important;
+    box-sizing: border-box;
+    margin: 0;
+    transition: margin 0.3s cubic-bezier(0.2, 0, 0, 1) !important;
+
+    &.wc-dragboard-interacting {
+        transition: none !important;
+    }
+
+    // Fixed-row layouts get their exact height from GridStack. In particular,
+    // this lets top/bottom push docks reduce the available space without the
+    // normal 100% minimum making the grid overflow its tab.
+    &.wc-dragboard-fixed-rows {
+        min-height: 0 !important;
+    }
+}
+
+.wc-workspace-tab-content.wc-dock-interacting .wc-dragboard {
+    transition: none !important;
+}
+
+
+// =============================================================================
+// SIDEBAR DOCKS & HANDLES
+// =============================================================================
+
+.wc-dock {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 100;
+
+    &.hidden {
+        display: none;
+    }
+
+    .wc-dock-grid {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        min-height: 100%;
+        pointer-events: none;
+    }
+
+    &.wc-dock-interacting {
+        pointer-events: auto;
+
+        .wc-dock-grid {
+            pointer-events: auto;
+        }
+    }
+}
+
+.wc-dock-left {
+    right: auto;
+    width: 100%;
+}
+
+.wc-dock-right {
+    left: auto;
+    width: 100%;
+}
+
+.wc-dock-top {
+    bottom: auto;
+    height: 100%;
+}
+
+.wc-dock-bottom {
+    top: auto;
+    height: 100%;
+}
+
+// Bottom docks use row 0 internally, but their placement preview belongs at
+// the opposite visual edge of the dock grid.
+.wc-dock-grid-bottom > .grid-stack-placeholder {
+    top: auto !important;
+    bottom: 0;
+}
+
+.wc-docked-widget {
+    pointer-events: auto;
+    transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1) !important;
+    will-change: transform;
+}
+
+// Left, right and top docks live inside the main grid so widget content keeps
+// its stable DOM parent. When a push dock animates that grid's margin, animate
+// the inverse coordinate correction with the same timing. The two movements
+// cancel visually, leaving every other dock stationary while only the main
+// content moves. Bottom docks are fixed to the viewport and need no correction.
+.wc-docked-widget:not(.wc-docked-bottom) {
+    transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1),
+                left 0.3s cubic-bezier(0.2, 0, 0, 1),
+                top 0.3s cubic-bezier(0.2, 0, 0, 1) !important;
+    will-change: transform, left, top;
+}
+
+.wc-docked-widget:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    left: var(--wc-dock-left) !important;
+    top: var(--wc-dock-top) !important;
+    width: var(--wc-dock-width) !important;
+    height: var(--wc-dock-height) !important;
+}
+
+// Keep the dock's GridStack gutter on the inner edge of left/top widgets.
+// For right/bottom widgets, move the item through that gutter so the visible
+// panel reaches the outer workspace edge.
+.wc-docked-left:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    left: calc(var(--wc-dock-left) - var(--wc-dock-margin-left, 0px)) !important;
+}
+
+.wc-docked-right:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    left: calc(var(--wc-dock-left) - var(--wc-dock-margin-right, 0px)) !important;
+}
+
+.wc-docked-top:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    top: calc(var(--wc-dock-top) - var(--wc-dock-margin-top, 0px)) !important;
+}
+
+.wc-docked-bottom:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    position: fixed !important;
+    top: auto !important;
+    bottom: var(--wc-dock-bottom, 0px) !important;
+}
+
+.wc-docked-widget {
+    &.wc-dock-widget-overlay {
+        z-index: 105;
+
+        // GridStack's item wrapper includes the configured margin, whereas
+        // the content is the visible widget panel. Shadow the panel so the
+        // gutter does not become part of the shadow's box.
+        & > .grid-stack-item-content {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+        }
+    }
+
+    &.wc-dock-widget-push {
+        z-index: 95;
+    }
+}
+
+.wc-dock-interacting .wc-docked-widget,
+.wc-docked-widget.ui-draggable-dragging,
+.wc-docked-widget.ui-resizable-resizing {
+    transition: none !important;
+}
+
+.wc-docked-left {
+    .ui-resizable-w,
+    .ui-resizable-sw,
+    .ui-resizable-nw {
+        display: none !important;
+        pointer-events: none !important;
+    }
+}
+
+.wc-docked-right {
+    .ui-resizable-e,
+    .ui-resizable-se,
+    .ui-resizable-ne {
+        display: none !important;
+        pointer-events: none !important;
+    }
+}
+
+.wc-docked-top {
+    .ui-resizable-n,
+    .ui-resizable-nw,
+    .ui-resizable-ne {
+        display: none !important;
+        pointer-events: none !important;
+    }
+}
+
+.wc-docked-bottom {
+    .ui-resizable-s,
+    .ui-resizable-se,
+    .ui-resizable-sw {
+        display: none !important;
+        pointer-events: none !important;
+    }
+}
+
+.wc-dock-left .wc-dock-widget-closed,
+.wc-docked-left.wc-dock-widget-closed {
+    transform: translateX(-100%);
+}
+
+.wc-dock-left .wc-dock-widget-open,
+.wc-docked-left.wc-dock-widget-open {
+    transform: translateX(0);
+}
+
+.wc-dock-right .wc-dock-widget-closed,
+.wc-docked-right.wc-dock-widget-closed {
+    transform: translateX(100%);
+}
+
+.wc-dock-right .wc-dock-widget-open,
+.wc-docked-right.wc-dock-widget-open {
+    transform: translateX(0);
+}
+
+.wc-dock-top .wc-dock-widget-closed,
+.wc-docked-top.wc-dock-widget-closed {
+    transform: translateY(-100%);
+}
+
+.wc-dock-top .wc-dock-widget-open,
+.wc-docked-top.wc-dock-widget-open {
+    transform: translateY(0);
+}
+
+.wc-dock-bottom .wc-dock-widget-closed,
+.wc-docked-bottom.wc-dock-widget-closed {
+    transform: translateY(100%);
+}
+
+.wc-dock-bottom .wc-dock-widget-open,
+.wc-docked-bottom.wc-dock-widget-open {
+    transform: translateY(0);
+}
+
 .wc-sidebar-left-handle {
     position: absolute;
-    color: $button-text-color-light;
-    top: 55px;
-    left: 492px;
-    background: rgb(255, 255, 255);
+    top: 50%;
+    left: 100%;
+    transform: translateY(-50%);
+    color: #333;
+    background: #fff;
     padding: 15px 7px 15px 5px;
     border-top-right-radius: 4px;
     border-bottom-right-radius: 4px;
     border-width: 1px 1px 1px 0px;
     border-style: solid;
-    border-color: $button-border-default;
+    border-color: #ccc;
     cursor: pointer;
-}
+    z-index: 110;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.15);
+    transition: background-color 0.15s ease, padding 0.15s ease, box-shadow 0.15s ease;
 
-.wc-sidebar-left-handle:hover {
-    background-color: color.adjust(white, $lightness: -10%);
-    padding-left: 10px;
-    padding-right: 8px;
+    &:hover {
+        background-color: #e6e6e6;
+        padding-left: 10px;
+        padding-right: 8px;
+    }
 }
 
 .wc-sidebar-right-handle {
     position: absolute;
-    color: $button-text-color-light;
-    top: 55px;
-    right: 492px;
-    background: rgb(255, 255, 255);
+    top: 50%;
+    right: 100%;
+    transform: translateY(-50%);
+    color: #333;
+    background: #fff;
     padding: 15px 5px 15px 7px;
     border-top-left-radius: 4px;
     border-bottom-left-radius: 4px;
     border-width: 1px 0px 1px 1px;
     border-style: solid;
-    border-color: $button-border-default;
+    border-color: #ccc;
     cursor: pointer;
-}
+    z-index: 110;
+    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.15);
+    transition: background-color 0.15s ease, padding 0.15s ease, box-shadow 0.15s ease;
 
-.wc-sidebar-right-handle:hover {
-    background-color: color.adjust(white, $lightness: -10%);
-    padding-left: 8px;
-    padding-right: 10px;
-}
-
-.wc-sidebar-bottom-handle {
-    position: absolute;
-    color: $button-text-color-light;
-    bottom: 495px;
-    left: 50%;
-    transform: translate(-50%, 0);
-    background: rgb(255, 255, 255);
-    padding: 1px 20px 0px 20px;
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
-    border-width: 1px 1px 0px 1px;
-    border-style: solid;
-    border-color: $button-border-default;
-    cursor: pointer;
-}
-
-.wc-sidebar-bottom-handle:hover {
-    background-color: color.adjust(white, $lightness: -10%);
-    padding-top: 3px;
-    padding-bottom: 2px;
+    &:hover {
+        background-color: #e6e6e6;
+        padding-left: 8px;
+        padding-right: 10px;
+    }
 }
 
 .wc-sidebar-top-handle {
     position: absolute;
-    color: $button-text-color-light;
-    top: 495px;
+    top: 100%;
     left: 50%;
-    transform: translate(-50%, 0);
-    background: rgb(255, 255, 255);
+    transform: translateX(-50%);
+    color: #333;
+    background: #fff;
     padding: 0px 20px 1px 20px;
     border-bottom-left-radius: 4px;
     border-bottom-right-radius: 4px;
     border-width: 0px 1px 1px 1px;
     border-style: solid;
-    border-color: $button-border-default;
+    border-color: #ccc;
     cursor: pointer;
+    z-index: 110;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+    transition: background-color 0.15s ease, padding 0.15s ease, box-shadow 0.15s ease;
+
+    &:hover {
+        background-color: #e6e6e6;
+        padding-top: 2px;
+        padding-bottom: 3px;
+    }
 }
 
-.wc-sidebar-top-handle:hover {
-    background-color: color.adjust(white, $lightness: -10%);
-    padding-top: 2px;
-    padding-bottom: 3px;
+.wc-sidebar-bottom-handle {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #333;
+    background: #fff;
+    padding: 1px 20px 0px 20px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-width: 1px 1px 0px 1px;
+    border-style: solid;
+    border-color: #ccc;
+    cursor: pointer;
+    z-index: 110;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.15);
+    transition: background-color 0.15s ease, padding 0.15s ease, box-shadow 0.15s ease;
+
+    &:hover {
+        background-color: #e6e6e6;
+        padding-bottom: 2px;
+        padding-top: 2px;
+    }
+}
+
+// Once the widget is expanded, align the handle with the visible
+// GridStack content (which is inset by its item margin). A retracted widget
+// keeps the handle at the item's outer edge so it remains fully visible.
+.wc-docked-left.wc-dock-widget-open .wc-sidebar-left-handle {
+    left: calc(100% - var(--wc-dock-margin-right, 0px));
+}
+
+// A closed left dock is translated by its complete wrapper width. Its wrapper
+// itself sits one GridStack gutter outside the workspace, so move the handle
+// back through that gutter to keep it fully on-screen.
+.wc-docked-left.wc-dock-widget-closed .wc-sidebar-left-handle {
+    left: calc(100% + var(--wc-dock-margin-left, 0px) + var(--wc-dock-margin-right, 0px));
+}
+
+.wc-docked-right.wc-dock-widget-open .wc-sidebar-right-handle {
+    right: calc(100% - var(--wc-dock-margin-left, 0px));
+}
+
+.wc-docked-top.wc-dock-widget-open .wc-sidebar-top-handle {
+    top: calc(100% - var(--wc-dock-margin-bottom, 0px));
+}
+
+.wc-docked-bottom.wc-dock-widget-open .wc-sidebar-bottom-handle {
+    bottom: calc(100% - var(--wc-dock-margin-top, 0px));
+}
+
+.wc-editing-screen-size {
+    margin: 0 auto;
 }
 
 .wc-editing-interval {

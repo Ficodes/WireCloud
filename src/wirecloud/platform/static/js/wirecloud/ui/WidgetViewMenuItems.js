@@ -39,7 +39,7 @@
          * @override
          */
         build() {
-            let item, item_title, item_icon;
+            let item;
 
             const items = [];
 
@@ -91,208 +91,116 @@
 
             items.push(new StyledElements.Separator());
 
-            if (this.widget.layout === this.widget.tab.dragboard.freeLayout) {
-                const submenu = new se.SubMenuItem("Placement");
-                items.push(submenu.addIconClass("fas fa-thumbtack"));
+            const fulldragboard = !!(this.widget.layout && this.widget.layout.fulldragboard);
 
-                const halignmenu = new se.SubMenuItem("Horizontal Align", {iconClass: 'fas fa-arrows-alt-h'});
-                halignmenu.append(new se.MenuItem(
-                    utils.gettext("Left"),
-                    {
-                        enabled: !this.widget.position.anchor.endsWith("left"),
-                        iconClass: "fas fa-align-left",
-                        handler: (context) => {
-                            const vertical = this.widget.position.anchor.split('-')[0];
-                            this.widget.setPosition({anchor: vertical + "-left"});
-                            this.widget.layout.dragboard.update([this.widget.id]);
-                        }
-                    }
-                ));
-                halignmenu.append(new se.MenuItem(
-                    utils.gettext("Center"),
-                    {
-                        enabled: !this.widget.position.anchor.endsWith("center"),
-                        iconClass: "fas fa-align-center",
-                        handler: (context) => {
-                            const vertical = this.widget.position.anchor.split('-')[0];
-                            this.widget.setPosition({anchor: vertical + "-center"});
-                            this.widget.layout.dragboard.update([this.widget.id]);
-                        }
-                    }
-                ));
-                halignmenu.append(new se.MenuItem(
-                    utils.gettext("Right"),
-                    {
-                        enabled: !this.widget.position.anchor.endsWith("right"),
-                        iconClass: "fas fa-align-right",
-                        handler: (context) => {
-                            const vertical = this.widget.position.anchor.split('-')[0];
-                            this.widget.setPosition({anchor: vertical + "-right"});
-                            this.widget.layout.dragboard.update([this.widget.id]);
-                        }
-                    }
-                ));
-                submenu.append(halignmenu);
-
-                const valignmenu = new se.SubMenuItem("Vertical Align", {iconClass: 'fas fa-arrows-alt-v'});
-                valignmenu.append(new se.MenuItem(
-                    utils.gettext("Top"),
-                    {
-                        enabled: this.widget.position.anchor.startsWith("bottom"),
-                        iconClass: "fas fa-arrow-up",
-                        handler: (context) => {
-                            const horizontal = this.widget.position.anchor.split('-')[1];
-                            this.widget.setPosition({anchor: "top-" + horizontal});
-                            this.widget.layout.dragboard.update([this.widget.id]);
-                        }
-                    }
-                ));
-                valignmenu.append(new se.MenuItem(
-                    utils.gettext("Bottom"),
-                    {
-                        enabled: this.widget.position.anchor.startsWith("top"),
-                        iconClass: "fas fa-arrow-down",
-                        handler: (context) => {
-                            const horizontal = this.widget.position.anchor.split('-')[1];
-                            this.widget.setPosition({anchor: "bottom-" + horizontal});
-                            this.widget.layout.dragboard.update([this.widget.id]);
-                        }
-                    }
-                ));
-                submenu.append(valignmenu).appendSeparator();
-
-                let title = this.widget.position.relx ? utils.gettext("Fixed x") : utils.gettext("Relative x");
-                item = new se.MenuItem(title, () => {
-                    const layout = this.widget.layout;
-                    if (this.widget.position.relx) {
-                        const margin = this.widget.position.anchor.endsWith("left") ? layout.dragboard.leftMargin : layout.dragboard.rightMargin;
-                        this.widget.setPosition({relx: false, x: layout.getColumnOffset(this.widget.position) - margin});
-                    } else {
-                        this.widget.setPosition({relx: true, x: layout.adaptColumnOffset(layout.getColumnOffset(this.widget.position) + 'px').inLU});
-                    }
-                    this.widget.layout.dragboard.update([this.widget.id]);
-                });
-                item.addIconClass("fas " + (this.widget.position.relx ? "fa-ruler" : "fa-percentage"));
-                item.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
-                submenu.append(item);
-
-                title = this.widget.position.rely ? utils.gettext("Fixed y") : utils.gettext("Relative y");
-                item = new se.MenuItem(title, () => {
-                    const layout = this.widget.layout;
-                    if (this.widget.position.rely) {
-                        const margin = this.widget.position.anchor.startsWith("top") ? layout.dragboard.topMargin : layout.dragboard.bottomMargin;
-                        this.widget.setPosition({rely: false, y: layout.getRowOffset(this.widget.position) - margin});
-                    } else {
-                        this.widget.setPosition({rely: true, y: layout.adaptRowOffset(layout.getRowOffset(this.widget.position) + 'px').inLU});
-                    }
-                    this.widget.layout.dragboard.update([this.widget.id]);
-                });
-                item.addIconClass("fas " + (this.widget.position.rely ? "fa-ruler" : "fa-percentage"));
-                item.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
-                submenu.append(item);
-
-                title = this.widget.shape.relwidth ? utils.gettext("Fixed width") : utils.gettext("Relative width");
-                item = new se.MenuItem(title, () => {
-                    const layout = this.widget.layout;
-                    if (this.widget.shape.relwidth) {
-                        this.widget.setShape({relwidth: false, width: layout.getWidthInPixels(this.widget.shape.width)});
-                    } else {
-                        this.widget.setShape({relwidth: true, width: layout.adaptWidth(this.widget.shape.width + 'px').inLU});
-                    }
-                    this.widget.layout.dragboard.update([this.widget.id]);
-                });
-                item.addIconClass("fas " + (this.widget.shape.relwidth ? "fa-ruler" : "fa-percentage"));
-                item.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
-                submenu.append(item);
-
-                title = this.widget.shape.relheight ? utils.gettext("Fixed height") : utils.gettext("Relative height");
-                item = new se.MenuItem(title, () => {
-                    const layout = this.widget.layout;
-                    if (this.widget.shape.relheight) {
-                        this.widget.setShape({relheight: false, height: layout.getHeightInPixels(this.widget.shape.height)});
-                    } else {
-                        this.widget.setShape({relheight: true, height: layout.adaptHeight(this.widget.shape.height + 'px').inLU});
-                    }
-                    this.widget.layout.dragboard.update([this.widget.id]);
-                });
-                item.addIconClass("fas " + (this.widget.shape.relheight ? "fa-ruler" : "fa-percentage"));
-                item.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
-                submenu.append(item);
-            }
-
-            if (this.widget.layout === this.widget.tab.dragboard.fulldragboardLayout) {
-                item_icon = "fas fa-compress";
-                item_title = utils.gettext("Exit Full Dragboard");
-            } else {
-                item_icon = "fas fa-expand";
-                item_title = utils.gettext("Full Dragboard");
-            }
-
-            item = new se.MenuItem(item_title, function () {
-                // Works like a toggle button
-                this.setFullDragboardMode(this.layout !== this.tab.dragboard.fulldragboardLayout);
-            }.bind(this.widget));
-            item.addIconClass(item_icon);
+            item = new se.MenuItem(
+                fulldragboard ? utils.gettext("Exit Full Dragboard") : utils.gettext("Full Dragboard"),
+                () => {
+                    this.widget.setFullDragboardMode(!fulldragboard, true);
+                }
+            );
+            item.addIconClass(fulldragboard ? "fas fa-compress" : "fas fa-expand");
             item.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
             items.push(item);
 
-            if (this.widget.layout === this.widget.tab.dragboard.fulldragboardLayout) {
+            if (fulldragboard) {
                 // Other options require exiting first from the full dragboard mode
                 return items;
             }
 
-            if (this.widget.layout !== this.widget.tab.dragboard.freeLayout) {
-                item = new se.MenuItem(utils.gettext("Extract from grid"), () => {
-                    this.widget.moveToLayout(this.widget.tab.dragboard.freeLayout);
-                });
-                item.addIconClass("fas fa-sign-out-alt");
-                item.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
-                items.push(item);
-            }
+            item = new se.MenuItem(utils.gettext("Hide for this screen size"), () => {
+                this.widget.hideInCurrentScreenSize();
+            });
+            item.addIconClass("fas fa-eye-slash");
+            items.push(item);
 
-            if (this.widget.layout !== this.widget.tab.dragboard.baseLayout) {
-                item = new se.MenuItem(utils.gettext("Snap to grid"), () => {
-                    this.widget.moveToLayout(this.widget.tab.dragboard.baseLayout);
-                });
-                item.addIconClass("fas fa-sign-in-alt");
-                item.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
-                items.push(item);
-            }
+            const othertabs = this.widget.tab.workspace.tabs.filter((tab) => tab.id !== this.widget.tab.id);
+            const movesubmenu = new se.SubMenuItem(utils.gettext("Move to tab"), {iconClass: 'fas fa-arrow-right'});
+            movesubmenu.setDisabled(othertabs.length === 0 || !this.widget.model.isAllowed('move', 'editor'));
+            othertabs.forEach((tab) => {
+                movesubmenu.append(new se.MenuItem(tab.title, () => {
+                    this.widget.moveToTab(tab);
+                }));
+            });
+            items.push(movesubmenu);
 
-            if (this.widget.layout !== this.widget.tab.dragboard.topLayout) {
-                item = new se.MenuItem(utils.gettext("Move to the top sidebar"), () => {
-                    this.widget.moveToLayout(this.widget.tab.dragboard.topLayout);
-                });
-                item.addIconClass("fas fa-caret-square-up")
-                    .setDisabled(!this.widget.model.isAllowed('move', 'editor'));
-                items.push(item);
-            }
+            if (typeof this.widget.dockTo === 'function') {
+                const isDocked = (typeof this.widget.isDocked === 'function')
+                    ? this.widget.isDocked()
+                    : (this.widget.layout != null && !!this.widget.layout.dock);
+                const currentDock = (isDocked && this.widget.layout) ? this.widget.layout.dock : null;
+                const currentMode = (isDocked && this.widget.layout && this.widget.layout.dock_mode) ? this.widget.layout.dock_mode : 'overlay';
 
-            if (this.widget.layout !== this.widget.tab.dragboard.rightLayout) {
-                item = new se.MenuItem(utils.gettext("Move to the right sidebar"), () => {
-                    this.widget.moveToLayout(this.widget.tab.dragboard.rightLayout);
-                });
-                item.addIconClass("fas fa-caret-square-right")
-                    .setDisabled(!this.widget.model.isAllowed('move', 'editor'));
-                items.push(item);
-            }
+                if (isDocked) {
+                    item = new se.MenuItem(utils.gettext("Snap to grid"), () => {
+                        this.widget.undock(true);
+                    });
+                    item.addIconClass("fas fa-th");
+                    item.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
+                    items.push(item);
 
-            if (this.widget.layout !== this.widget.tab.dragboard.bottomLayout) {
-                item = new se.MenuItem(utils.gettext("Move to the bottom sidebar"), () => {
-                    this.widget.moveToLayout(this.widget.tab.dragboard.bottomLayout);
-                });
-                item.addIconClass("fas fa-caret-square-down")
-                    .setDisabled(!this.widget.model.isAllowed('move', 'editor'));
-                items.push(item);
-            }
+                    const moveDockSubmenu = new se.SubMenuItem(utils.gettext("Move to sidebar"), {iconClass: 'fas fa-columns'});
+                    moveDockSubmenu.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
 
-            if (this.widget.layout !== this.widget.tab.dragboard.leftLayout) {
-                item = new se.MenuItem(utils.gettext("Move to the left sidebar"), () => {
-                    this.widget.moveToLayout(this.widget.tab.dragboard.leftLayout);
-                });
-                item.addIconClass("fas fa-caret-square-left")
-                    .setDisabled(!this.widget.model.isAllowed('move', 'editor'));
-                items.push(item);
+                    const dockOptions = [
+                        {id: 'left', label: utils.gettext("Left sidebar"), icon: 'fas fa-caret-square-left'},
+                        {id: 'right', label: utils.gettext("Right sidebar"), icon: 'fas fa-caret-square-right'},
+                        {id: 'top', label: utils.gettext("Top sidebar"), icon: 'fas fa-caret-square-up'},
+                        {id: 'bottom', label: utils.gettext("Bottom sidebar"), icon: 'fas fa-caret-square-down'},
+                    ];
+                    dockOptions.forEach((opt) => {
+                        if (opt.id !== currentDock) {
+                            moveDockSubmenu.append(new se.MenuItem(opt.label, () => {
+                                this.widget.dockTo(opt.id, opt.id === 'bottom' ? 'overlay' : currentMode, true);
+                            }, {iconClass: opt.icon}));
+                        }
+                    });
+                    items.push(moveDockSubmenu);
+
+                    if (currentDock !== 'bottom') {
+                        const modeSubmenu = new se.SubMenuItem(utils.gettext("Sidebar display mode"), {iconClass: 'fas fa-sliders-h'});
+                        modeSubmenu.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
+
+                        const overlayItem = new se.MenuItem(utils.gettext("Show on top of content (overlay)"), () => {
+                            this.widget.setDockMode('overlay', true);
+                        });
+                        if (currentMode === 'overlay') {
+                            overlayItem.addIconClass("fas fa-check");
+                        }
+                        modeSubmenu.append(overlayItem);
+
+                        const pushItem = new se.MenuItem(utils.gettext("Push main content"), () => {
+                            this.widget.setDockMode('push', true);
+                        });
+                        if (currentMode === 'push') {
+                            pushItem.addIconClass("fas fa-check");
+                        }
+                        modeSubmenu.append(pushItem);
+
+                        items.push(modeSubmenu);
+                    }
+                } else {
+                    const dockSubmenu = new se.SubMenuItem(utils.gettext("Dock to sidebar"), {iconClass: 'fas fa-columns'});
+                    dockSubmenu.setDisabled(!this.widget.model.isAllowed('move', 'editor'));
+
+                    dockSubmenu.append(new se.MenuItem(utils.gettext("Left sidebar"), () => {
+                        this.widget.dockTo('left', 'overlay', true);
+                    }, {iconClass: 'fas fa-caret-square-left'}));
+
+                    dockSubmenu.append(new se.MenuItem(utils.gettext("Right sidebar"), () => {
+                        this.widget.dockTo('right', 'overlay', true);
+                    }, {iconClass: 'fas fa-caret-square-right'}));
+
+                    dockSubmenu.append(new se.MenuItem(utils.gettext("Top sidebar"), () => {
+                        this.widget.dockTo('top', 'overlay', true);
+                    }, {iconClass: 'fas fa-caret-square-up'}));
+
+                    dockSubmenu.append(new se.MenuItem(utils.gettext("Bottom sidebar"), () => {
+                        this.widget.dockTo('bottom', 'overlay', true);
+                    }, {iconClass: 'fas fa-caret-square-down'}));
+
+                    items.push(dockSubmenu);
+                }
             }
 
             return items;

@@ -33,15 +33,6 @@
         return widget;
     };
 
-    const clean_number = function clean_number(value, min, max) {
-
-        if (typeof value !== 'number' || value < min) {
-            return min;
-        }
-
-        return value > max ? max : value;
-    };
-
     const get_widgets_by_id = function get_widgets_by_id() {
         const widgets = {};
 
@@ -55,16 +46,6 @@
     // =========================================================================
     // EVENT HANDLERS
     // =========================================================================
-
-    const on_change_preferences = function on_change_preferences(preferences, modifiedValues) {
-        if ('screenSizes' in modifiedValues) {
-            this.dragboard._updateScreenSizes();
-        }
-
-        if ('baselayout' in modifiedValues) {
-            this.dragboard._updateBaseLayout();
-        }
-    };
 
     const on_changetab = function on_changetab(tab, changes) {
         if (changes.indexOf('title') !== -1) {
@@ -92,6 +73,7 @@
             }
         } else {
             priv.widgets.push(view);
+            this.dragboard.addWidget(view);
         }
         this.initialMessage.hidden = true;
     };
@@ -100,9 +82,12 @@
         se.Tab.prototype.close.call(this);
     };
 
-    const on_removewidget = function on_removewidget(widget) {
+    const on_removewidget = function on_removewidget(tab, widgetModel) {
         const priv = privates.get(this);
-        priv.widgets.splice(priv.widgets.indexOf(widget), 1);
+        const view = priv.widgets.find((v) => v.id === widgetModel.id);
+        if (view != null) {
+            priv.widgets.splice(priv.widgets.indexOf(view), 1);
+        }
         this.initialMessage.hidden = !this.workspace.model.isAllowed("edit") || priv.widgets.length > 0;
     };
 
@@ -110,27 +95,10 @@
         this.prefbutton.enabled = this.workspace.editing;
     };
 
-    const get_editing_interval_name = function get_editing_interval_name(width) {
-        const screenSizes = this.model.preferences.get('screenSizes');
-        let editingIntervalName = null;
-        for (let i = 0; i < screenSizes.length; i++) {
-            if (screenSizes[i].moreOrEqual <= width && (screenSizes[i].lessOrEqual === -1 || screenSizes[i].lessOrEqual >= width)) {
-                editingIntervalName = screenSizes[i].name;
-                break;
-            }
-        }
-
-        return editingIntervalName;
-    }
-
     const on_windowresize = function on_windowresize() {
-        if (this.dragboard.customWidth === -1) {
-            this.dragboard.updateWidgetScreenSize(window.innerWidth);
-
-            if (this.workspace.activeTab === this) {
-                this.editingIntervalName = get_editing_interval_name.call(this, window.innerWidth);
-                this.workspace.updateEditingInterval(this.getEditingIntervalElement());
-            }
+        if (this.workspace.activeTab === this) {
+            this.updateEditingScreenSizeName();
+            this.workspace.updateEditingInterval(this.getEditingScreenSizeElement());
         }
     };
 
@@ -246,7 +214,7 @@
             }
 
             this.dragboard = new ns.WorkspaceTabViewDragboard(this);
-            this.updateEditingIntervalName();
+            this.updateEditingScreenSizeName();
 
             this.initialMessage = (new se.GUIBuilder()).parse(Wirecloud.currentTheme.templates['wirecloud/workspace/empty_tab_message'], {
                 button: this.workspace.buildAddWidgetButton.bind(this.workspace),
@@ -254,7 +222,6 @@
             }).children[1];
             this.appendChild(this.initialMessage);
 
-            this.model.preferences.addEventListener('post-commit', on_change_preferences.bind(this));
             this.model.widgets.forEach(_create_widget, this);
             this.initialMessage.hidden = !this.workspace.model.isAllowed("edit") || this.widgets.length > 0;
 
@@ -262,98 +229,69 @@
             this.model.addEventListener('addwidget', priv.on_addwidget);
             this.model.addEventListener('remove', priv.on_removetab);
             this.model.addEventListener('removewidget', priv.on_removewidget);
-            window.addEventListener('resize', priv.on_windowresize.bind(this));
+            window.addEventListener('resize', priv.on_windowresize);
         }
 
         /**
          * @param {Wirecloud.WidgetMeta} resource
          * @param {Object} [options]
+         * @param {String} [options.title]
+         * @param {Boolean} [options.commit]
+         * @param {Number} [options.x]
+         * @param {Number} [options.y]
+         * @param {Number} [options.w]
+         * @param {Number} [options.h]
+         * @param {Number|String} [options.width] px/%/old-cells, converted via `dragboard.parseSize`
+         * @param {Number|String} [options.height] px/%/old-cells, converted via `dragboard.parseSize`
+         * @param {Boolean} [options.titlevisible]
+         * @param {Object} [options.permissions]
+         * @param {Boolean} [options.volatile]
+         * @param {String} [options.id]
+         * @param {Object} [options.layouts] explicit `{screenSizeId(string): layout}`, used as is when given
          *
          * @returns {Promise} A promise that returns a {Widget} instance if
          * resolved, or an Error if rejected.
          */
         createWidget(resource, options) {
-            const layoutConfigs = utils.clone(this.model.preferences.get('screenSizes'), true);
-
             options = utils.merge({
-                commit: true,
-                layout: this.model.preferences.get('initiallayout') === "Free" ? 1 : 0
+                commit: true
             }, options);
 
-            layoutConfigs.forEach((layoutConfig) => {
-                Wirecloud.Utils.merge(layoutConfig, {
-                    width: ('width' in options) ? options.width : resource.default_width,
-                    anchor: ('anchor' in options) ? options.anchor : 'top-left',
-                    relx: ('relx' in options) ? options.relx : true,
-                    rely: ('rely' in options) ? options.rely : false,
-                    relwidth: ('relwidth' in options) ? options.relwidth : true,
-                    relheight: ('relheight' in options) ? options.relheight : false,
-                    titlevisible: ('titlevisible' in options) ? options.titlevisible : true,
-                    height: ('height' in options) ? options.height : resource.default_height
-                });
+            if (options.title == null) {
+                options.title = resource.title;
+            }
 
-                let avgScreenSize = layoutConfig.lessOrEqual + (layoutConfig.moreOrEqual - layoutConfig.lessOrEqual) / 2;
-                if (layoutConfig.lessOrEqual === -1) {
-                    avgScreenSize = layoutConfig.moreOrEqual;
-                }
+            if (options.layouts == null) {
+                const screenSize = this.dragboard.activeScreenSize;
+                const activeId = String(screenSize.id);
 
-                if (layoutConfig.length === 0) {
-                    avgScreenSize = window.innerWidth;
-                }
-
-                if (window.innerWidth >= layoutConfig.moreOrEqual && (layoutConfig.lessOrEqual === -1 || window.innerWidth <= layoutConfig.lessOrEqual)) {
-                    avgScreenSize = window.innerWidth;
-                }
-
-                const layouts = [
-                    this.dragboard.baseLayout,
-                    this.dragboard.freeLayout,
-                    this.dragboard.leftLayout,
-                    this.dragboard.rightLayout
-                ];
-                const layout = layouts[options.layout];
-
-                if (layoutConfig.left != null) {
-                    if (layout !== this.dragboard.freeLayout || layoutConfig.relx) {
-                        layoutConfig.left = layout.adaptColumnOffset(layoutConfig.left, avgScreenSize).inLU;
-                    } else {
-                        layoutConfig.left = layout.adaptColumnOffset(layoutConfig.left, avgScreenSize).inPixels;
-                    }
-                }
-                if (layoutConfig.top != null) {
-                    if (layout !== this.dragboard.freeLayout || layoutConfig.rely) {
-                        layoutConfig.top = layout.adaptRowOffset(layoutConfig.top).inLU;
-                    } else {
-                        layoutConfig.top = layout.adaptRowOffset(layoutConfig.top).inPixels;
-                    }
-                }
-                if (layout !== this.dragboard.freeLayout || layoutConfig.relheight) {
-                    layoutConfig.height = clean_number(layout.adaptHeight(layoutConfig.height).inLU, 1);
+                let w;
+                if (options.w != null) {
+                    w = options.w;
                 } else {
-                    layoutConfig.height = clean_number(layout.adaptHeight(layoutConfig.height).inPixels, 1);
+                    w = this.dragboard.parseSize(options.width != null ? options.width : resource.default_width, 'w');
                 }
-                if (layout !== this.dragboard.freeLayout || layoutConfig.relwidth) {
-                    layoutConfig.width = clean_number(layout.adaptWidth(layoutConfig.width, avgScreenSize).inLU, 1, layout.columns);
+
+                let h;
+                if (options.h != null) {
+                    h = options.h;
                 } else {
-                    layoutConfig.width = clean_number(layout.adaptWidth(layoutConfig.width, avgScreenSize).inPixels, 1);
+                    h = this.dragboard.parseSize(options.height != null ? options.height : resource.default_height, 'h');
                 }
 
-                if (layoutConfig.left == null || layoutConfig.top == null) {
-                    if (options.refposition && "searchBestPosition" in layout) {
-                        layout.searchBestPosition(options, layoutConfig, avgScreenSize);
-                    } else if ("_searchFreeSpace2" in layout) {
-                        const matrix = Wirecloud.Utils.getLayoutMatrix(layout, layout.dragboard.widgets, avgScreenSize);
-                        const position = layout._searchFreeSpace2(layoutConfig.width, layoutConfig.height, matrix);
-                        layoutConfig.left = position.x;
-                        layoutConfig.top = position.y;
-                    } else {
-                        layoutConfig.left = 0;
-                        layoutConfig.top = 0;
+                options.layouts = {
+                    [activeId]: {
+                        x: options.x != null ? options.x : null,
+                        y: options.y != null ? options.y : null,
+                        w: w,
+                        h: h,
+                        minimized: false,
+                        titlevisible: options.titlevisible != null ? options.titlevisible : true,
+                        fulldragboard: false,
+                        visible: true
                     }
-                }
-            });
-
-            options.layoutConfig = layoutConfigs;
+                };
+            }
 
             if (!options.commit) {
                 return this.findWidget(this.model.createWidget(resource, options).id);
@@ -366,12 +304,17 @@
             );
         }
 
-        getEditingIntervalElement() {
+        /**
+         * Builds the header addon shown while editing a specific screen size.
+         *
+         * @returns {HTMLElement}
+         */
+        getEditingScreenSizeElement() {
             let text = "";
-            if (this.dragboard.customWidth !== -1) {
-                text = utils.interpolate(utils.gettext("(Overriden) Editing for screen size %(name)s"), {name: this.editingIntervalName});
+            if (this.dragboard.forcedScreenSizeId != null) {
+                text = utils.interpolate(utils.gettext("(Overriden) Editing for screen size %(name)s"), {name: this.editingScreenSizeName});
             } else {
-                text = utils.interpolate(utils.gettext("Editing for screen size %(name)s"), {name: this.editingIntervalName});
+                text = utils.interpolate(utils.gettext("Editing for screen size %(name)s"), {name: this.editingScreenSizeName});
             }
 
             const div = document.createElement('div');
@@ -381,7 +324,7 @@
             span.textContent = text;
             div.appendChild(span);
 
-            if (this.dragboard.customWidth !== -1) {
+            if (this.dragboard.forcedScreenSizeId != null) {
                 const a = document.createElement('a');
                 a.className = 'far fa-times-circle wc-editing-interval-close';
                 a.href = '#';
@@ -389,7 +332,7 @@
                 a.setAttribute('aria-label', utils.gettext('Quit editing interval'));
                 a.addEventListener('click', (e) => {
                     e.preventDefault();
-                    this.quitEditingInterval();
+                    this.quitEditingScreenSize();
                 });
                 div.appendChild(a);
             }
@@ -397,24 +340,47 @@
             return div;
         }
 
-        setEditingInterval(moreOrEqual, lessOrEqual, name) {
-            let avgScreenSize = Math.floor((moreOrEqual + lessOrEqual) / 2);
-            if (lessOrEqual === -1) {
-                avgScreenSize = moreOrEqual;
+        /**
+         * Forces this tab to be edited/rendered for a specific screen size,
+         * regardless of the current tab width.
+         *
+         * @param {Number} id
+         */
+        setEditingScreenSize(id) {
+            const screenSize = this.model.preferences.get('screenSizes').find((entry) => entry.id === id);
+            if (screenSize == null) {
+                return;
             }
-            this.dragboard.setCustomDragboardWidth(avgScreenSize);
-            this.editingIntervalName = name;
-            this.workspace.updateEditingInterval(this.getEditingIntervalElement());
+
+            this.dragboard.setForcedScreenSize(id);
+
+            const width = (screenSize.lessOrEqual !== -1) ? screenSize.lessOrEqual : Math.max(screenSize.moreOrEqual, window.innerWidth);
+            this.wrapperElement.style.width = width + 'px';
+            this.wrapperElement.classList.add('wc-editing-screen-size');
+
+            this.editingScreenSizeName = screenSize.name;
+            this.workspace.updateEditingInterval(this.getEditingScreenSizeElement());
         }
 
-        quitEditingInterval() {
-            this.dragboard.restoreDragboardWidth();
-            this.editingIntervalName = get_editing_interval_name.call(this, window.innerWidth);
-            this.workspace.updateEditingInterval(this.getEditingIntervalElement());
+        /**
+         * Reverts {@link #setEditingScreenSize}.
+         */
+        quitEditingScreenSize() {
+            // Restore the real width before re-detecting the screen size
+            this.wrapperElement.style.width = '';
+            this.wrapperElement.classList.remove('wc-editing-screen-size');
+            this.dragboard.setForcedScreenSize(null);
+
+            this.updateEditingScreenSizeName();
+            this.workspace.updateEditingInterval(this.getEditingScreenSizeElement());
         }
 
-        updateEditingIntervalName() {
-            this.editingIntervalName = get_editing_interval_name.call(this, (this.dragboard.customWidth === -1) ? window.innerWidth : this.dragboard.customWidth);
+        /**
+         * Refreshes `this.editingScreenSizeName` from the dragboard's active
+         * screen size.
+         */
+        updateEditingScreenSizeName() {
+            this.editingScreenSizeName = this.dragboard.activeScreenSize.name;
         }
 
         /**
@@ -436,21 +402,18 @@
 
         repaint() {
             this.dragboard.paint();
-            this.dragboard._notifyWindowResizeEvent();
             return this;
         }
 
         show() {
             super.show(this);
 
-            if (this.workspace.editing) {
-                this.dragboard.leftLayout.active = true;
-                this.dragboard.rightLayout.active = true;
-            }
-
             privates.get(this).widgets.forEach(function (widget) {
                 widget.load();
             });
+
+            this.updateEditingScreenSizeName();
+            this.workspace.updateEditingInterval(this.getEditingScreenSizeElement());
 
             return this.repaint();
         }

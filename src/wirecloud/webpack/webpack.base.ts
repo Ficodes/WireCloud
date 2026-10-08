@@ -97,7 +97,7 @@ const config: Configuration = {
         rules: [
             {
                 test: /\.css$/,
-                include: /node_modules[\\/]monaco-editor/,
+                include: /node_modules[\\/](monaco-editor|gridstack)/,
                 use: [
                     'style-loader',
                     {

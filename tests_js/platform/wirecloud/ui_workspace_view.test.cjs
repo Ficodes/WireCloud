@@ -422,10 +422,6 @@ const setup = () => {
         }
     };
 
-    Wirecloud.ui.SidebarLayout = class {
-        constructor() { this.active = false; }
-    };
-
     Wirecloud.ui.WorkspaceTabView = class {
         constructor(id, notebook, options) {
             this.id = id;
@@ -434,13 +430,7 @@ const setup = () => {
             this.workspace = options.workspace;
             this.name = options.model ? options.model.name : (options.name || id);
             this.dragboard = {
-                _notifyWindowResizeEvent: () => {},
-                _updateIWidgetSizes: () => {},
-                topLayout: { active: false },
-                rightLayout: { active: false },
-                bottomLayout: { active: false },
-                leftLayout: { active: false },
-                raiseToTop: () => {},
+                paint: () => {},
             };
             this.widgets = [];
             this.wrapperElement = document.createElement('div');
@@ -451,15 +441,15 @@ const setup = () => {
         hide() { this._hidden = true; this.hidden = true; return this; }
         show() { this._hidden = false; this.hidden = false; return this; }
         highlight() { return this; }
-        quitEditingInterval() {}
-        getEditingIntervalElement() {
+        quitEditingScreenSize() {}
+        getEditingScreenSizeElement() {
             const el = document.createElement('span');
             el.textContent = 'desktop';
             el.setAttribute('role', 'status');
             el.setAttribute('aria-live', 'polite');
             return el;
         }
-        updateEditingIntervalName() {}
+        updateEditingScreenSizeName() {}
         findWidget() { return null; }
         createWidget() { return Promise.resolve({ id: 'new-widget' }); }
     };
@@ -707,28 +697,13 @@ test('edit button click with active=false slides out and quits editing intervals
     view.layout.slideOut = () => { slideOutCalled = true; return view.layout; };
 
     let quitCalls = 0;
-    view.notebook.tabs.forEach((tab) => { tab.quitEditingInterval = () => { quitCalls++; }; });
+    view.notebook.tabs.forEach((tab) => { tab.quitEditingScreenSize = () => { quitCalls++; }; });
 
     view.editButton.active = false;
     view.editButton._dispatch('click', view.editButton);
 
     assert.equal(slideOutCalled, true);
     assert.equal(quitCalls, 2);
-});
-
-test('edit button active event activates dragboard layouts when editing', () => {
-    const view = new Wirecloud.ui.WorkspaceView(0, {});
-    const model = createModelMock({ tabs: [{ id: 'tab-1', name: 'tab1', title: 'Tab', initial: true, widgets: [] }] });
-    view.loadWorkspace(model, {});
-    const activeTab = view.activeTab;
-
-    view.editButton.active = true;
-    view.editButton._dispatch('active', view.editButton);
-
-    assert.equal(activeTab.dragboard.topLayout.active, true);
-    assert.equal(activeTab.dragboard.rightLayout.active, true);
-    assert.equal(activeTab.dragboard.bottomLayout.active, true);
-    assert.equal(activeTab.dragboard.leftLayout.active, true);
 });
 
 test('edit button active event dispatches editmode event', () => {
@@ -1509,45 +1484,26 @@ test('onHistoryChange updates document title when no tab change needed', () => {
 // drawAttention
 // ===========================================================================
 
-test('drawAttention highlights widget and raises it to top', () => {
+test('drawAttention highlights the widget and its tab', () => {
     const view = new Wirecloud.ui.WorkspaceView(0, {});
     const model = createModelMock({ tabs: [{ id: 'tab-1', name: 'tab1', title: 'Tab', initial: true, widgets: [] }] });
     view.loadWorkspace(model, {});
 
-    let raiseCalled = false;
+    let widgetHighlighted = false;
     let tabHighlighted = false;
     const widget = {
         id: 'w1',
         tab: {
             highlight: () => { tabHighlighted = true; },
-            dragboard: { raiseToTop: (w) => { raiseCalled = true; } },
         },
-        highlight: function () { this._hl = true; return this; },
+        highlight: function () { widgetHighlighted = true; return this; },
     };
     view.findWidget = (id) => id === 'w1' ? widget : null;
 
     const result = view.drawAttention('w1');
-    assert.equal(raiseCalled, true);
+    assert.equal(widgetHighlighted, true);
     assert.equal(tabHighlighted, true);
     assert.equal(result, view);
-});
-
-test('drawAttention activates sidebar layout when widget has one', () => {
-    const view = new Wirecloud.ui.WorkspaceView(0, {});
-    const model = createModelMock({ tabs: [{ id: 'tab-1', name: 'tab1', title: 'Tab', initial: true, widgets: [] }] });
-    view.loadWorkspace(model, {});
-
-    const layout = new Wirecloud.ui.SidebarLayout();
-    layout.active = false;
-    const widget = {
-        id: 'w1', layout,
-        tab: { highlight: () => {}, dragboard: { raiseToTop: () => {} } },
-        highlight: function () { return this; },
-    };
-    view.findWidget = (id) => id === 'w1' ? widget : null;
-
-    view.drawAttention('w1');
-    assert.equal(layout.active, true);
 });
 
 test('drawAttention does nothing when widget not found', () => {
@@ -1800,7 +1756,7 @@ test('loaded handler: create widget error re-enables button', () => {
 // Lines 389-390: notebook changed event inside edit-allowed branch
 // ===========================================================================
 
-test('loadWorkspace notebook changed event calls updateEditingIntervalName', () => {
+test('loadWorkspace notebook changed event calls updateEditingScreenSizeName', () => {
     const view = new Wirecloud.ui.WorkspaceView(0, {});
     const model = createModelMock({
         isAllowed: () => true,
@@ -1813,7 +1769,7 @@ test('loadWorkspace notebook changed event calls updateEditingIntervalName', () 
 
     const newTab = view.notebook.tabs[1];
     let nameUpdated = false;
-    newTab.updateEditingIntervalName = () => { nameUpdated = true; };
+    newTab.updateEditingScreenSizeName = () => { nameUpdated = true; };
     let intervalUpdated = false;
     view.updateEditingInterval = () => { intervalUpdated = true; };
 
@@ -1847,32 +1803,6 @@ test('fullscreen onFullscreenChange callback updates button and notebook', () =>
     fsCallback();
     assert.ok(!view.notebook.wrapperElement.classList.contains('fullscreen'));
     assert.equal(view.fullscreenButton.wrapperElement.getAttribute('title'), 'Full screen');
-});
-
-// ===========================================================================
-// showHideTabBar calls _notifyWindowResizeEvent on tab dragboards
-// ===========================================================================
-
-test('showHideTabBar notifies dragboard resize event', () => {
-    const view = new Wirecloud.ui.WorkspaceView(0, {});
-    const model = createModelMock({
-        tabs: [
-            { id: 'tab-1', name: 'tab1', title: 'Tab1', initial: true, widgets: [] },
-            { id: 'tab-2', name: 'tab2', title: 'Tab2', initial: false, widgets: [] },
-        ],
-    });
-    view.loadWorkspace(model, {});
-
-    let resizeCalls = 0;
-    view.notebook.tabs.forEach((tab) => {
-        tab.dragboard._notifyWindowResizeEvent = () => { resizeCalls++; };
-    });
-
-    // Trigger showHideTabBar via the editButton click
-    view.editButton.active = true;
-    view.editButton._dispatch('click', view.editButton);
-
-    assert.equal(resizeCalls, 2);
 });
 
 test('fullscreen button click toggles fullscreen mode', () => {

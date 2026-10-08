@@ -9,16 +9,13 @@ from wirecloud.commons.utils.http import NotFound
 from wirecloud.commons.utils.template.schemas.macdschemas import MACDPreference, MACDProperty
 from wirecloud.platform.iwidget import utils
 from wirecloud.platform.iwidget.models import (
-    WidgetConfig,
-    WidgetConfigAnchor,
     WidgetInstance,
+    WidgetLayout,
     WidgetPermissions,
     WidgetPermissionsConfig,
-    WidgetPositions,
-    WidgetPositionsConfig,
     WidgetVariables,
 )
-from wirecloud.platform.iwidget.schemas import LayoutConfig, WidgetInstanceDataCreate, WidgetInstanceDataUpdate
+from wirecloud.platform.iwidget.schemas import WidgetInstanceDataCreate, WidgetInstanceDataUpdate, WidgetLayoutUpdate
 
 
 @pytest.fixture(autouse=True)
@@ -130,39 +127,7 @@ async def test_update_widget_value_and_title(monkeypatch, db_session):
     assert iwidget.title == "Custom"
 
 
-def test_field_update_helpers():
-    model = WidgetPositionsConfig(id=0, moreOrEqual=0, lessOrEqual=-1)
-    data = LayoutConfig(id=0, moreOrEqual=10, lessOrEqual=20)
-    utils.update_screen_size_value(model, data, "moreOrEqual")
-    assert model.moreOrEqual == 10
-    utils.update_screen_size_value(model, LayoutConfig(id=0), "moreOrEqual")
-    assert model.moreOrEqual == 10
-    with pytest.raises(TypeError):
-        utils.update_screen_size_value(model, SimpleNamespace(moreOrEqual="x"), "moreOrEqual")
-    with pytest.raises(ValueError):
-        utils.update_screen_size_value(model, SimpleNamespace(moreOrEqual=-2), "moreOrEqual")
-
-    widget_cfg = WidgetConfig()
-    utils.update_position_value(widget_cfg, LayoutConfig(id=0), "top")
-    assert widget_cfg.top is None
-    utils.update_position_value(widget_cfg, LayoutConfig(id=0, top=3), "top")
-    assert widget_cfg.top == 3
-    utils.update_position_value(widget_cfg, LayoutConfig(id=0, top=5), "left", "top")
-    assert widget_cfg.left == 5
-    with pytest.raises(TypeError):
-        utils.update_position_value(widget_cfg, SimpleNamespace(top="x"), "top")
-    with pytest.raises(ValueError):
-        utils.update_position_value(widget_cfg, SimpleNamespace(top=-1), "top")
-
-    utils.update_size_value(widget_cfg, LayoutConfig(id=0), "width")
-    assert widget_cfg.width is None
-    utils.update_size_value(widget_cfg, LayoutConfig(id=0, width=5), "width")
-    assert widget_cfg.width == 5
-    with pytest.raises(TypeError):
-        utils.update_size_value(widget_cfg, SimpleNamespace(width="x"), "width")
-    with pytest.raises(ValueError):
-        utils.update_size_value(widget_cfg, SimpleNamespace(width=0), "width")
-
+def test_update_boolean_value_and_permissions():
     perms = WidgetPermissionsConfig()
     utils.update_boolean_value(perms, WidgetInstanceDataUpdate(), "move")
     assert perms.move is None
@@ -170,11 +135,6 @@ def test_field_update_helpers():
     assert perms.move is True
     with pytest.raises(TypeError):
         utils.update_boolean_value(perms, SimpleNamespace(move="x"), "move")
-
-    utils.update_anchor_value(widget_cfg, LayoutConfig(id=0))
-    assert widget_cfg.anchor is None
-    utils.update_anchor_value(widget_cfg, LayoutConfig(id=0, anchor=WidgetConfigAnchor.bottom_left))
-    assert widget_cfg.anchor == "bottom-left"
 
     iwidget = WidgetInstance(id="x", permissions=WidgetPermissions(viewer=WidgetPermissionsConfig()))
     utils.update_permissions(iwidget, WidgetInstanceDataUpdate())
@@ -205,53 +165,36 @@ async def test_set_initial_values(monkeypatch, db_session):
     assert ("n", 1.0) in calls
 
 
-def test_intervals_and_positions():
-    with pytest.raises(ValueError):
-        utils.check_intervals([WidgetPositionsConfig(id=1, moreOrEqual=1, lessOrEqual=-1)])
-    with pytest.raises(ValueError):
-        utils.check_intervals(
-            [
-                WidgetPositionsConfig(id=0, moreOrEqual=0, lessOrEqual=1),
-                WidgetPositionsConfig(id=1, moreOrEqual=3, lessOrEqual=-1),
-            ]
-        )
-    with pytest.raises(ValueError):
-        utils.check_intervals(
-            [
-                WidgetPositionsConfig(id=0, moreOrEqual=0, lessOrEqual=1),
-                WidgetPositionsConfig(id=1, moreOrEqual=2, lessOrEqual=4),
-            ]
-        )
+def test_update_layouts_merge_and_delete():
+    iwidget = WidgetInstance(id="w1", layouts={"0": WidgetLayout(x=1, y=2, w=3, h=4)})
 
-    iwidget = WidgetInstance(id="w1", positions=WidgetPositions(configurations=[WidgetPositionsConfig(id=0, moreOrEqual=0, lessOrEqual=-1)]))
-    with pytest.raises(ValueError):
-        utils.update_position(iwidget, "widget", WidgetInstanceDataUpdate(layoutConfig=[LayoutConfig(id=0), LayoutConfig(id=0)]))
-    with pytest.raises(ValueError):
-        utils.update_position(iwidget, "widget", WidgetInstanceDataUpdate(layoutConfig=[LayoutConfig(id=0, action="invalid")]))
+    # Merging into an existing layout only changes the given (non-None) fields
+    utils.update_layouts(iwidget, {"0": WidgetLayoutUpdate(w=6)})
+    assert iwidget.layouts["0"].model_dump() == {
+        "x": 1, "y": 2, "w": 6, "h": 4,
+        "minimized": False, "titlevisible": True, "fulldragboard": False, "visible": True,
+        "dock": None, "dock_mode": "overlay", "dock_open": False,
+    }
 
-    utils.update_position(
-        iwidget,
-        "widget",
-        WidgetInstanceDataUpdate(
-            layoutConfig=[
-                LayoutConfig(id=0, action="delete"),
-                LayoutConfig(id=1, action="update", moreOrEqual=0, lessOrEqual=-1, top=1, left=2, zIndex=0, height=2, width=3, minimized=False, titlevisible=True, fulldragboard=False, relx=True, rely=True, relwidth=True, relheight=True, anchor=WidgetConfigAnchor.top_left),
-            ]
-        ),
-    )
-    assert len(iwidget.positions.configurations) == 1
-    assert iwidget.positions.configurations[0].id == 1
+    # A new key creates a fresh WidgetLayout() merged with the given changes
+    utils.update_layouts(iwidget, {"1": WidgetLayoutUpdate(w=2, h=3, visible=False, dock="right")})
+    assert iwidget.layouts["1"].model_dump() == {
+        "x": None, "y": None, "w": 2, "h": 3,
+        "minimized": False, "titlevisible": True, "fulldragboard": False, "visible": False,
+        "dock": "right", "dock_mode": "overlay", "dock_open": False,
+    }
 
-    iwidget_existing = WidgetInstance(
-        id="w2",
-        positions=WidgetPositions(configurations=[WidgetPositionsConfig(id=0, moreOrEqual=0, lessOrEqual=-1)]),
-    )
-    utils.update_position(
-        iwidget_existing,
-        "widget",
-        WidgetInstanceDataUpdate(layoutConfig=[LayoutConfig(id=0, action="update", top=9)]),
-    )
-    assert iwidget_existing.positions.configurations[0].widget.top == 9
+    # None deletes the stored layout
+    utils.update_layouts(iwidget, {"0": None})
+    assert "0" not in iwidget.layouts
+
+    # Deleting a missing key is a no-op
+    utils.update_layouts(iwidget, {"5": None})
+    assert "5" not in iwidget.layouts
+
+    # An update with every field unset does not change the stored layout
+    utils.update_layouts(iwidget, {"1": WidgetLayoutUpdate()})
+    assert iwidget.layouts["1"].w == 2
 
 
 def test_first_id_widget_instance():
@@ -266,7 +209,7 @@ async def test_save_widget_instance_and_update_widget_instance(monkeypatch, db_s
     tab = SimpleNamespace(id="tab-0", widgets={})
     workspace = SimpleNamespace(tabs={"tab-0": tab, "tab-1": SimpleNamespace(id="tab-1", widgets={})})
     user = SimpleNamespace(id="u1")
-    iwidget_data = WidgetInstanceDataCreate(title="x", widget="acme/widget/1.0.0", layoutConfig=[])
+    iwidget_data = WidgetInstanceDataCreate(title="x", widget="acme/widget/1.0.0")
 
     resource = SimpleNamespace(get_processed_info=lambda **_kwargs: SimpleNamespace(title="Default", preferences=[], properties=[]))
 
@@ -283,29 +226,26 @@ async def test_save_widget_instance_and_update_widget_instance(monkeypatch, db_s
 
     created = await utils.save_widget_instance(db_session, workspace, iwidget_data, user, tab, commit=True)
     assert created.id == "tab-0-0"
-    assert created.positions.configurations[0].widget.width == 1
+    assert created.layouts == {}
     assert "tab-0-0" in tab.widgets
 
     created2 = await utils.save_widget_instance(db_session, workspace, iwidget_data, user, tab, commit=False)
     assert created2.id == "tab-0-1"
 
-    called = {"init": 0, "update": 0}
+    called = {"init": 0}
 
     async def _set_initial_values(*_args, **_kwargs):
         called["init"] += 1
 
-    def _update_position(*_args, **_kwargs):
-        called["update"] += 1
-
     monkeypatch.setattr(utils, "set_initial_values", _set_initial_values)
-    monkeypatch.setattr(utils, "update_position", _update_position)
     iwidget_layout = WidgetInstanceDataCreate(
         title="x",
         widget="acme/widget/1.0.0",
-        layoutConfig=[LayoutConfig(id=0, action="update")],
+        layouts={"0": WidgetLayout(x=0, y=0, w=6, h=4)},
         variable_values={"p": WidgetVariables(users={"u1": "v"})},
     )
-    await utils.save_widget_instance(db_session, workspace, iwidget_layout, user, tab, commit=False)
+    created3 = await utils.save_widget_instance(db_session, workspace, iwidget_layout, user, tab, commit=False)
+    assert created3.layouts["0"].w == 6
     await utils.save_widget_instance(
         db_session,
         workspace,
@@ -316,7 +256,6 @@ async def test_save_widget_instance_and_update_widget_instance(monkeypatch, db_s
         commit=False,
     )
     assert called["init"] == 1
-    assert called["update"] == 2
 
     iwidget = tab.widgets["tab-0-0"]
     request = _request()
@@ -329,9 +268,6 @@ async def test_save_widget_instance_and_update_widget_instance(monkeypatch, db_s
 
     monkeypatch.setattr(utils, "update_widget_value", lambda *_args, **_kwargs: _none())
     monkeypatch.setattr(utils, "update_title_value", lambda *_args, **_kwargs: _none())
-
-    with pytest.raises(ValueError):
-        await utils.update_widget_instance(db_session, request, WidgetInstanceDataUpdate(id=iwidget.id, layout=-1), user, workspace, tab)
 
     tab_not_found = await utils.update_widget_instance(
         db_session,
@@ -375,13 +311,14 @@ async def test_save_widget_instance_and_update_widget_instance(monkeypatch, db_s
     await utils.update_widget_instance(
         db_session,
         request,
-        WidgetInstanceDataUpdate(id=iwidget_moved.id, layout=2, layoutConfig=[LayoutConfig(id=0, action="update")]),
+        WidgetInstanceDataUpdate(id=iwidget_moved.id, layouts={"0": WidgetLayoutUpdate(x=1, y=1)}),
         user,
         workspace,
         workspace.tabs["tab-1"],
         update_cache=False,
     )
-    assert iwidget_moved.layout == 2
+    assert iwidget_moved.layouts["0"].x == 1
+    assert iwidget_moved.layouts["0"].y == 1
 
     await utils.update_widget_instance(
         db_session,

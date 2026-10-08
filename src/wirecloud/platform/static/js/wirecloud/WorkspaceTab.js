@@ -130,6 +130,8 @@
          * @param {Object} [options]
          * @param {String} [options.title]
          * @param {Boolean} [options.commit]
+         * @param {Object} [options.layouts] `{screenSizeId(string): layout}`
+         * @param {Object} [options.permissions]
          * @returns {Promise} A promise that returns a {Widget} instance if
          * resolved, or an Error if rejected.
          */
@@ -155,15 +157,15 @@
                     }));
                 }
 
-                const layoutConfigurations = options.layoutConfig || [];
-                for (let i = 0; i < layoutConfigurations.length; i++) {
-                    layoutConfigurations[i].action = 'update';
-                }
-
-                var content = utils.merge(options, {
+                var content = {
                     widget: resource.uri,
-                    settings: options.preferences
-                });
+                    title: options.title,
+                    layouts: options.layouts || {}
+                };
+
+                if (options.permissions != null) {
+                    content.permissions = options.permissions;
+                }
 
                 Wirecloud.io.makeRequest(url, {
                     method: 'POST',

@@ -27,7 +27,6 @@ from wirecloud.translation import gettext as _
 
 
 IntegerStr = Annotated[str, StringConstraints(pattern=r'^\d+$')]
-FloatStr = Annotated[str, StringConstraints(pattern=r'^\d+(\.\d+)?$')]
 SizeStr = Annotated[str, StringConstraints(pattern=r'^\d+(\.\d+)?\s*(px|%)?$')]
 
 
@@ -260,31 +259,18 @@ class MACDMashupResourcePreference(MACDMashupResourcePropertyBase):
     hidden: bool = False
 
 
-class MACDMashupResourcePosition(BaseModel):
-    anchor: str = "top-left"
-    relx: bool = True
-    rely: bool = True
-    x: FloatStr
-    y: FloatStr
-    z: IntegerStr
-
-
-class MACDMashupResourceRendering(BaseModel):
-    fulldragboard: bool = False
+class MACDMashupResourceLayout(BaseModel):
+    x: Optional[int] = Field(default=None, ge=0)
+    y: Optional[int] = Field(default=None, ge=0)
+    w: int = Field(default=1, ge=1)
+    h: int = Field(default=1, ge=1)
     minimized: bool = False
-    relwidth: bool = True
-    relheight: bool = True
     titlevisible: bool = True
-    width: FloatStr
-    height: FloatStr
-
-
-class MACDMashupResourceScreenSize(BaseModel):
-    id: int = Field(ge=0)
-    moreOrEqual: int = Field(ge=0)
-    lessOrEqual: int = Field(ge=-1)
-    rendering: MACDMashupResourceRendering
-    position: MACDMashupResourcePosition
+    fulldragboard: bool = False
+    visible: bool = True
+    dock: Optional[str] = None
+    dock_mode: Optional[str] = "overlay"
+    dock_open: bool = False
 
 
 class MACDMashupResource(BaseModel):
@@ -293,54 +279,10 @@ class MACDMashupResource(BaseModel):
     vendor: Vendor
     version: Version
     title: str = ""
-    layout: int = 0
     readonly: bool = False
     properties: dict[str, MACDMashupResourceProperty] = {}
     preferences: dict[str, MACDMashupResourcePreference] = {}
-    screenSizes: list[MACDMashupResourceScreenSize] = []
-
-    # Fix old format that didn't have screen sizes
-    @model_validator(mode='before')
-    @classmethod
-    def fix_old_format(cls, data):
-        if isinstance(data, dict) and 'screenSizes' not in data and ('rendering' in data or 'position' in data):
-            if not isinstance(data.get('rendering', {}), dict) or not isinstance(data.get('position', {}), dict):
-                return data
-
-            screen_sizes = [
-                {
-                    'moreOrEqual': 0,
-                    'lessOrEqual': -1,
-                    'id': 0,
-                    'rendering': data.get('rendering', {}),
-                    'position': data.get('position', {})
-                }
-            ]
-
-            layout = screen_sizes[0]['rendering'].get('layout', 0)
-            data['layout'] = int(layout)
-            if 'layout' in screen_sizes[0]['rendering']:
-                del screen_sizes[0]['rendering']['layout']
-
-            if 'rendering' in data:
-                del data['rendering']
-
-            if 'position' in data:
-                del data['position']
-
-            data['screenSizes'] = screen_sizes
-        return data
-
-    # Set default for rely based on layout
-    @model_validator(mode='before')
-    @classmethod
-    def set_default_rely(cls, data):
-        if isinstance(data, dict) and 'screenSizes' in data and isinstance(data['screenSizes'], list):
-            for screen_size in data['screenSizes']:
-                if (isinstance(screen_size, dict) and 'position' in screen_size and
-                        isinstance(screen_size['position'], dict) and 'rely' not in screen_size['position']):
-                    screen_size['position']['rely'] = screen_size['layout'] != 1
-        return data
+    layouts: dict[str, MACDMashupResourceLayout] = {}   # key: screen size id
 
 
 class MACDTab(BaseModel):
@@ -374,28 +316,6 @@ class MACDMashup(MACDBase):
         if self.type != MACType.mashup:
             raise ValueError('Invalid type for mashup')
         return self
-
-    def is_valid_screen_sizes(self) -> bool:
-        for tab in self.tabs:
-            for resource in tab.resources:
-                # Screen sizes must cover the whole range of screen sizes ([0, +inf)) without gaps or overlaps
-                if len(resource.screenSizes) == 0:
-                    return False
-
-                screen_sizes_copy = resource.screenSizes.copy()
-                screen_sizes_copy.sort(key=lambda x: x.moreOrEqual)
-
-                if screen_sizes_copy[0].moreOrEqual != 0:
-                    return False
-
-                for i in range(1, len(screen_sizes_copy)):
-                    if screen_sizes_copy[i].moreOrEqual != screen_sizes_copy[i - 1].lessOrEqual + 1:
-                        return False
-
-                if screen_sizes_copy[-1].lessOrEqual != -1:
-                    return False
-
-        return True
 
 
 class MACDParametrizationOptionsSource(Enum):

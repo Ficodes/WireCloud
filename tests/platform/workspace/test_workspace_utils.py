@@ -10,11 +10,9 @@ from starlette.requests import Request
 
 from wirecloud.commons.utils.template.schemas.macdschemas import MACDPreference, MACDProperty
 from wirecloud.platform.iwidget.models import (
-    WidgetConfig,
     WidgetInstance,
+    WidgetLayout,
     WidgetPermissions,
-    WidgetPositions,
-    WidgetPositionsConfig,
     WidgetVariables,
 )
 from wirecloud.platform.preferences.schemas import WorkspacePreference
@@ -272,15 +270,15 @@ async def test_workspace_data_tab_helpers_and_widget_data(monkeypatch, db_sessio
     iwidget = WidgetInstance(
         id="w1",
         title="Widget",
-        layout=0,
         widget_uri="acme/widget/1.0.0",
-        positions=WidgetPositions(configurations=[WidgetPositionsConfig(id=0, moreOrEqual=0, lessOrEqual=-1, widget=WidgetConfig(top=1, left=2))]),
+        layouts={"0": WidgetLayout(x=2, y=1)},
         permissions=WidgetPermissions(),
     )
     req = _request()
     widget_data = await utils.get_widget_instance_data(db_session, req, iwidget, ws, cache_manager=SimpleNamespace(), user=user)
     assert widget_data.id == "w1"
-    assert len(widget_data.layoutConfig) == 1
+    assert len(widget_data.layouts) == 1
+    assert widget_data.layouts["0"].x == 2
 
     iwidget.resource = ObjectId()
     monkeypatch.setattr(utils, "get_catalogue_resource_by_id", lambda *_args, **_kwargs: _none())
@@ -351,7 +349,7 @@ async def test_populate_variables_values_cache(monkeypatch, db_session):
             "pref1": WidgetVariables(users={str(creator): "abc"}),
             "prop1": WidgetVariables(users={str(creator): "12"}),
         },
-        positions=WidgetPositions(configurations=[WidgetPositionsConfig(id=0, moreOrEqual=0, lessOrEqual=-1, widget=WidgetConfig())]),
+        layouts={"0": WidgetLayout()},
     )
     ws.wiring_status = WorkspaceWiring()
     ws.wiring_status.operators = {

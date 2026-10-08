@@ -544,15 +544,16 @@ A compact example is:
 
     <structure>
         <tab id="0" name="Records" title="Records">
+            <preferencevalue name="screenSizes"
+                              value="[{&quot;id&quot;: 0, &quot;name&quot;: &quot;Phone&quot;, &quot;moreOrEqual&quot;: 0, &quot;lessOrEqual&quot;: 767, &quot;columns&quot;: 1}, {&quot;id&quot;: 1, &quot;name&quot;: &quot;Tablet&quot;, &quot;moreOrEqual&quot;: 768, &quot;lessOrEqual&quot;: 1199, &quot;columns&quot;: 6}, {&quot;id&quot;: 2, &quot;name&quot;: &quot;Desktop&quot;, &quot;moreOrEqual&quot;: 1200, &quot;lessOrEqual&quot;: -1, &quot;columns&quot;: 12}]"/>
+            <preferencevalue name="cellheight" value="40"/>
+            <preferencevalue name="margin" value="5"/>
             <resource id="1" vendor="Example" name="record-list"
-                      version="1.0.0" title="Records" layout="0">
-                <screensizes>
-                    <screensize id="0" moreOrEqual="0" lessOrEqual="-1">
-                        <position anchor="top-left" x="0" y="0" z="0"/>
-                        <rendering width="20" height="12"
-                                   titlevisible="true"/>
-                    </screensize>
-                </screensizes>
+                      version="1.0.0" title="Records">
+                <layouts>
+                    <layout screensize="0" x="0" y="0" w="1" h="8"/>
+                    <layout screensize="2" x="0" y="0" w="6" h="8"/>
+                </layouts>
                 <preferencevalue name="service_url"
                                  value="%(params.service_url)"
                                  readonly="true"/>
@@ -569,17 +570,27 @@ Important mashup elements are:
 
 - Root `preferences` declare template parameters. Instance values can reference
   them with `%(params.parameter_name)`.
-- `structure/preferencevalue` overrides workspace preferences such as layout
-  configuration.
+- `preferencevalue` overrides preferences at the level it appears in: inside
+  `structure` it overrides workspace preferences, inside a `tab` it overrides
+  tab preferences (such as `screenSizes`, `cellheight`, and `margin`, shown
+  above), and inside a `resource` it overrides that widget's own preferences.
 - Each `tab` requires internal `id` and `name`; `title` is optional.
 - Each tab `resource` is a widget instance identified by its own internal `id`
   and a component `vendor/name/version`. It can override `preferencevalue` and
-  `variablevalue`; `readonly` prevents normal removal.
-- A `screensizes` block provides one or more responsive layout ranges. The
-  ranges must cover every width from zero upward without gaps or overlaps;
-  `lessOrEqual="-1"` means no upper limit. Each range needs `position` and
-  `rendering`. The older direct `position` plus `rendering` form is still parsed
-  and normalized to one all-size range.
+  `variablevalue`; `readonly` prevents normal removal. The old `layout`
+  attribute on `resource` (the layout engine selector) has been removed.
+- A `layouts` block lists the resource's layout for one or more screen sizes.
+  Each `layout` entry needs a `screensize` attribute matching the `id` of an
+  entry declared in the tab's (or workspace's) `screenSizes` preference (see
+  the example above). `x` and `y` may be omitted for automatic placement; `w`
+  and `h`, in grid columns/rows, size the widget and default to `1`. The boolean attributes
+  `minimized`, `titlevisible`, `fulldragboard`, and `visible` default to
+  `false`, `true`, `false`, and `true` respectively. A resource without a
+  `layouts` block, or without an entry for a given screen size, is placed
+  automatically the first time it is displayed at that size. The older
+  `screensizes` block and the direct `position` plus `rendering` form are
+  still parsed and converted best-effort from the old grid (20 columns × 12px
+  rows) to the new default grid (12 columns × 40px rows).
 - `structure/wiring` must use `version="2.0"`. It contains operator instances,
   connections, and optional visual layout/behaviour information. Wiring version
   1.0 is rejected by the current parser.

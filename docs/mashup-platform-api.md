@@ -216,11 +216,13 @@ Context managers expose information at three levels:
 | --- | --- | --- |
 | `MashupPlatform.context` | Platform and signed-in user | `username`, `language`, `groups`, `permissions`, `theme`, `mode` |
 | `MashupPlatform.mashup.context` | Current workspace | `owner`, `name`, `title`, `editing`, `params` |
-| `MashupPlatform.widget.context` | Current widget instance | `title`, position, size, visibility, `volatile` |
+| `MashupPlatform.widget.context` | Current widget instance | `title`, `xPosition`, `yPosition`, `zPosition`, `width`, `height`, `widthInPixels`, `heightInPixels`, `visible`, `volatile` |
 
 The widget-level manager exists only in widgets. The current operator API does
 not expose `MashupPlatform.operator.context`; operators can still use platform
-and mashup context.
+and mashup context. `width` and `height` are grid columns/rows on the active
+screen size (`widthInPixels`/`heightInPixels` give the rendered pixel size);
+`zPosition` is always `0` now that layout stacking has been removed.
 
 Every context manager supports:
 
@@ -448,10 +450,11 @@ const widget = MashupPlatform.mashup.addWidget(
         preferences: {basemap: {value: "light"}},
         properties: {},
         permissions: {close: true, move: true},
-        top: "0px",
-        left: "50%",
-        width: "50%",
-        height: "400px"
+        x: 6,
+        y: 0,
+        w: 6,
+        h: 8,
+        titlevisible: true
     }
 );
 
@@ -468,6 +471,13 @@ const operator = MashupPlatform.mashup.addOperator(
 References use `vendor/name/version` and must already be installed for the
 current user. Added widgets and operators are volatile: they are not committed
 to the workspace and are removed when the component that created them unloads.
+
+`addWidget` accepts `x`, `y`, `w`, and `h` to place and size the widget in grid
+columns/rows, as well as `width`/`height` as an alternative to `w`/`h` (a
+pixel string such as `"400px"`, a percentage of the grid such as `"50%"`, or a
+unitless number/string meaning legacy layout cells), and `titlevisible`. `top`
+and `left` are no longer supported; a widget added without `x`/`y` is placed
+automatically on the active screen size's grid.
 
 The returned facades expose `inputs`, `outputs`, `addEventListener(name,
 handler)`, and `remove()`. This allows a component to wire the instances:
