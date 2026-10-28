@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import re
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -72,6 +73,16 @@ async def test_industrytheme_templates_render_the_shell_hooks(app_client, indust
     assert "<t:usermenu" in templates["wirecloud/user_menu"]
     assert "wc-signin-button" in templates["wirecloud/signin"]
     assert "<t:button/>" in templates["wirecloud/workspace/empty_tab_message"]
+
+
+def test_industrytheme_bundles_existing_files():
+    # The webpack entries silently skip missing files, so a stylesheet or a
+    # script that is not committed would only be noticed in the browser
+    theme_dir = THEMES_PATH / "industrytheme"
+    files = set(re.findall(r"'((?:css|js)/[^']+)'", (theme_dir / "theme.ts").read_text()))
+
+    assert files
+    assert {f for f in files if not (theme_dir / "static" / f).is_file()} == set()
 
 
 def test_industrytheme_static_files(industry_available, monkeypatch, tmp_path):

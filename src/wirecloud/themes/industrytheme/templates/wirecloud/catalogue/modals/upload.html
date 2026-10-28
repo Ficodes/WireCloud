@@ -1,0 +1,12 @@
+<s:styledgui xmlns:s="http://wirecloud.conwet.fi.upm.es/StyledElements" xmlns:t="http://wirecloud.conwet.fi.upm.es/Template" xmlns="http://www.w3.org/1999/xhtml">
+    <div class="wc-upload-mac-message">
+        <p class="wc-upload-mac-help">{{ trans("Do you have a widget, operator or mashup stored in a wgt file? Then you can upload it to the catalogue by means of this dialog.") }}</p>
+        <div class="wc-upload-mac-dropzone blueprint">
+            <i class="corner tl" aria-hidden="true"/><i class="corner tr" aria-hidden="true"/><i class="corner bl" aria-hidden="true"/><i class="corner br" aria-hidden="true"/>
+            <span class="lc-icon lc-upload" aria-hidden="true"/>
+            <div class="wc-upload-mac-title">{{ trans("Drag files here") }}</div>
+            <div class="wc-upload-mac-or">{{ trans("- or -") }}</div>
+            <div class="wc-upload-mac-button"><t:uploadfilebutton aria-label="{{ trans("Upload file") }}" /></div>
+        </div>
+    </div>
+</s:styledgui>
