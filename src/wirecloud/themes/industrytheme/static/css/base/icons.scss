@@ -12,29 +12,42 @@
     line-height: 1;
     vertical-align: -0.125em;
     text-align: center;
+}
 
-    &::before {
-        content: "";
-        display: block;
-        width: 100%;
-        height: 100%;
-        background-color: currentColor;
-        -webkit-mask: none center / contain no-repeat;
-        mask: none center / contain no-repeat;
-    }
+// Only the mapped names are drawn, so an unknown Font Awesome name shows
+// nothing (or its glyph, when a widget loads its own Font Awesome stylesheet)
+// instead of a filled square
+%lucide-mask::before {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 100%;
+    background-color: currentColor;
+    -webkit-mask: none center / contain no-repeat;
+    mask: none center / contain no-repeat;
 }
 
 @each $name in map.$lucide-icons {
-    .lc-#{$name}::before {
-        -webkit-mask-image: url("../icons/#{$name}.svg");
-        mask-image: url("../icons/#{$name}.svg");
+    .lc-#{$name} {
+        @extend %lucide-mask;
+
+        &::before {
+            -webkit-mask-image: url("../icons/#{$name}.svg");
+            mask-image: url("../icons/#{$name}.svg");
+        }
     }
 }
 
+// The `.fa` class in the selector beats the `.fa-<name>::before` rules of a
+// Font Awesome stylesheet loaded by a widget, which come after these ones
 @each $fa, $lucide in map.$fa-icons {
-    .fa-#{$fa}::before {
-        -webkit-mask-image: url("../icons/#{$lucide}.svg");
-        mask-image: url("../icons/#{$lucide}.svg");
+    :is(.fa, .fas, .far, .fab, .fal).fa-#{$fa} {
+        @extend %lucide-mask;
+
+        &::before {
+            -webkit-mask-image: url("../icons/#{$lucide}.svg");
+            mask-image: url("../icons/#{$lucide}.svg");
+        }
     }
 }
 
@@ -42,7 +55,7 @@
 .fa-fw {
     width: 1.25em;
 
-    &::before {
+    &:is(.fa, .fas, .far, .fab, .fal)::before {
         width: 1em;
         margin: 0 auto;
     }
