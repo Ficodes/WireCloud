@@ -23,6 +23,17 @@
 
     "use strict";
 
+    const resolve_ui_class = function resolve_ui_class(name, defaultValue) {
+        if (ns.registry != null) {
+            return ns.registry.get(name, defaultValue);
+        }
+        return defaultValue;
+    };
+
+    const is_anonymous = function is_anonymous() {
+        return Wirecloud.contextManager == null || Wirecloud.contextManager.get('username') === 'anonymous';
+    };
+
     const get_widgets = function get_widgets() {
         return Array.prototype.concat.apply([], this.notebook.tabs.map(function (tab) {
             return tab.widgets;
@@ -88,6 +99,7 @@
             operator.unload(true);
         });
 
+        this.selectWidget(null);
         this.model = null;
         this.editButton.enabled = false;
         this.editButton.active = false;
@@ -120,11 +132,35 @@
         );
     };
 
+    /**
+     * Builds the buttons displayed by the header toolbar for the workspace
+     * view. Themes can register a replacement (`WorkspaceToolbar`) through
+     * {Wirecloud.ui.registry}.
+     */
+    ns.WorkspaceToolbar = class WorkspaceToolbar {
+
+        constructor(view) {
+            this.view = view;
+        }
+
+        getButtons() {
+            if (is_anonymous()) {
+                return [];
+            }
+
+            const view = this.view;
+            return [view.editButton, view.walletButton, view.wiringButton, view.myresourcesButton, view.marketButton];
+        }
+
+    };
+
     ns.WorkspaceView = class WorkspaceView extends se.Alternative {
 
         constructor(id, options) {
             super(id, options);
             this.events.editmode = new StyledElements.Event(this);
+            this.events.selectionchange = new StyledElements.Event(this);
+            this._selectedWidget = null;
 
             this.wrapperElement.classList.add("wc-workspace");
 
@@ -141,6 +177,7 @@
             });
             this.editButton.addEventListener("click", (button) => {
                 showHideTabBar.call(this, button.active);
+                this.selectWidget(null);
                 if (!button.active) {
                     this.walletButton.active = false;
                     this.layout.slideOut();
@@ -194,6 +231,11 @@
                 editing: {
                     get: () => {
                         return this.editButton.active;
+                    }
+                },
+                selectedWidget: {
+                    get: () => {
+                        return this._selectedWidget;
                     }
                 },
                 activeTab: {
@@ -307,6 +349,197 @@
             return this;
         }
 
+        /**
+         * Enters or leaves the edit mode (if the user is allowed to edit this
+         * workspace).
+         *
+         * @param {Boolean} editing
+         * @returns {Wirecloud.ui.WorkspaceView}
+         */
+        setEditing(editing) {
+            if (this.editButton.active !== !!editing) {
+                this.editButton.click();
+            }
+            return this;
+        }
+
+        /**
+         * Shows or hides the component sidebar used for adding widgets and
+         * mashups to the workspace.
+         *
+         * @param {Boolean} [show] toggles the sidebar if not provided
+         * @returns {Wirecloud.ui.WorkspaceView}
+         */
+        showComponentSidebar(show) {
+            if (show == null) {
+                show = !this.walletButton.active;
+            }
+
+            if (show && !this.walletButton.enabled) {
+                return this;
+            }
+
+            if (this.walletButton.active !== !!show) {
+                this.walletButton.click();
+            }
+            return this;
+        }
+
+        /**
+         * Marks a widget as selected (edit mode only). Selected widgets are
+         * flagged with the `wc-widget-selected` class.
+         *
+         * @param {Wirecloud.ui.WidgetView|null} widget
+         * @returns {Wirecloud.ui.WorkspaceView}
+         */
+        selectWidget(widget) {
+            if (widget != null && !this.editing) {
+                widget = null;
+            }
+
+            if (widget === this._selectedWidget) {
+                return this;
+            }
+
+            const previous = this._selectedWidget;
+            if (previous != null && previous.wrapperElement != null) {
+                previous.wrapperElement.classList.remove('wc-widget-selected');
+            }
+
+            this._selectedWidget = widget != null ? widget : null;
+            if (widget != null && widget.wrapperElement != null) {
+                widget.wrapperElement.classList.add('wc-widget-selected');
+            }
+
+            this.dispatchEvent('selectionchange', this._selectedWidget, previous);
+            return this;
+        }
+
+        /**
+         * Removes the current selection (the selected widget while in edit
+         * mode).
+         *
+         * @returns {Boolean} `true` if something was removed
+         */
+        deleteSelection() {
+            const widget = this._selectedWidget;
+            if (widget == null || !this.editing || !widget.model.isAllowed('close', 'editor')) {
+                return false;
+            }
+
+            this.selectWidget(null);
+            widget.remove();
+            return true;
+        }
+
+        /**
+         * Cancels the current interaction (closes the component sidebar or
+         * clears the selection).
+         *
+         * @returns {Boolean} `true` if there was something to cancel
+         */
+        cancel() {
+            if (this.walletButton.active) {
+                this.showComponentSidebar(false);
+                return true;
+            } else if (this._selectedWidget != null) {
+                this.selectWidget(null);
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         * Modes available for this view. Themes use this information for
+         * building mode switchers.
+         *
+         * @returns {Array.<Object>} `{id, label, icon, shortcut, active, enabled, activate}`
+         */
+        getModes() {
+            const editable = !is_anonymous() && this.model != null && this.model.isAllowed('edit');
+
+            return [
+                {
+                    id: 'view',
+                    label: utils.gettext('View'),
+                    icon: 'fas fa-eye',
+                    shortcut: 'v',
+                    active: !this.editing,
+                    enabled: true,
+                    activate: () => {
+                        this.setEditing(false);
+                    }
+                },
+                {
+                    id: 'edit',
+                    label: utils.gettext('Edit'),
+                    icon: 'fas fa-pencil-alt',
+                    shortcut: 'e',
+                    active: this.editing,
+                    enabled: editable,
+                    activate: () => {
+                        this.setEditing(true);
+                    }
+                },
+                {
+                    id: 'wiring',
+                    label: utils.gettext('Wiring'),
+                    icon: 'fas fa-sitemap',
+                    shortcut: 'w',
+                    active: false,
+                    enabled: editable,
+                    activate: () => {
+                        Wirecloud.UserInterfaceManager.changeCurrentView('wiring');
+                    }
+                }
+            ];
+        }
+
+        /**
+         * Main action of this view (e.g. adding a widget).
+         *
+         * @returns {Object|null} `{id, label, icon, enabled, run}`
+         */
+        getPrimaryAction() {
+            if (is_anonymous() || this.model == null || !this.model.isAllowed('edit')) {
+                return null;
+            }
+
+            return {
+                id: 'add-widget',
+                label: utils.gettext('Add widget'),
+                icon: 'fas fa-plus',
+                enabled: true,
+                run: () => {
+                    this.setEditing(true);
+                    this.showComponentSidebar(true);
+                }
+            };
+        }
+
+        /**
+         * Secondary actions of this view (e.g. sharing the workspace).
+         *
+         * @returns {Array.<Object>} `{id, label, icon, enabled, run}`
+         */
+        getSecondaryActions() {
+            if (is_anonymous() || this.model == null) {
+                return [];
+            }
+
+            return [
+                {
+                    id: 'share',
+                    label: utils.gettext('Share'),
+                    icon: 'fas fa-share-alt',
+                    enabled: true,
+                    run: () => {
+                        (new Wirecloud.ui.SharingWindowMenu(this)).show();
+                    }
+                }
+            ];
+        }
+
         loadWorkspace(workspace, options) {
             options = utils.merge({
                 initialtab: null
@@ -374,8 +607,12 @@
                 this.updateEditingInterval(this.activeTab.getEditingScreenSizeElement());
 
                 this.notebook.addEventListener('changed', (nt, oldTab, newTab) => {
+                    this.selectWidget(null);
                     newTab.updateEditingScreenSizeName();
                     this.updateEditingInterval(newTab.getEditingScreenSizeElement());
+                    if (newTab.dragboard != null && typeof newTab.dragboard.updateScreenSizeState === 'function') {
+                        newTab.dragboard.updateScreenSizeState();
+                    }
                 });
 
                 this.addTabButton = new StyledElements.Button({
@@ -530,12 +767,12 @@
         }
 
         getToolbarButtons() {
-            if (Wirecloud.contextManager && Wirecloud.contextManager.get('username') !== 'anonymous') {
-
-                return [this.editButton, this.walletButton, this.wiringButton, this.myresourcesButton, this.marketButton];
-            } else {
-                return [];
+            if (this.toolbar == null) {
+                const Toolbar = resolve_ui_class('WorkspaceToolbar', ns.WorkspaceToolbar);
+                this.toolbar = new Toolbar(this);
             }
+
+            return this.toolbar.getButtons();
         }
 
         onHistoryChange(newState) {

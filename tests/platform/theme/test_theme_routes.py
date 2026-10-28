@@ -34,10 +34,12 @@ async def test_get_theme_info_success(app_client, monkeypatch):
     monkeypatch.setattr(routes, "get_translation", lambda *_args, **_kwargs: "translated")
     monkeypatch.setattr(routes, "get_static_path", lambda *_args, **_kwargs: "/static/path")
     monkeypatch.setattr(routes, "get_url_from_view", lambda *_args, **_kwargs: "/view/url")
+    monkeypatch.setattr(routes, "get_theme_config", lambda _theme: {"color_schemes": ["light", "dark"]})
 
     response = await app_client.get("/api/theme/defaulttheme?view=classic", headers={"accept": "application/json"})
     assert response.status_code == 200
     payload = response.json()
+    assert payload["config"] == {"color_schemes": ["light", "dark"]}
     assert payload["name"] == "defaulttheme"
     assert payload["label"] == "Default"
     assert payload["templates"]["wirecloud/head"] == "<wirecloud/head.html>"

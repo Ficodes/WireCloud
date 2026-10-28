@@ -23,6 +23,13 @@
 
     "use strict";
 
+    const resolve_ui_class = function resolve_ui_class(name, defaultValue) {
+        if (Wirecloud.ui.registry != null) {
+            return Wirecloud.ui.registry.get(name, defaultValue);
+        }
+        return defaultValue;
+    };
+
     const push_nav_history = function push_nav_history() {
         const new_status = this.mainview.buildStateData();
         Wirecloud.HistoryManager.pushState(new_status);
@@ -71,7 +78,7 @@
             };
 
             this.viewsByName = {
-                'search': this.alternatives.createAlternative({alternative_constructor: ns.CatalogueSearchView, containerOptions: {catalogue: this, resource_painter: Wirecloud.ui.ResourcePainter, resource_extra_context: resource_extra_context}}),
+                'search': this.alternatives.createAlternative({alternative_constructor: ns.CatalogueSearchView, containerOptions: {catalogue: this, resource_painter: resolve_ui_class('ResourcePainter', Wirecloud.ui.ResourcePainter), resource_extra_context: resource_extra_context}}),
                 'details': this.alternatives.createAlternative({alternative_constructor: Wirecloud.ui.WirecloudCatalogue.ResourceDetailsView, containerOptions: {catalogue: this}})
             };
             this.viewsByName.search.init();

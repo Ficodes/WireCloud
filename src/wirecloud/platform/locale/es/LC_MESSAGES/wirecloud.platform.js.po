@@ -3502,3 +3502,109 @@ msgstr "Modo de visualización de la barra lateral"
 #: static/js/wirecloud/ui/WidgetViewMenuItems.js:194
 msgid "Top sidebar"
 msgstr "Barra lateral superior"
+
+#: ../../../static/js/wirecloud/ui/WiringEditor.js:1199
+msgid "Add operator"
+msgstr "Añadir operador"
+
+#: ../../../static/js/wirecloud/ui/PlatformCommands.js:260
+msgid "Add to tab"
+msgstr "Añadir a la pestaña"
+
+#: ../../../static/js/wirecloud/ui/PlatformCommands.js:278
+msgid "Add to wiring"
+msgstr "Añadir al wiring"
+
+#: ../../../static/js/wirecloud/ui/WorkspaceView.js:510
+msgid "Add widget"
+msgstr "Añadir widget"
+
+#: ../../../static/js/wirecloud/ui/WiringEditor.js:1217
+msgid "Behaviours"
+msgstr "Comportamientos"
+
+#: ../../../static/js/wirecloud/ui/PlatformCommands.js:330
+msgid "Change mode"
+msgstr "Cambiar de modo"
+
+#: ../../../static/js/wirecloud/ui/PlatformCommands.js:299
+msgid "Commands"
+msgstr "Comandos"
+
+#: ../../../static/js/wirecloud/ui/PlatformCommands.js:131
+msgid "Current"
+msgstr "Actual"
+
+#: ../../../static/js/wirecloud/ui/WorkspaceViewMenuItems.js:116
+msgid "Duplicate workspace"
+msgstr "Duplicar entorno de trabajo"
+
+#: ../../../static/js/wirecloud/ui/WorkspaceViewMenuItems.js:96
+msgid "Embed workspace"
+msgstr "Insertar entorno de trabajo"
+
+#: ../../../static/js/wirecloud/ui/PlatformCommands.js:204
+msgid "Go to Marketplace"
+msgstr "Ir al Marketplace"
+
+#: ../../../static/js/wirecloud/ui/PlatformCommands.js:194
+msgid "Go to My resources"
+msgstr "Ir a Mis recursos"
+
+#: ../../../static/js/wirecloud/ui/PlatformCommands.js:338
+msgid "Remove selection"
+msgstr "Eliminar la selección"
+
+#: ../../../static/js/wirecloud/ui/WorkspaceTabViewMenuItems.js:82
+msgid "Remove tab"
+msgstr "Eliminar pestaña"
+
+#: ../../../static/js/wirecloud/ui/WorkspaceViewMenuItems.js:132
+msgid "Remove workspace"
+msgstr "Eliminar entorno de trabajo"
+
+#: ../../../static/js/wirecloud/ui/WorkspaceTabViewMenuItems.js:49
+msgid "Rename tab"
+msgstr "Renombrar pestaña"
+
+#: ../../../static/js/wirecloud/ui/WorkspaceViewMenuItems.js:65
+msgid "Rename workspace"
+msgstr "Renombrar entorno de trabajo"
+
+#: ../../../static/js/wirecloud/ui/WorkspaceTabViewMenuItems.js:57
+msgid "Set tab as initial"
+msgstr "Establecer pestaña como inicial"
+
+#: ../../../static/js/wirecloud/ui/WorkspaceViewMenuItems.js:75
+msgid "Share workspace"
+msgstr "Compartir entorno de trabajo"
+
+#: ../../../static/js/wirecloud/ui/PlatformCommands.js:176
+#, python-format
+msgid "Switch to %(mode)s mode"
+msgstr "Cambiar al modo %(mode)s"
+
+#: ../../../static/js/wirecloud/ui/PlatformCommands.js:216
+msgid "Switch to dark color scheme"
+msgstr "Cambiar al esquema de color oscuro"
+
+#: ../../../static/js/wirecloud/ui/PlatformCommands.js:216
+msgid "Switch to light color scheme"
+msgstr "Cambiar al esquema de color claro"
+
+#: ../../../static/js/wirecloud/ui/WorkspaceTabViewMenuItems.js:66
+msgid "Tab settings"
+msgstr "Ajustes de la pestaña"
+
+#: ../../../static/js/wirecloud/ui/WorkspaceViewMenuItems.js:104
+msgid "Workspace settings"
+msgstr "Ajustes del entorno de trabajo"
+
+#: ../../../static/js/wirecloud/ui/PlatformCommands.js:275
+msgid "operator"
+msgstr "operador"
+
+#: ../../../static/js/wirecloud/ui/PlatformCommands.js:257
+msgid "widget"
+msgstr "widget"
+

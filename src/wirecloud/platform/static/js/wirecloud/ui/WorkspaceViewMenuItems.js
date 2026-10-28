@@ -23,6 +23,13 @@
 
     "use strict";
 
+    const resolve_ui_class = function resolve_ui_class(name, defaultValue) {
+        if (ns.registry != null) {
+            return ns.registry.get(name, defaultValue);
+        }
+        return defaultValue;
+    };
+
     ns.WorkspaceViewMenuItems = class WorkspaceViewMenuItems extends se.DynamicMenuItems {
 
         constructor(workspace) {
@@ -47,19 +54,25 @@
                 (new Wirecloud.ui.NewWorkspaceWindowMenu()).show();
             }.bind(this.workspace));
             item.addIconClass("fas fa-plus");
+            item.commandId = "new";
             items.push(item);
 
             item = new se.MenuItem(utils.gettext("Rename"), function () {
                 (new Wirecloud.ui.RenameWindowMenu(this, utils.gettext('Rename Workspace'))).show();
             }.bind(this.workspace.model));
             item.addIconClass("fas fa-pencil-alt");
+            item.commandId = "rename";
+            item.commandLabel = utils.gettext("Rename workspace");
             item.setDisabled(!this.workspace.editing || !this.workspace.model.isAllowed('rename'));
             items.push(item);
 
             item = new se.MenuItem(utils.gettext("Share"), function () {
-                (new Wirecloud.ui.SharingWindowMenu(this)).show();
+                const SharingWindowMenu = resolve_ui_class('SharingWindowMenu', Wirecloud.ui.SharingWindowMenu);
+                (new SharingWindowMenu(this)).show();
             }.bind(this.workspace));
             item.addIconClass("fas fa-share");
+            item.commandId = "share";
+            item.commandLabel = utils.gettext("Share workspace");
             items.push(item);
 
             item = new se.MenuItem(utils.gettext("Upload to my resources"), function () {
@@ -71,18 +84,24 @@
                 });
             }.bind(this.workspace.model));
             item.addIconClass("fas fa-archive");
+            item.commandId = "upload";
             items.push(item);
 
             item = new se.MenuItem(utils.gettext("Embed"), function () {
-                (new Wirecloud.ui.EmbedCodeWindowMenu(utils.gettext("Embed Code"), this)).show();
+                const EmbedCodeWindowMenu = resolve_ui_class('EmbedCodeWindowMenu', Wirecloud.ui.EmbedCodeWindowMenu);
+                (new EmbedCodeWindowMenu(utils.gettext("Embed Code"), this)).show();
             }.bind(this.workspace));
             item.addIconClass("fas fa-code");
+            item.commandId = "embed";
+            item.commandLabel = utils.gettext("Embed workspace");
             items.push(item);
 
             item = new se.MenuItem(utils.gettext("Settings"), function () {
                 this.showSettings();
             }.bind(this.workspace));
             item.addIconClass("fas fa-cog");
+            item.commandId = "settings";
+            item.commandLabel = utils.gettext("Workspace settings");
             item.setDisabled(!this.workspace.editing || !this.workspace.model.isAllowed('update_preferences'));
             items.push(item);
 
@@ -93,6 +112,8 @@
                 })).show();
             });
             item.addIconClass("fas fa-clone");
+            item.commandId = "duplicate";
+            item.commandLabel = utils.gettext("Duplicate workspace");
             items.push(item);
 
             item = new se.MenuItem(utils.gettext("Remove"), () => {
@@ -106,6 +127,9 @@
                 }).show();
             });
             item.addIconClass("fas fa-trash");
+            item.danger = true;
+            item.commandId = "remove";
+            item.commandLabel = utils.gettext("Remove workspace");
             item.setDisabled(!this.workspace.model.isAllowed('remove'));
             items.push(item);
 

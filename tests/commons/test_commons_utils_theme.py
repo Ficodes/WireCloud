@@ -243,11 +243,11 @@ def test_get_theme_static_path(monkeypatch, tmp_path):
     with pytest.raises(ValueError):
         theme.get_theme_static_path("a", "asset.js")
 
-    # Branch where static dir missing triggers parent import in loop
+    # Branch where static dir missing and the parent cannot be imported: the chain ends
     mod_child = SimpleNamespace(__file__=str(themes_dir / "a" / "__init__.py"), parent="missingparent")
     monkeypatch.setattr(theme, "import_module", lambda name: mod_child if name == "wirecloud.themes.a" else (_ for _ in ()).throw(ModuleNotFoundError(name)))
     monkeypatch.setattr(theme.os.path, "exists", lambda p: str(p).endswith("/a"))
-    with pytest.raises(ModuleNotFoundError):
+    with pytest.raises(NotFound):
         theme.get_theme_static_path("a", "asset.js")
 
     # Branch where static dir missing but parent import succeeds (line 176)
@@ -318,3 +318,65 @@ def test_get_theme_static_path(monkeypatch, tmp_path):
 
     with pytest.raises(NotFound):
         theme.get_theme_static_path("a", "missing.js")
+
+
+def test_get_theme_static_path_root_theme_without_static_dir(monkeypatch, tmp_path):
+    # A root theme (parent = None) without a static directory must not try to
+    # import a "wirecloud.themes.None" module; lookup continues with the plugins.
+    monkeypatch.setattr(theme, "AVAILABLE_THEMES", ["nostatic"])
+    monkeypatch.setattr(theme, "DIST_PATH", str(tmp_path / "dist"))
+    themes_dir = tmp_path / "themes"
+    (themes_dir / "nostatic").mkdir(parents=True)
+    monkeypatch.setattr(theme.themes, "__file__", str(themes_dir / "__init__.py"))
+
+    imported = []
+    root = SimpleNamespace(__file__=str(themes_dir / "nostatic" / "__init__.py"), parent=None)
+
+    def _import(name):
+        imported.append(name)
+        if name == "wirecloud.themes.nostatic":
+            return root
+        raise ModuleNotFoundError(name)
+
+    plugin_dir = tmp_path / "pluginpkg"
+    (plugin_dir / "static" / "js").mkdir(parents=True)
+    (plugin_dir / "static" / "js" / "plugin.js").write_text("x")
+
+    class _Plugin:
+        pass
+
+    monkeypatch.setattr(theme, "import_module", _import)
+    monkeypatch.setattr(theme, "get_plugins", lambda: [_Plugin()])
+    monkeypatch.setattr(theme.inspect, "getfile", lambda _cls: str(plugin_dir / "plugins.py"))
+
+    assert theme.get_theme_static_path("nostatic", "js/plugin.js") == str(plugin_dir / "static" / "js" / "plugin.js")
+    with pytest.raises(NotFound):
+        theme.get_theme_static_path("nostatic", "js/missing.js")
+    assert "wirecloud.themes.None" not in imported
+
+
+def test_get_theme_config(monkeypatch):
+    modules = {
+        "wirecloud.themes.child": SimpleNamespace(parent="base", config={"shell": "rail", "icon_set": "lucide"}),
+        "wirecloud.themes.base": SimpleNamespace(parent=None, config={"icon_set": "fontawesome", "color_schemes": ["light"]}),
+        "wirecloud.themes.plain": SimpleNamespace(parent=None),
+        "wirecloud.themes.orphan": SimpleNamespace(parent="missing", config={"shell": "rail"}),
+        "wirecloud.themes.invalid": SimpleNamespace(parent=None, config=["light"]),
+    }
+
+    def _import(name):
+        if name in modules:
+            return modules[name]
+        raise ModuleNotFoundError(name)
+
+    monkeypatch.setattr(theme, "import_module", _import)
+
+    # Child values take precedence over inherited ones
+    assert theme.get_theme_config("child") == {"shell": "rail", "icon_set": "lucide", "color_schemes": ["light"]}
+    assert theme.get_theme_config("plain") == {}
+    assert theme.get_theme_config("orphan") == {"shell": "rail"}
+
+    with pytest.raises(ValueError):
+        theme.get_theme_config("invalid")
+    with pytest.raises(NotFound):
+        theme.get_theme_config("unknown")

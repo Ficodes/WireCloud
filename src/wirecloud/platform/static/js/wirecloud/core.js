@@ -153,6 +153,22 @@
         }
     };
 
+    /**
+     * Enables the platform features requested by the active theme through
+     * its config (keyboard shortcuts, color schemes...).
+     */
+    const apply_theme_features = function apply_theme_features() {
+        const config = (Wirecloud.currentTheme != null && Wirecloud.currentTheme.config != null) ? Wirecloud.currentTheme.config : {};
+
+        if (Wirecloud.ui.shortcuts != null) {
+            Wirecloud.ui.shortcuts.enabled = config.keyboard_shortcuts === true;
+        }
+
+        if (Wirecloud.ui.ColorScheme != null) {
+            Wirecloud.ui.ColorScheme.init();
+        }
+    };
+
     const _logout = function _logout() {
         const logout_url = new URL(Wirecloud.URLs.LOGOUT_VIEW, document.location);
         const publicdashboard = Wirecloud.activeWorkspace.preferences.get("public");
@@ -331,7 +347,7 @@
                 preferencesTask,
                 workspaceListTask
             ]);
-        });
+        }).then(apply_theme_features);
 
         if (options.preventDefault !== true) {
             initTask = initTask.then(() => {

@@ -314,6 +314,11 @@
             return;
         }
 
+        if (Wirecloud.ui != null && Wirecloud.ui.ColorScheme != null) {
+            // Expose the platform color scheme to the widget document
+            Wirecloud.ui.ColorScheme.applyTo(this.wrapperElement);
+        }
+
         if (this.meta.macversion > 1) {
             // If this is a v2 or later widget, we need to instantiate it's entrypoint class
             _unloadScripts.call(this);

@@ -1071,7 +1071,8 @@ Wirecloud.ui = Wirecloud.ui || {};
         createComponent(wiringComponent, options) {
             options = utils.merge({ commit: true, removecascade_allowed: this.behaviourEngine.enabled }, options);
 
-            const component = new ns.WiringEditor.ComponentDraggable(wiringComponent, options);
+            const ComponentDraggable = (ns.registry != null) ? ns.registry.get('WiringEditor.ComponentDraggable', ns.WiringEditor.ComponentDraggable) : ns.WiringEditor.ComponentDraggable;
+            const component = new ComponentDraggable(wiringComponent, options);
             component
                 .addEventListener('endpointadded', component_onendpointadded.bind(this))
                 .addEventListener('endpointremoved', component_onendpointremoved.bind(this))
@@ -1141,6 +1142,132 @@ Wirecloud.ui = Wirecloud.ui || {};
             return [this.btnFindComponents, this.btnListBehaviours];
         }
 
+        /**
+         * Modes available from this view (see
+         * {Wirecloud.ui.WorkspaceView#getModes}).
+         *
+         * @returns {Array.<Object>}
+         */
+        getModes() {
+            const switchToWorkspace = (editing) => {
+                const workspaceView = Wirecloud.UserInterfaceManager.views.workspace;
+                Wirecloud.UserInterfaceManager.changeCurrentView('workspace');
+                if (typeof workspaceView.setEditing === 'function') {
+                    workspaceView.setEditing(editing);
+                }
+            };
+
+            return [
+                {
+                    id: 'view',
+                    label: utils.gettext('View'),
+                    icon: 'fas fa-eye',
+                    shortcut: 'v',
+                    active: false,
+                    enabled: true,
+                    activate: () => switchToWorkspace(false)
+                },
+                {
+                    id: 'edit',
+                    label: utils.gettext('Edit'),
+                    icon: 'fas fa-pencil-alt',
+                    shortcut: 'e',
+                    active: false,
+                    enabled: true,
+                    activate: () => switchToWorkspace(true)
+                },
+                {
+                    id: 'wiring',
+                    label: utils.gettext('Wiring'),
+                    icon: 'fas fa-sitemap',
+                    shortcut: 'w',
+                    active: true,
+                    enabled: true,
+                    activate: () => {}
+                }
+            ];
+        }
+
+        /**
+         * Main action of the wiring editor: adding operators.
+         *
+         * @returns {Object}
+         */
+        getPrimaryAction() {
+            return {
+                id: 'add-operator',
+                label: utils.gettext('Add operator'),
+                icon: 'fas fa-plus',
+                enabled: this.btnFindComponents.enabled,
+                run: () => {
+                    if (!this.btnFindComponents.active) {
+                        this.btnFindComponents.click();
+                    }
+                }
+            };
+        }
+
+        /**
+         * @returns {Array.<Object>}
+         */
+        getSecondaryActions() {
+            return [
+                {
+                    id: 'behaviours',
+                    label: utils.gettext('Behaviours'),
+                    icon: 'fas fa-sitemap',
+                    enabled: this.btnListBehaviours.enabled,
+                    active: this.btnListBehaviours.active,
+                    run: () => {
+                        this.btnListBehaviours.click();
+                    }
+                }
+            ];
+        }
+
+        /**
+         * Removes the selected components or, if there is no selected
+         * component, the active connection.
+         *
+         * @returns {Boolean} `true` if something was removed
+         */
+        deleteSelection() {
+            if (hasSelectedComponents.call(this)) {
+                document_onkeydown.call(this, 'Delete', {});
+                return true;
+            }
+
+            const connection = this.connectionEngine.activeConnection;
+            if (connection != null && !connection.readonly && connection.btnRemove.enabled) {
+                connection.btnRemove.click();
+                return true;
+            }
+
+            return false;
+        }
+
+        /**
+         * Cancels the current interaction: closes the sidebar, deselects the
+         * components or deactivates the active connection.
+         *
+         * @returns {Boolean} `true` if there was something to cancel
+         */
+        cancel() {
+            if (this.connectionEngine.cancelTemporalConnection()) {
+                return true;
+            } else if (this.btnFindComponents.active || this.btnListBehaviours.active) {
+                (this.btnFindComponents.active ? this.btnFindComponents : this.btnListBehaviours).click();
+                return true;
+            } else if (hasSelectedComponents.call(this)) {
+                clearComponentSelection.call(this);
+                return true;
+            } else if (this.connectionEngine.hasActiveConnection()) {
+                this.connectionEngine.activeConnection.click();
+                return true;
+            }
+            return false;
+        }
+
         goUp() {
             Wirecloud.UserInterfaceManager.changeCurrentView('workspace');
         }
@@ -1164,6 +1291,10 @@ Wirecloud.ui = Wirecloud.ui || {};
 
             Wirecloud.UserInterfaceManager.rootKeydownHandler = document_onkeydown.bind(this);
             this.enable();
+
+            // Themes can enable creating connections by clicking an output and then an input
+            const config = Wirecloud.currentTheme != null && Wirecloud.currentTheme.config != null ? Wirecloud.currentTheme.config : {};
+            this.connectionEngine.clickToConnect = config.wiring_click_to_connect === true;
 
             return this;
         }

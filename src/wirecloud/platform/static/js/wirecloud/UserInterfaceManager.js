@@ -35,6 +35,38 @@
         rootKeydownHandler: null,
         workspaceviews: {}
     };
+
+    /**
+     * Returns the UI class registered for the given name (see
+     * {Wirecloud.ui.registry}), falling back to the platform one.
+     *
+     * @private
+     */
+    const resolve_ui_class = function resolve_ui_class(name, defaultValue) {
+        if (Wirecloud.ui.registry != null) {
+            return Wirecloud.ui.registry.get(name, defaultValue);
+        }
+        return defaultValue;
+    };
+
+    const get_view_mode = function get_view_mode(view) {
+        if (view == null) {
+            return null;
+        }
+
+        switch (view.view_name) {
+        case 'workspace':
+            return view.editing ? 'edit' : 'view';
+        case 'wiring':
+            return 'wiring';
+        case 'myresources':
+            return 'catalogue';
+        case 'marketplace':
+            return 'marketplace';
+        default:
+            return view.view_name || null;
+        }
+    };
     Object.defineProperties(UserInterfaceManager, {
         currentTooltip: {get: () => {return currentTooltip;}},
         currentWindowMenu: {get: () => {return currentWindowMenu;}}
@@ -66,9 +98,13 @@
         };
         const key = utils.normalizeKey(event);
 
+        // Keyboard shortcuts (only processed when enabled by the theme)
+        let consumed = Wirecloud.ui.shortcuts != null && Wirecloud.ui.shortcuts.handle(event, {modal: currentWindowMenu != null});
+
         // if there are not modals, check if the current view can consume this keydown event
-        let consumed;
-        if (currentWindowMenu == null) {
+        if (consumed) {
+            // Already processed
+        } else if (currentWindowMenu == null) {
             consumed = utils.callCallback(UserInterfaceManager.rootKeydownHandler, key, modifiers);
         } else if (key === "Backspace") {
             // Ignore backspace keydown events if we are in a modals
@@ -155,6 +191,9 @@
             return;
         }
 
+        this.setRootState('theme', Wirecloud.constants.CURRENT_THEME);
+        this.setRootState('view', Wirecloud.constants.CURRENT_MODE);
+
         // disabling background layer
         coverLayerElement = document.createElement('div');
         coverLayerElement.id = 'menu_layer';
@@ -166,10 +205,12 @@
         // General keydown handler
         document.addEventListener('keydown', on_keydown, false);
 
+        const HeaderClass = resolve_ui_class('WirecloudHeader', Wirecloud.ui.WirecloudHeader);
+
         // TODO refactor
         if (document.querySelector('.plain_content') != null) {
-            if ('WirecloudHeader' in Wirecloud.ui) {
-                this.header = new Wirecloud.ui.WirecloudHeader(this);
+            if (HeaderClass != null) {
+                this.header = new HeaderClass(this);
             }
             return;
         }
@@ -177,25 +218,34 @@
         alternatives.appendTo(document.querySelector("#wc-body"));
 
         /* TODO| FIXME */
-        if ('WirecloudHeader' in Wirecloud.ui) {
-            this.header = new Wirecloud.ui.WirecloudHeader(this);
+        if (HeaderClass != null) {
+            this.header = new HeaderClass(this);
             alternatives.addEventListener('preTransition', function (alternatives, old_alternative, new_alternative) {
                 this.header._notifyViewChange();
             }.bind(this));
-            alternatives.addEventListener('postTransition', function (alternatives, old_alternative, new_alternative) {
-                this.header._notifyViewChange(new_alternative);
-            }.bind(this));
         }
+        alternatives.addEventListener('postTransition', function (alternatives, old_alternative, new_alternative) {
+            this.updateModeState(new_alternative);
+            if (this.header != null) {
+                this.header._notifyViewChange(new_alternative);
+            }
+        }.bind(this));
 
         this.views = {
             'initial': alternatives.createAlternative(),
-            'workspace': alternatives.createAlternative({'alternative_constructor': Wirecloud.ui.WorkspaceView}),
-            'wiring': alternatives.createAlternative({'alternative_constructor': Wirecloud.ui.WiringEditor}),
-            'marketplace': alternatives.createAlternative({'alternative_constructor': Wirecloud.ui.MarketplaceView})
+            'workspace': alternatives.createAlternative({'alternative_constructor': resolve_ui_class('WorkspaceView', Wirecloud.ui.WorkspaceView)}),
+            'wiring': alternatives.createAlternative({'alternative_constructor': resolve_ui_class('WiringEditor', Wirecloud.ui.WiringEditor)}),
+            'marketplace': alternatives.createAlternative({'alternative_constructor': resolve_ui_class('MarketplaceView', Wirecloud.ui.MarketplaceView)})
         };
 
+        if (typeof this.views.workspace.addEventListener === 'function') {
+            this.views.workspace.addEventListener('editmode', () => {
+                this.updateModeState();
+            });
+        }
+
         Wirecloud.addEventListener('contextloaded', () => {
-            this.views.myresources = alternatives.createAlternative({alternative_constructor: Wirecloud.ui.MyResourcesView});
+            this.views.myresources = alternatives.createAlternative({alternative_constructor: resolve_ui_class('MyResourcesView', Wirecloud.ui.MyResourcesView)});
         });
 
         // Handle Workspace changes
@@ -316,6 +366,56 @@
         return this;
     };
 
+    /**
+     * Updates a `data-wc-<name>` attribute of the root element. Themes can
+     * use these attributes (`theme`, `view`, `mode`, `color-scheme` and
+     * `screen-size`) to style the platform depending on its state.
+     *
+     * @param {String} name
+     * @param {String|null} value `null` removes the attribute
+     */
+    UserInterfaceManager.setRootState = function setRootState(name, value) {
+        const root = typeof document !== 'undefined' ? document.documentElement : null;
+        if (root == null || typeof root.setAttribute !== 'function') {
+            return this;
+        }
+
+        if (value == null || value === '') {
+            root.removeAttribute('data-wc-' + name);
+        } else {
+            root.setAttribute('data-wc-' + name, String(value));
+        }
+        return this;
+    };
+
+    UserInterfaceManager.getRootState = function getRootState(name) {
+        const root = typeof document !== 'undefined' ? document.documentElement : null;
+        if (root == null || typeof root.getAttribute !== 'function') {
+            return null;
+        }
+        return root.getAttribute('data-wc-' + name);
+    };
+
+    /**
+     * Current view (one of {Wirecloud.UserInterfaceManager.views})
+     *
+     * @returns {StyledElements.Alternative|null}
+     */
+    UserInterfaceManager.getCurrentView = function getCurrentView() {
+        return alternatives != null ? alternatives.visibleAlt : null;
+    };
+
+    /**
+     * Updates the `data-wc-mode` attribute (`view`, `edit`, `wiring`,
+     * `catalogue` or `marketplace`) from the current view.
+     */
+    UserInterfaceManager.updateModeState = function updateModeState(view) {
+        if (view == null) {
+            view = this.getCurrentView();
+        }
+        return this.setRootState('mode', get_view_mode(view));
+    };
+
     UserInterfaceManager.changeCurrentView = function changeCurrentView(newView, options) {
 
         newView = this.views[newView];
@@ -341,6 +441,14 @@
         }
         this.rootKeydownHandler = null;
         return alternatives.showAlternative(newView, options);
+    };
+
+    /**
+     * @returns {Boolean} `true` if there is a tooltip, popup menu or dialog
+     * displayed
+     */
+    UserInterfaceManager.hasPopups = function hasPopups() {
+        return currentTooltip != null || currentWindowMenu != null || currentPopups.length > 0;
     };
 
     UserInterfaceManager.handleEscapeEvent = function handleEscapeEvent(click) {

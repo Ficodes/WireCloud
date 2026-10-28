@@ -25,8 +25,16 @@
 
     const privates = new WeakMap();
 
+    const resolve_ui_class = function resolve_ui_class(name, defaultValue) {
+        if (Wirecloud.ui.registry != null) {
+            return Wirecloud.ui.registry.get(name, defaultValue);
+        }
+        return defaultValue;
+    };
+
     const _create_widget = function _create_widget(model) {
-        const widget = new Wirecloud.ui.WidgetView(this, model);
+        const WidgetView = resolve_ui_class('WidgetView', Wirecloud.ui.WidgetView);
+        const widget = new WidgetView(this, model);
 
         privates.get(this).widgets.push(widget);
 

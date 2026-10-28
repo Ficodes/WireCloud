@@ -146,6 +146,10 @@ const get_scripts: (view: string) => string[] = (view: string): string[] => {
             'js/StyledElements/Event.js',
             'js/StyledElements/ObjectWithEvents.js',
             'js/wirecloud/core.js',
+            'js/wirecloud/ui/Registry.js',
+            'js/wirecloud/Commands.js',
+            'js/wirecloud/ui/ShortcutManager.js',
+            'js/wirecloud/ui/ColorScheme.js',
             'js/wirecloud/UserInterfaceManager.js',
             'js/wirecloud/Task.js',
             'js/wirecloud/io.js',
@@ -251,6 +255,7 @@ const get_scripts: (view: string) => string[] = (view: string): string[] => {
                 'js/wirecloud/ui/UpgradeWindowMenu.js',
                 'js/wirecloud/ui/UserTypeahead.js',
                 'js/wirecloud/ui/UserGroupTypeahead.js',
+                'js/wirecloud/ui/PlatformCommands.js',
             ...WIRING_EDITOR_FILES,
             ...TUTORIAL_FILES
         ];

@@ -35,6 +35,9 @@ class PreferenceKey(BaseModel):
     initialEntries: Optional[list[SelectEntry]] = None
     defaultValue: Any = None
     inheritByDefault: bool = False
+    # Name of a theme config entry (see ThemeInfo.config) that must be enabled for the
+    # preference to be shown. A list entry is enabled when it has more than one item.
+    requiredThemeConfig: Optional[str] = None
 
 
 class TabPreferenceKey(PreferenceKey):

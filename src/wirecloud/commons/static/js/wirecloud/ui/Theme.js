@@ -27,7 +27,10 @@
         Object.defineProperties(this, {
             name: {value: desc.name},
             label: {value: desc.label},
-            templates: {value: desc.templates}
+            templates: {value: desc.templates},
+            // Optional client configuration declared by the theme module
+            // (e.g. `color_schemes`, `shell`, `icon_set`)
+            config: {value: Object.freeze(Object.assign({}, desc.config))}
         });
         Object.freeze();
     };

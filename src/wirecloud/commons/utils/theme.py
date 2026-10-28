@@ -140,6 +140,41 @@ def get_available_themes(lang: str) -> list[dict[str, str]]:
 
     return result
 
+def get_theme_config(theme: str) -> dict:
+    """
+    Returns the optional client configuration declared by a theme module (its
+    ``config`` attribute), e.g. ``{"color_schemes": ["light", "dark"]}``. Themes
+    inherit their parent's configuration, child keys taking precedence.
+    """
+    chain = []
+    try:
+        theme_module = import_module(f"wirecloud.themes.{theme}")
+    except ModuleNotFoundError:
+        raise NotFound(f"Theme not found: {theme}")
+
+    while theme_module is not None:
+        chain.append(theme_module)
+
+        parent = getattr(theme_module, "parent", None)
+        if parent is None:
+            theme_module = None
+        else:
+            try:
+                theme_module = import_module(f"wirecloud.themes.{parent}")
+            except ModuleNotFoundError:
+                theme_module = None
+
+    config = {}
+    for theme_module in reversed(chain):
+        module_config = getattr(theme_module, "config", None)
+        if module_config is None:
+            continue
+        if not isinstance(module_config, dict):
+            raise ValueError(f"Invalid theme: {theme}: config must be a dict")
+        config.update(module_config)
+
+    return config
+
 def get_theme_static_path(theme: str, path: str) -> str:
     from wirecloud.platform.core.plugins import WirecloudCorePlugin
 
@@ -171,14 +206,12 @@ def get_theme_static_path(theme: str, path: str) -> str:
 
     found_path = None
     while theme_module is not None:
-        if not os.path.exists(os.path.join(os.path.dirname(theme_module.__file__), 'static')):
-            theme_module = import_module(f"wirecloud.themes.{theme_module.parent}")
-            continue
-
-        if os.path.exists(os.path.join(os.path.dirname(theme_module.__file__), 'static', path)):
-            found_path = os.path.join(os.path.dirname(theme_module.__file__), 'static', path)
+        static_path = os.path.join(os.path.dirname(theme_module.__file__), 'static')
+        if os.path.exists(static_path) and os.path.exists(os.path.join(static_path, path)):
+            found_path = os.path.join(static_path, path)
             break
 
+        # Root themes (parent = None) end the chain, even when they have no static directory
         if theme_module.parent is None:
             theme_module = None
         else:
