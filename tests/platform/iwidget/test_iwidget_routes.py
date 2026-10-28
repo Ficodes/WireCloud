@@ -399,16 +399,21 @@ async def test_snap_to_grid_persists_after_reload(app_client, db_session, monkey
         "x": 5, "y": 0, "w": 7, "h": 13, "minimized": False,
         "titlevisible": True, "fulldragboard": False, "visible": True, "dock": None,
     }
-    if collection:
-        response = await app_client.put(url, json=[{"id": "w1", "layouts": {"2": layout}}])
-    else:
-        response = await app_client.post(url + "w1", json={"layouts": {"2": layout}})
-    assert response.status_code == 204
+    try:
+        if collection:
+            response = await app_client.put(url, json=[{"id": "w1", "layouts": {"2": layout}}])
+        else:
+            response = await app_client.post(url + "w1", json={"layouts": {"2": layout}})
+        assert response.status_code == 204
 
-    reloaded = await app_client.get(url + "w1")
-    assert reloaded.status_code == 200
-    assert reloaded.json()["layouts"]["2"] == {**layout, "dock_mode": "overlay", "dock_open": False}
-    assert reloaded.json()["layouts"]["0"]["dock"] == "right"
+        reloaded = await app_client.get(url + "w1")
+        assert reloaded.status_code == 200
+        assert reloaded.json()["layouts"]["2"] == {**layout, "dock_mode": "overlay", "dock_open": False}
+        assert reloaded.json()["layouts"]["0"]["dock"] == "right"
+    finally:
+        # The mock database is shared by the whole test session, so leaving this
+        # workspace behind breaks the tests that list every workspace
+        await db_session.client.workspaces.delete_one({"_id": workspace.id})
 
 
 async def test_delete_widget_instance_entry_route(app_client, db_session, monkeypatch):
