@@ -1,0 +1,363 @@
+// Wiring behaviours: the behaviours panel of the wiring sidebar.
+//
+// DOM (template wirecloud/wiring/behaviour_sidebar + BehaviourEngine.js):
+//
+// .panel.se-vertical-layout.we-panel-behaviours[.disabled]
+//   .panel-heading.se-vl-north-container
+//     .panel-title
+//       strong                                  "Behaviours"
+//       .panel-options > .se-btn.btn-enable     (lock / unlock)
+//     .btn-group.we-behaviours-actions[.hidden]
+//       .se-btn.btn-create, .se-btn.btn-order[.active]
+//   .panel-body.se-vl-center-container
+//     .alert.alert-info                         (engine disabled)
+//     .panel.behaviour[.active][.temporal] …
+//     .panel.behaviour.dragging                 (copy used while ordering)
+//
+// Behaviour (WiringEditor/Behaviour.js):
+//
+// .panel.panel-selectable.behaviour
+//   .panel-heading
+//     .panel-title.se-link.behaviour-title > span
+//     .panel-options > .se-btn.we-prefs-btn, .se-btn.btn-remove
+//   .panel-body > p.behaviour-description
+@use "mixins" as *;
+
+@mixin mask-icon($name) {
+    -webkit-mask-image: url("../icons/#{$name}.svg");
+    mask-image: url("../icons/#{$name}.svg");
+}
+
+@mixin icon-button($size: 30px, $icon-size: 15px) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: $size;
+    height: $size;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    font-size: $icon-size;
+    line-height: 1;
+    color: var(--color-text);
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    cursor: pointer;
+    @include focus-visible;
+
+    &:hover {
+        background: var(--color-hover);
+    }
+
+    &:active,
+    &.open {
+        background: var(--color-pressed);
+    }
+
+    &.disabled,
+    &.disabled:hover {
+        opacity: 0.45;
+        background: transparent;
+        cursor: not-allowed;
+    }
+}
+
+// =============================================================================
+// Panel
+// =============================================================================
+
+.panel.we-panel-behaviours {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--color-text);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+
+    // `.disabled` means the behaviour engine is off, the panel is still
+    // usable (it offers enabling it)
+    &.disabled {
+        opacity: 1;
+        cursor: auto;
+    }
+
+    > .panel-heading {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        min-height: 0;
+        margin: 0;
+        padding: 14px 12px 12px 16px;
+        background: transparent;
+        color: inherit;
+        border: 0;
+        border-radius: 0;
+
+        // No clearfix in flex headings (it would add a gap)
+        &::after {
+            content: none;
+        }
+
+        // Title, then the create/order actions, then the enable toggle
+        > .panel-title {
+            display: contents;
+
+            > strong {
+                order: 0;
+                flex: 1 1 auto;
+                min-width: 0;
+                min-height: 36px;
+                display: flex;
+                align-items: center;
+                @include heading(20px);
+                @include text-truncate;
+            }
+
+            > .panel-options {
+                order: 2;
+                flex: none;
+                display: flex;
+                align-items: center;
+                float: none;
+                margin: 0;
+                padding: 0;
+            }
+        }
+
+        > .we-behaviours-actions,
+        > .btn-group {
+            order: 1;
+            flex: none;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            float: none;
+            margin: 0;
+            padding: 0;
+            border: 0;
+
+            &.hidden {
+                display: none !important;
+            }
+        }
+
+        .se-btn {
+            @include icon-button;
+        }
+
+        // Toggles in the pressed state
+        .btn-order.active {
+            background: var(--color-accent-100);
+            color: var(--color-accent-800);
+        }
+    }
+
+    // Enabled engine: the toggle shows the open lock in the accent
+    &:not(.disabled) > .panel-heading .btn-enable {
+        color: var(--color-accent-text);
+    }
+
+    > .panel-body {
+        position: relative;
+        flex: 1 1 auto;
+        min-height: 0;
+        margin: 0;
+        padding: 0 16px 16px;
+        overflow: auto;
+        background: transparent;
+        border: 0;
+        @include scrollbars;
+
+        > .alert {
+            margin: 0;
+            font-size: 13px;
+
+            blockquote {
+                margin: var(--space-2) 0 0;
+                font-size: 13px;
+            }
+
+            a {
+                cursor: pointer;
+            }
+        }
+    }
+}
+
+// =============================================================================
+// Behaviour list items. Items are stacked without gaps: the ordering code
+// uses their height as the step between positions.
+// =============================================================================
+
+.we-panel-behaviours .panel.behaviour {
+    position: relative;
+    display: block;
+    margin: 0;
+    padding: 10px 8px 10px 12px;
+    background: transparent;
+    color: var(--color-text);
+    border: 0;
+    border-bottom: 1px solid var(--color-rule);
+    border-radius: 0;
+    box-shadow: none;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+
+    &:first-of-type {
+        border-top: 1px solid var(--color-rule);
+    }
+
+    &:hover {
+        background: var(--color-hover);
+    }
+
+    > .panel-heading {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 24px;
+        margin: 0;
+        padding: 0;
+        background: none;
+        color: inherit;
+        border: 0;
+        border-radius: 0;
+
+        &::after {
+            content: none;
+        }
+
+        > .panel-title {
+            flex: 1 1 auto;
+            min-width: 0;
+            width: auto;
+            float: none;
+            margin: 0;
+            font-family: var(--font-body);
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.3;
+            letter-spacing: 0;
+            text-transform: none;
+            color: inherit;
+            text-decoration: none;
+            @include text-truncate;
+
+            > span {
+                display: block;
+                max-width: 100%;
+                @include text-truncate;
+            }
+
+            &:hover {
+                color: inherit;
+                text-decoration: none;
+            }
+        }
+
+        > .panel-options {
+            flex: none;
+            display: flex;
+            align-items: center;
+            gap: 0;
+            float: none;
+            margin: 0;
+            padding: 0;
+
+            > .se-btn {
+                @include icon-button(24px, 14px);
+                color: inherit;
+                opacity: 0.6;
+
+                &:hover,
+                &:active,
+                &.open {
+                    opacity: 1;
+                }
+
+                &.disabled,
+                &.disabled:hover {
+                    opacity: 0.25;
+                }
+            }
+
+            > .we-prefs-btn > .fa-bars::before {
+                @include mask-icon("ellipsis");
+            }
+
+            > .btn-remove > .fa-times-circle::before {
+                @include mask-icon("trash-2");
+            }
+        }
+    }
+
+    > .panel-body {
+        margin: 0;
+        padding: 2px 0 0;
+        background: none;
+        border: 0;
+    }
+
+    .behaviour-description {
+        display: -webkit-box;
+        margin: 0;
+        overflow: hidden;
+        font-size: 12px;
+        line-height: 1.45;
+        color: var(--color-text-muted);
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        overflow-wrap: anywhere;
+
+        &:empty {
+            display: none;
+        }
+    }
+
+    // Active behaviour
+    &.active {
+        background: var(--color-accent-100);
+        color: var(--color-accent-800);
+        box-shadow: inset 2px 0 0 var(--color-accent);
+        cursor: default;
+
+        .behaviour-description {
+            color: color-mix(in srgb, var(--color-accent-800) 75%, transparent);
+        }
+    }
+
+    // Ordering: the original item keeps its place, a copy follows the pointer
+    &.temporal {
+        visibility: hidden;
+    }
+
+    &.dragging {
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 10;
+        background: var(--color-bg);
+        border: 1px solid var(--color-accent);
+        box-shadow: var(--shadow-md);
+        cursor: grabbing;
+    }
+
+    &.dragging.active {
+        background: var(--color-accent-100);
+    }
+}
+
+// Ordering mode (the order toggle is pressed)
+.we-panel-behaviours:has(.btn-order.active) .panel.behaviour {
+    cursor: grab;
+}

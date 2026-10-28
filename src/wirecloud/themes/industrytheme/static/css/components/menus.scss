@@ -1,0 +1,190 @@
+// StyledElements popup menus (PopupMenu, MenuItem, SubMenuItem, Separator,
+// Typeahead suggestions): a surface panel with a hairline border and a large
+// shadow, 8px 14px items with icon + label.
+//
+// The JS appends menus to <body> (or the fullscreen element) and positions
+// them with top/left/bottom; the `se-popup-menu-<placement>` classes only
+// add a small gap to the reference element.
+@use "mixins" as *;
+
+.se-popup-menu {
+    position: absolute;
+    z-index: 111112;
+    box-sizing: border-box;
+    min-width: 200px;
+    max-width: min(420px, calc(100vw - 16px));
+    margin: 0;
+    padding: 4px 0;
+    overflow: auto;
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.35;
+    @include surface-panel;
+    @include scrollbars;
+
+    &.se-popup-menu-bottom-left,
+    &.se-popup-menu-bottom-right {
+        margin-top: 4px;
+    }
+
+    // Anchored with `bottom`
+    &.se-popup-menu-top-left {
+        margin-bottom: 4px;
+    }
+
+    &.se-popup-menu-top-right {
+        margin-top: -4px;
+    }
+
+    &.se-popup-menu-right-bottom {
+        margin-left: 2px;
+    }
+
+    &.se-popup-menu-left-bottom {
+        margin-left: -2px;
+    }
+
+    // Submenus: align their first item with the parent item
+    &.se-popup-submenu {
+        margin-top: -5px;
+        margin-left: 0;
+    }
+
+    // Separators (StyledElements.Separator)
+    > hr,
+    > .divider {
+        display: block;
+        height: 1px;
+        margin: 4px 0;
+        background: var(--color-divider);
+        border: 0;
+    }
+}
+
+// =============================================================================
+// Items
+// =============================================================================
+
+.se-popup-menu-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    color: var(--color-text);
+    white-space: nowrap;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+
+    &:focus {
+        outline: none;
+    }
+
+    &:focus-visible {
+        @include focus-ring(-2px);
+    }
+
+    // `.active` follows the mouse and the keyboard cursor
+    &:hover,
+    &.active {
+        background-color: var(--color-hover);
+    }
+
+    &:active {
+        background-color: var(--color-pressed);
+    }
+
+    &.disabled {
+        @include disabled;
+        background-color: transparent;
+    }
+
+    // Items with a description: keep the icon on the title line
+    &:has(.se-popup-menu-item-description) {
+        align-items: flex-start;
+
+        > .se-popup-menu-item-thumbnail {
+            margin-top: 1px;
+        }
+    }
+
+    .text-highlighted {
+        font-weight: 700;
+        color: var(--color-accent-text);
+    }
+}
+
+.se-popup-menu-item-thumbnail {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    color: inherit;
+
+    > .se-icon {
+        font-size: 15px;
+    }
+
+    > img {
+        display: block;
+        max-width: 24px;
+        max-height: 24px;
+    }
+}
+
+.se-popup-menu-item-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.se-popup-menu-item-title {
+    @include text-truncate;
+}
+
+.se-popup-menu-item-description {
+    margin-top: 1px;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: normal;
+    color: var(--color-text-muted);
+}
+
+// Destructive actions (MenuItem#danger)
+.se-popup-menu-item-danger {
+    color: var(--color-danger);
+
+    &:hover,
+    &.active {
+        background-color: color-mix(in srgb, var(--color-danger) 10%, transparent);
+    }
+
+    &:active {
+        background-color: color-mix(in srgb, var(--color-danger) 18%, transparent);
+    }
+
+    .se-popup-menu-item-description {
+        color: color-mix(in srgb, var(--color-danger) 70%, transparent);
+    }
+}
+
+// Items opening a submenu (StyledElements.SubMenuItem)
+.se-popup-menu-item.submenu {
+    padding-right: 34px;
+
+    @include icon(chevron-right, after, 14px);
+
+    &::after {
+        position: absolute;
+        top: 50%;
+        right: 12px;
+        margin-top: -7px;
+        color: var(--color-text-muted);
+    }
+
+    &.active::after,
+    &:hover::after {
+        color: var(--color-text);
+    }
+}

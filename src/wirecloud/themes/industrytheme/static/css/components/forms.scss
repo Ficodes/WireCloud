@@ -1,0 +1,800 @@
+// StyledElements form fields: text/password/numeric fields, selects, text
+// areas, file fields, checkboxes and radio buttons, StyledElements.Form
+// tables and the input interfaces used by forms. Every field shares the
+// Industry `.input` look (surface fill, hairline border, square corners).
+@use "mixins" as *;
+
+// Border of unchecked checkboxes/radios
+$control-border: color-mix(in srgb, var(--color-text) 35%, transparent);
+
+// =============================================================================
+// Field look
+// =============================================================================
+
+%se-field {
+    @include input-base;
+
+    display: inline-block;
+    width: 12em;
+    max-width: 100%;
+    margin: 0;
+    vertical-align: middle;
+    transition: border-color 0.12s linear;
+
+    // Text inputs always match :focus-visible when focused
+    &:focus-visible {
+        @include focus-ring(0);
+    }
+
+    &.error {
+        border-color: var(--color-danger);
+
+        &:focus-visible,
+        &.focus {
+            outline-color: var(--color-danger);
+        }
+    }
+
+    &:disabled,
+    &.disabled {
+        @include disabled;
+    }
+}
+
+.se-text-field,
+.se-password-field {
+    @extend %se-field;
+    height: 36px;
+}
+
+.se-text-area {
+    @extend %se-field;
+    display: block;
+    min-height: 90px;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+// Search fields (MAC search, sidebars...)
+.se-field-search {
+    &::-webkit-search-cancel-button {
+        filter: grayscale(1);
+    }
+}
+
+// Typeahead suggestions highlight (the suggestion list is a popup menu)
+.text-highlighted {
+    font-weight: 700;
+    color: inherit;
+}
+
+// Legacy prepend/append layouts and button groups joining text fields
+.input-prepend > .se-hl-center-container > .se-text-field,
+.input-append > .se-hl-center-container > .se-text-field,
+.btn-group > .se-text-field {
+    margin: 0;
+}
+
+// =============================================================================
+// Select (StyledElements.Select): the native <select> is invisible and
+// covers a text box plus a chevron
+// =============================================================================
+
+.se-select {
+    @extend %se-field;
+
+    position: relative;
+    padding-right: 34px;
+    cursor: pointer;
+
+    &.focus {
+        border-color: var(--color-accent);
+    }
+
+    &:has(> select:focus-visible) {
+        @include focus-ring(0);
+    }
+
+    &.error:has(> select:focus-visible) {
+        outline-color: var(--color-danger);
+    }
+
+    &:has(> select:disabled) {
+        @include disabled;
+    }
+
+    > select {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        display: block;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        font: inherit;
+        border: 0 none;
+        outline: 0 none;
+        opacity: 0;
+        cursor: inherit;
+
+        // Native option list
+        option,
+        optgroup {
+            color: var(--color-text);
+            background: var(--color-surface);
+        }
+    }
+}
+
+.se-select-text {
+    overflow: hidden;
+    line-height: 22px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.se-select-arrow {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    z-index: 2;
+    width: 1em;
+    height: 1em;
+    margin-top: -0.5em;
+    font-size: 16px;
+    line-height: 1;
+    color: var(--color-text-muted);
+    pointer-events: none;
+    @include icon(chevron-down);
+
+    &::before {
+        display: block;
+    }
+}
+
+.se-select:hover > .se-select-arrow,
+.se-select.focus > .se-select-arrow {
+    color: var(--color-text);
+}
+
+.btn-group > .se-select,
+.input-append > .se-hl-west-container > .se-select,
+.input-prepend > .se-hl-east-container > .se-select {
+    margin: 0;
+}
+
+.input-append > .se-hl-west-container > .se-select:last-child {
+    margin-right: -1px;
+}
+
+// Sizes
+.se-select.se-select-lg,
+.btn-group-lg .se-select,
+.se-input-group-lg .se-select {
+    min-height: 40px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    font-size: 15px;
+}
+
+.se-select.se-select-sm,
+.btn-group-sm .se-select,
+.se-input-group-sm .se-select {
+    min-height: 28px;
+    padding: 2px 30px 2px 8px;
+    font-size: 13px;
+
+    > .se-select-text {
+        line-height: 22px;
+    }
+
+    > .se-select-arrow {
+        right: 8px;
+        font-size: 14px;
+    }
+}
+
+.se-select.se-select-xs,
+.btn-group-xs .se-select,
+.se-input-group-xs .se-select {
+    min-height: 22px;
+    padding: 0 26px 0 6px;
+    font-size: 12px;
+
+    > .se-select-text {
+        line-height: 20px;
+    }
+
+    > .se-select-arrow {
+        right: 6px;
+        font-size: 13px;
+    }
+}
+
+// Text fields in sized input groups
+.se-input-group-lg > .se-text-field,
+.se-input-group-lg > .se-password-field {
+    height: 40px;
+    font-size: 15px;
+}
+
+.se-input-group-sm > .se-text-field,
+.se-input-group-sm > .se-password-field {
+    height: 28px;
+    min-height: 28px;
+    padding: 2px 8px;
+    font-size: 13px;
+}
+
+.se-input-group-xs > .se-text-field,
+.se-input-group-xs > .se-password-field {
+    height: 22px;
+    min-height: 22px;
+    padding: 0 6px;
+    font-size: 12px;
+}
+
+// =============================================================================
+// Numeric field (StyledElements.NumericField): a borderless number input in
+// a field box
+// =============================================================================
+
+.se-numeric-field {
+    @extend %se-field;
+
+    position: relative;
+    padding: 0;
+
+    &.focus {
+        border-color: var(--color-accent);
+    }
+
+    &:has(> input:focus-visible) {
+        @include focus-ring(0);
+    }
+
+    &.error:has(> input:focus-visible) {
+        outline-color: var(--color-danger);
+    }
+
+    &:has(> input:disabled) {
+        @include disabled;
+    }
+
+    > input {
+        display: block;
+        box-sizing: border-box;
+        width: 100%;
+        height: 34px;
+        margin: 0;
+        padding: 6px 10px;
+        font: inherit;
+        font-variant-numeric: tabular-nums;
+        line-height: inherit;
+        color: inherit;
+        background: transparent;
+        border: 0 none;
+        border-radius: 0;
+        box-shadow: none;
+        outline: 0 none;
+
+        &::-webkit-inner-spin-button,
+        &::-webkit-outer-spin-button {
+            opacity: 0.55;
+        }
+
+        &:hover::-webkit-inner-spin-button {
+            opacity: 1;
+        }
+    }
+
+    // Increment/decrement buttons of older NumericField versions
+    > .se-numeric-field-top-button,
+    > .se-numeric-field-bottom-button {
+        position: absolute;
+        right: -1px;
+        z-index: 2;
+        width: 24px;
+        height: calc(50% + 1px);
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        font-size: 11px;
+        line-height: 1;
+    }
+
+    > .se-numeric-field-top-button {
+        top: -1px;
+    }
+
+    > .se-numeric-field-bottom-button {
+        bottom: -1px;
+    }
+
+    &:has(> .se-numeric-field-top-button) > input {
+        padding-right: 30px;
+    }
+}
+
+.se-input-group-lg > .se-numeric-field {
+    min-height: 40px;
+    font-size: 15px;
+
+    > input {
+        height: 38px;
+    }
+}
+
+.se-input-group-sm > .se-numeric-field {
+    min-height: 28px;
+    font-size: 13px;
+
+    > input {
+        height: 26px;
+        padding: 2px 8px;
+    }
+}
+
+// =============================================================================
+// File field (StyledElements.FileField): a horizontal layout with the file
+// name and a pseudo "Select" button, covered by an invisible file input
+// =============================================================================
+
+.se-file-field {
+    position: relative;
+    box-sizing: border-box;
+    width: 12em;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--color-text);
+    vertical-align: middle;
+
+    > .se-hl-west-container > .preview {
+        display: block;
+        width: 20px;
+        height: 22px;
+        margin-right: var(--space-1);
+    }
+
+    > .se-hl-center-container {
+        min-width: 0;
+    }
+
+    > .se-hl-center-container > .filename {
+        display: block;
+        box-sizing: border-box;
+        width: auto;
+        height: 36px;
+        margin: 0;
+        padding: 6px 10px;
+        overflow: hidden;
+        line-height: 22px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        color: var(--color-text);
+        background-color: var(--color-surface);
+        border: 1px solid var(--color-divider);
+        transition: border-color 0.12s linear;
+
+        &:empty::before {
+            content: "\2014";
+            color: var(--color-text-subtle);
+        }
+    }
+
+    > .se-hl-east-container > .se-btn {
+        height: 100%;
+        min-height: 36px;
+        margin: 0 0 0 -1px;
+    }
+
+    > .input_wrapper {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        overflow: hidden;
+        cursor: pointer;
+
+        > input {
+            position: absolute;
+            top: -100px;
+            left: -100px;
+            right: -2px;
+            bottom: -2px;
+            display: block;
+            opacity: 0;
+            cursor: pointer;
+        }
+    }
+
+    &:hover > .se-hl-center-container > .filename {
+        border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+    }
+
+    &:hover > .se-hl-east-container > .se-btn {
+        background-color: var(--color-hover);
+    }
+
+    &.focus > .se-hl-center-container > .filename,
+    &.focus > .se-hl-east-container > .se-btn {
+        border-color: var(--color-accent);
+    }
+
+    &:has(input[type="file"]:focus-visible) {
+        @include focus-ring(0);
+    }
+
+    &.disabled,
+    &:has(input[type="file"]:disabled) {
+        @include disabled;
+
+        > .input_wrapper,
+        > .input_wrapper > input {
+            cursor: not-allowed;
+        }
+    }
+}
+
+// =============================================================================
+// Checkboxes and radio buttons
+// =============================================================================
+
+// Any native control picks the accent color
+input[type="checkbox"],
+input[type="radio"] {
+    accent-color: var(--color-accent);
+}
+
+// StyledElements controls: square checkbox / round radio ("dot")
+input.checkbox[type="checkbox"],
+label.checkbox > input[type="checkbox"],
+.button_group input[type="checkbox"],
+.styled_form input[type="checkbox"],
+.se-checkbox {
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    display: inline-grid;
+    place-content: center;
+    flex: none;
+    box-sizing: border-box;
+    width: 16px;
+    height: 16px;
+    margin: 0 8px 0 0;
+    padding: 0;
+    color: var(--color-bg);
+    vertical-align: -3px;
+    background: transparent;
+    border: 1.5px solid $control-border;
+    border-radius: 0;
+    cursor: pointer;
+    transition: background-color 0.12s linear, border-color 0.12s linear;
+
+    @include icon(check);
+
+    &::before {
+        width: 12px;
+        height: 12px;
+        transform: scale(0);
+        transition: transform 0.1s ease-out;
+    }
+
+    &:hover {
+        border-color: var(--color-accent);
+    }
+
+    &:checked,
+    &:indeterminate {
+        background-color: var(--color-accent);
+        border-color: var(--color-accent);
+
+        &::before {
+            transform: scale(1);
+        }
+    }
+
+    &:indeterminate {
+        @include icon(minus);
+
+        &::before {
+            width: 12px;
+            height: 12px;
+        }
+    }
+
+    @include focus-visible;
+
+    &:disabled {
+        @include disabled;
+    }
+}
+
+label.radio > input[type="radio"],
+.button_group input[type="radio"],
+.styled_form input[type="radio"],
+.se-radio {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: none;
+    box-sizing: border-box;
+    width: 16px;
+    height: 16px;
+    margin: 0 8px 0 0;
+    padding: 0;
+    vertical-align: -3px;
+    background: transparent;
+    border: 1.5px solid $control-border;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: border-color 0.12s linear, box-shadow 0.12s linear;
+
+    &:hover {
+        border-color: var(--color-accent);
+    }
+
+    &:checked {
+        background-color: var(--color-accent);
+        border-color: var(--color-accent);
+        box-shadow: inset 0 0 0 3px var(--color-bg);
+    }
+
+    @include focus-visible;
+
+    &:disabled {
+        @include disabled;
+    }
+}
+
+// Labelled controls. `.radio` also implements the design-system markup:
+// <label class="radio"><input type="radio"><span class="dot"></span>…</label>
+label.checkbox,
+label.radio,
+.radio {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+
+    > input[type="checkbox"],
+    > input[type="radio"] {
+        margin: 0;
+    }
+
+    > .se-select {
+        margin-bottom: 0;
+    }
+}
+
+.radio {
+    input[type="radio"]:has(+ .dot) {
+        position: absolute;
+        width: 0;
+        height: 0;
+        margin: 0;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .dot {
+        flex: none;
+        box-sizing: border-box;
+        width: 16px;
+        height: 16px;
+        border: 1.5px solid $control-border;
+        border-radius: 50%;
+        transition: border-color 0.12s linear, box-shadow 0.12s linear;
+    }
+
+    &:hover .dot {
+        border-color: var(--color-accent);
+    }
+
+    input:checked + .dot {
+        background: var(--color-accent);
+        border-color: var(--color-accent);
+        box-shadow: inset 0 0 0 4px var(--color-bg);
+    }
+
+    input:focus-visible + .dot {
+        @include focus-ring;
+    }
+
+    input:disabled + .dot {
+        @include disabled;
+    }
+}
+
+// ButtonGroupInputInterface: a set of labelled checkboxes/radios
+.button_group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-4);
+    min-height: 36px;
+}
+
+// =============================================================================
+// StyledElements.Form
+// =============================================================================
+
+.styled_form {
+    font-size: 14px;
+
+    table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    td {
+        padding: var(--space-1) 0 var(--space-2);
+        text-align: left;
+        vertical-align: top;
+    }
+
+    td.label-cell {
+        width: 160px;
+        padding-top: 9px;
+        padding-right: var(--space-4);
+        line-height: 1.4;
+
+        > label {
+            display: inline;
+            margin: 0;
+            font-size: 13px;
+            font-weight: 500;
+            color: color-mix(in srgb, var(--color-text) 70%, transparent);
+        }
+
+        > .required_mark {
+            margin: 0 0 0 3px;
+            font-weight: 700;
+            color: var(--color-danger);
+        }
+    }
+
+    // Section labels (`type: 'label'` fields)
+    td.label-row {
+        padding-top: var(--space-4);
+
+        > label,
+        > a {
+            @include overline;
+            display: block;
+            margin: 0;
+            color: var(--color-text-muted);
+        }
+
+        > a {
+            color: var(--color-accent-text);
+        }
+    }
+
+    hr {
+        margin: var(--space-3) 0;
+    }
+
+    td > .se-text-field,
+    td > .se-text-area,
+    td > .se-code-area,
+    td > .se-numeric-field,
+    td > .se-password-field,
+    td > .se-file-field,
+    td > .se-layout-field,
+    td > .se-mac-field,
+    td > .se-select {
+        width: 100%;
+        margin: 0;
+    }
+
+    // Validation messages
+    .alert {
+        margin: var(--space-3) 0 0;
+    }
+
+    .buttons {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+        gap: var(--space-2);
+        margin: var(--space-6) 0 0;
+
+        > .se-btn + .se-btn {
+            margin-left: 0;
+        }
+    }
+}
+
+.error_desc {
+    .action_desc {
+        font-weight: 700;
+    }
+
+    .cause_desc {
+        margin-left: 1em;
+    }
+}
+
+// =============================================================================
+// Input interfaces
+// =============================================================================
+
+// MultivaluedInputInterface: one inline form per entry plus add/remove buttons
+.se-add-item-btn,
+.se-remove-item-btn {
+    margin-left: var(--space-2);
+}
+
+.se-container > div:has(> .se-add-item-btn) {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-1);
+    margin-bottom: var(--space-2);
+
+    > .styled_form {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    > .se-btn + .se-btn {
+        margin-left: 0;
+    }
+}
+
+// ParametrizableValueInputInterface: read-only/visibility indicators, the
+// value field and the "parametrize" button
+.parametrizable_input {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+
+    > * {
+        flex: none;
+    }
+
+    > .se-text-field {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    > .readOnlyIcon,
+    > .visibilityIcon {
+        width: 16px;
+        height: 16px;
+        font-size: 16px;
+        color: var(--color-text-subtle);
+    }
+
+    > .readOnlyIcon {
+        @include icon(lock-open);
+    }
+
+    > .readOnlyIcon.readOnly {
+        color: var(--color-text-muted);
+        @include icon(lock);
+    }
+
+    > .visibilityIcon {
+        @include icon(eye-off);
+    }
+
+    > .visibilityIcon.visible {
+        color: var(--color-text-muted);
+        @include icon(eye);
+    }
+}
+
+// ParametrizedTextInputInterface: values with %(variables)s
+.parametrized_text_input {
+    font-family: var(--font-mono);
+    font-size: 13px;
+}

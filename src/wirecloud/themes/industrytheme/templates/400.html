@@ -1,0 +1,9 @@
+{% extends 'wirecloud/views/base_plain.html' %}
+{% block path %}{{ trans("Error") }} 400{% endblock %}
+{% block content %}
+    <div class="wc-error-code mono" aria-hidden="true">400</div>
+    <h1>{% block title %}{{ trans("Error 400 - Bad request") }}{% endblock %}</h1>
+    <p>{{ error_msg|e }}</p>
+    {% if details %}<p class="text-muted">{{ details|e }}</p>{% endif %}
+    <a class="se-btn btn-primary wc-error-home" href="{{ url("wirecloud.root") }}">{{ trans("Go to WireCloud") }}</a>
+{% endblock %}

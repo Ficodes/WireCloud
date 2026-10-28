@@ -1,0 +1,254 @@
+// Workspace header (58px): workspace switcher, visibility, command palette
+// trigger, mode switch, secondary actions, workspace menu, primary action
+@use "mixins" as *;
+
+#wirecloud_header.wc-header {
+    display: flex;
+    flex: none;
+    align-items: center;
+    height: 58px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--color-divider);
+    background: var(--color-bg);
+
+    &.hidden {
+        display: none;
+    }
+}
+
+.wc-header .wirecloud_app_bar {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    height: 100%;
+
+    // Every control keeps its size, only the workspace name shrinks
+    > * {
+        flex: none;
+        white-space: nowrap;
+    }
+
+    > .wc-breadcrumb {
+        flex: 0 1 auto;
+        min-width: 0;
+    }
+}
+
+.wc-breadcrumb {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.wc-header-switcher {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 4px 6px;
+    color: inherit;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    cursor: pointer;
+    @include interactive-tint;
+
+    .lc-icon {
+        flex: none;
+        font-size: 16px;
+    }
+}
+
+.wc-header-owner {
+    flex: none;
+    font-size: 14px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.wc-header-title {
+    @include text-truncate;
+    min-width: 0;
+    font: 600 21px/1.2 var(--font-heading);
+    letter-spacing: -0.01em;
+}
+
+.wc-header-crumbs {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+}
+
+.wc-header-crumb-separator {
+    color: var(--color-text-muted);
+}
+
+.wc-header-workspace .wc-header-crumbs,
+.wc-header-generic .wc-header-switcher,
+.wc-header-generic .wc-mode-switch,
+.wc-header-generic .wc-header-divider,
+.wc-header-workspace .wc-view-toolbar {
+    display: none !important;
+}
+
+.wc-visibility-tag[hidden] {
+    display: none;
+}
+
+.wc-header-spacer {
+    flex: 1 1 auto !important;
+}
+
+.wc-search-trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 10px;
+    font-size: 13px;
+    color: var(--color-text-muted);
+    background: var(--color-surface);
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+    cursor: pointer;
+
+    &:hover {
+        border-color: var(--color-accent);
+    }
+
+    .lc-icon {
+        font-size: 15px;
+    }
+
+    .wc-search-label {
+        width: 130px;
+        text-align: left;
+    }
+
+    .wc-search-kbd {
+        @include key-chip;
+        background: none;
+    }
+}
+
+.wc-header .wc-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    > * {
+        flex: none;
+    }
+}
+
+.wc-header-secondary, .wc-view-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    &:empty {
+        display: none;
+    }
+}
+
+.wc-header-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--color-divider);
+
+    &[hidden] {
+        display: none;
+    }
+}
+
+.wc-mode-switch[hidden] {
+    display: none;
+}
+
+.wc-header .wc-primary-action {
+    white-space: nowrap;
+}
+
+.wc-header .wc-back-button.hidden {
+    display: none;
+}
+
+// Responsive header
+@media (max-width: 1199px) {
+    .wc-search-trigger .wc-search-label {
+        display: none;
+    }
+}
+
+@media (max-width: 1099px) {
+    .wc-header .wc-secondary-action > span:not(.se-icon) {
+        display: none;
+    }
+}
+
+@media (max-width: 860px) {
+    #wirecloud_header.wc-header {
+        padding: 0 12px;
+    }
+
+    .wc-visibility-tag,
+    .wc-mode-switch .wc-button-label {
+        display: none;
+    }
+
+    .wc-header .wirecloud_app_bar,
+    .wc-header .wc-toolbar {
+        gap: 8px;
+    }
+}
+
+@media (max-width: 640px) {
+    .wc-header .wc-primary-action > span:not(.se-icon),
+    .wc-header-owner,
+    .wc-search-trigger,
+    .wc-header-secondary,
+    .wc-header-divider {
+        display: none !important;
+    }
+
+    .wc-header-title {
+        font-size: 18px;
+    }
+}
+
+// Plain pages (errors, landing) header
+.wc-plain-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 58px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--color-divider);
+
+    .wirecloud_app_bar {
+        flex: 1 1 auto;
+        min-width: 0;
+        color: var(--color-text-muted);
+        font-size: 14px;
+    }
+
+    #wc-user-menu {
+        margin: 0;
+    }
+}
+
+.wc-plain-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: inherit;
+    font: 600 20px/1 var(--font-heading);
+
+    &:hover {
+        color: inherit;
+        text-decoration: none;
+    }
+}

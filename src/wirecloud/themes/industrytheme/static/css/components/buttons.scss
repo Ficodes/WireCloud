@@ -1,0 +1,640 @@
+// StyledElements buttons (StyledElements.Button, ToggleButton, PopupButton,
+// FileButton) and joined button groups.
+//
+// - `.se-btn` / `.btn-default` / `.btn-secondary`: hairline border
+// - `.btn-primary`: the one solid object, accent fill + "+" registration
+//   marks (hide them with `--se-btn-mark-color: transparent`)
+// - `.btn-link` / `.btn-ghost` / `.plain`: accent text, no frame
+// - `.btn-danger|success|warning|info`: status text + tinted border
+// - `.active` (toggle buttons): accent fill, like a checked segmented option
+//
+// Hover/pressed rules are gated with `:where(...)` so disabled buttons don't
+// react and overrides elsewhere only need `.se-btn:hover` specificity.
+@use "sass:math";
+@use "mixins" as *;
+
+// Selector suffixes
+$enabled: ":where(:not(.disabled):not(:disabled))";
+// Buttons that only contain an icon (no text label, badges don't count)
+$icon-only: ":where(:not(.plain):has(> .se-icon):not(:has(> span:not(.badge))))";
+
+@mixin hover {
+    &#{$enabled}:hover {
+        @content;
+    }
+}
+
+@mixin pressed {
+    &#{$enabled}:active {
+        @content;
+    }
+}
+
+// Status variants: readable status text (mixed with the text color, so it
+// works on both schemes), tinted border and tinted hover
+@mixin status-variant($color, $text-mix: 78%) {
+    $text: color-mix(in srgb, #{$color} #{$text-mix}, var(--color-text));
+
+    color: $text;
+    border-color: color-mix(in srgb, #{$color} 55%, transparent);
+
+    @include hover {
+        color: $text;
+        background-color: color-mix(in srgb, #{$color} 10%, transparent);
+    }
+
+    @include pressed {
+        background-color: color-mix(in srgb, #{$color} 18%, transparent);
+    }
+
+    &.active {
+        color: var(--color-bg);
+        background-color: #{$color};
+        border-color: #{$color};
+    }
+}
+
+button::-moz-focus-inner,
+input::-moz-focus-inner {
+    padding: 0;
+    border: 0;
+}
+
+// =============================================================================
+// Base button (secondary look)
+// =============================================================================
+
+.se-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 34px;
+    margin: 0;
+    padding: var(--space-2) calc(var(--space-3) * 1.2);
+    font-family: var(--font-heading);
+    font-weight: var(--font-heading-weight);
+    font-size: 14px;
+    line-height: 1.2;
+    letter-spacing: 0;
+    color: var(--color-text);
+    text-align: center;
+    text-decoration: none;
+    text-shadow: none;
+    white-space: nowrap;
+    vertical-align: middle;
+    background: transparent;
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+    box-shadow: none;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    transition: background-color 0.12s linear, border-color 0.12s linear, color 0.12s linear;
+
+    @include focus-visible;
+
+    @include hover {
+        background-color: var(--color-hover);
+        text-decoration: none;
+    }
+
+    @include pressed {
+        background-color: var(--color-pressed);
+    }
+
+    // Raised over joined neighbours (button groups, input groups)
+    &:hover,
+    &:focus-visible {
+        z-index: 2;
+    }
+
+    > .se-icon {
+        position: relative;
+        flex: none;
+        font-size: 1.07em;
+    }
+
+    > span:not(.badge) {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    img.icon {
+        display: block;
+        width: auto;
+        height: 1.15em;
+        margin: 0;
+    }
+}
+
+// Buttons following each other in the normal flow. Groups join them instead.
+.se-btn + .se-btn {
+    margin-left: var(--space-2);
+}
+
+// Square icon-only buttons
+.se-btn#{$icon-only} {
+    width: 34px;
+    padding: 0;
+}
+
+// =============================================================================
+// States
+// =============================================================================
+
+// Toggle buttons (StyledElements.ToggleButton): checked segmented option
+.se-btn.active {
+    color: var(--color-bg);
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+
+    @include hover {
+        background-color: var(--color-accent-600);
+        border-color: var(--color-accent-600);
+    }
+
+    @include pressed {
+        background-color: var(--color-accent-700);
+        border-color: var(--color-accent-700);
+    }
+}
+
+.se-btn.disabled,
+.se-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+// Popup buttons (StyledElements.PopupButton) while their menu is open. They
+// stay above the menu (z-index 111112).
+.se-btn.open {
+    z-index: 111113;
+
+    &:not(.btn-primary):not(.active):not(.plain) {
+        background-color: var(--color-pressed);
+    }
+}
+
+// =============================================================================
+// Variants
+// =============================================================================
+
+.se-btn.btn-default,
+.se-btn.btn-secondary {
+    color: var(--color-text);
+    border-color: var(--color-divider);
+}
+
+.se-btn.btn-primary {
+    color: var(--color-bg);
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+    @include blueprint-marks($color: var(--se-btn-mark-color, var(--color-mark)));
+
+    @include hover {
+        color: var(--color-bg);
+        background-color: var(--color-accent-600);
+        border-color: var(--color-accent-600);
+    }
+
+    @include pressed {
+        background-color: var(--color-accent-700);
+        border-color: var(--color-accent-700);
+    }
+
+    &.active {
+        background-color: var(--color-accent-700);
+        border-color: var(--color-accent-700);
+    }
+}
+
+.se-btn.btn-link,
+.se-btn.btn-ghost {
+    color: var(--color-accent-text);
+    background-color: transparent;
+    border-color: transparent;
+    padding-inline: var(--space-2);
+
+    @include hover {
+        color: var(--color-accent-800);
+        background-color: var(--color-accent-hover);
+    }
+
+    @include pressed {
+        background-color: var(--color-accent-pressed);
+    }
+
+    &.active {
+        color: var(--color-accent-800);
+        background-color: var(--color-accent-100);
+        border-color: transparent;
+    }
+}
+
+.se-btn.btn-danger {
+    @include status-variant(var(--color-danger), 78%);
+}
+
+.se-btn.btn-success {
+    @include status-variant(var(--color-success), 70%);
+}
+
+.se-btn.btn-warning {
+    @include status-variant(var(--color-warning), 58%);
+}
+
+.se-btn.btn-info {
+    color: var(--color-accent-text);
+    border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+
+    @include hover {
+        background-color: var(--color-accent-hover);
+    }
+
+    @include pressed {
+        background-color: var(--color-accent-pressed);
+    }
+
+    &.active {
+        color: var(--color-bg);
+        background-color: var(--color-accent);
+        border-color: var(--color-accent);
+    }
+}
+
+// =============================================================================
+// Sizes
+// =============================================================================
+
+.se-btn.btn-large,
+.se-btn.btn-lg,
+.btn-group-lg > .se-btn,
+.se-input-group-lg > .se-btn {
+    gap: 8px;
+    min-height: 40px;
+    padding: 8px 16px;
+    font-size: 15px;
+}
+
+.se-btn.btn-small,
+.se-btn.btn-sm,
+.btn-group-sm > .se-btn,
+.se-input-group-sm > .se-btn {
+    gap: 5px;
+    min-height: 28px;
+    padding: 4px 10px;
+    font-size: 13px;
+}
+
+.se-btn.btn-mini,
+.se-btn.btn-xs,
+.btn-group-xs > .se-btn,
+.se-input-group-xs > .se-btn {
+    gap: 4px;
+    min-height: 22px;
+    padding: 2px 6px;
+    font-size: 12px;
+}
+
+.se-btn.btn-large#{$icon-only},
+.se-btn.btn-lg#{$icon-only},
+.btn-group-lg > .se-btn#{$icon-only},
+.se-input-group-lg > .se-btn#{$icon-only} {
+    width: 40px;
+    padding: 0;
+}
+
+.se-btn.btn-small#{$icon-only},
+.se-btn.btn-sm#{$icon-only},
+.btn-group-sm > .se-btn#{$icon-only},
+.se-input-group-sm > .se-btn#{$icon-only} {
+    width: 28px;
+    padding: 0;
+}
+
+.se-btn.btn-mini#{$icon-only},
+.se-btn.btn-xs#{$icon-only},
+.btn-group-xs > .se-btn#{$icon-only},
+.se-input-group-xs > .se-btn#{$icon-only} {
+    width: 22px;
+    padding: 0;
+}
+
+// Registration marks only on regular size, standalone primary buttons
+.se-btn.btn-primary.btn-mini,
+.se-btn.btn-primary.btn-xs,
+.btn-group > .se-btn.btn-primary,
+.se-input-group > .se-btn.btn-primary {
+    &::before {
+        display: none;
+    }
+}
+
+// =============================================================================
+// Plain buttons: no frame, accent text (icons in headers, close buttons...)
+// =============================================================================
+
+.se-btn.plain {
+    gap: 4px;
+    min-height: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding: 0;
+    font-size: inherit;
+    line-height: inherit;
+    color: var(--color-accent-text);
+    vertical-align: middle;
+    background: transparent;
+    border: 0 none;
+
+    @include focus-visible(1px);
+
+    @include hover {
+        color: var(--color-accent-800);
+        background: transparent;
+    }
+
+    @include pressed {
+        color: var(--color-accent-900);
+        background: transparent;
+    }
+
+    &.active {
+        color: var(--color-accent-800);
+        background: transparent;
+    }
+
+    &.btn-primary::before {
+        display: none;
+    }
+}
+
+// =============================================================================
+// Badges inside buttons (Button#setBadge): small solid counters
+// =============================================================================
+
+.se-btn > .badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    margin: 0;
+    padding: 0 4px;
+    font-family: var(--font-body);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    letter-spacing: 0;
+    color: var(--color-bg);
+    background: var(--color-accent);
+    border: 0;
+    transform: translate(40%, -40%);
+    pointer-events: none;
+
+    // Status colors are the same in both schemes: fixed text colors
+    &.badge-danger,
+    &.badge-important {
+        color: #fff;
+        background: var(--color-danger);
+    }
+
+    &.badge-success {
+        color: #fff;
+        background: var(--color-success);
+    }
+
+    &.badge-warning {
+        color: #1d1f20;
+        background: var(--color-warning);
+    }
+
+    &.badge-inverse {
+        color: var(--color-neutral-100);
+        background: var(--color-accent-900);
+    }
+}
+
+// =============================================================================
+// Stacked icons (Button `stackedIconClass`): a small icon over a corner of
+// the main icon
+// =============================================================================
+
+.se-btn .se-stacked-icon {
+    position: absolute;
+    font-size: 0.62em;
+
+    &.bottom-right {
+        right: -0.45em;
+        bottom: -0.35em;
+    }
+
+    &.bottom-left {
+        left: -0.45em;
+        bottom: -0.35em;
+    }
+
+    &.top-right {
+        top: -0.35em;
+        right: -0.45em;
+    }
+
+    &.top-left {
+        top: -0.35em;
+        left: -0.45em;
+    }
+}
+
+// =============================================================================
+// Busy and alert states
+// =============================================================================
+
+@keyframes se-btn-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes se-btn-alert {
+    50% {
+        color: color-mix(in srgb, var(--color-danger) 78%, var(--color-text));
+        background-color: color-mix(in srgb, var(--color-danger) 18%, transparent);
+        border-color: var(--color-danger);
+    }
+}
+
+.se-btn.busy {
+    cursor: progress;
+
+    > * {
+        visibility: hidden;
+    }
+
+    @include icon(loader-circle, after);
+
+    &::after {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        margin: -0.5em 0 0 -0.5em;
+        animation: se-btn-spin 1s linear infinite;
+    }
+}
+
+.se-btn.has-alert:not(.disabled):not(:disabled) {
+    animation: se-btn-alert 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .se-btn.busy::after {
+        animation-duration: 3s;
+    }
+
+    .se-btn.has-alert:not(.disabled):not(:disabled) {
+        animation: none;
+        border-color: var(--color-danger);
+    }
+}
+
+// =============================================================================
+// File buttons (StyledElements.FileButton): an invisible file input covers
+// the button
+// =============================================================================
+
+.se-btn > input[type="file"],
+.se-btn > input[type="file"]::-webkit-file-upload-button {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.se-btn:has(> input[type="file"]:focus-visible) {
+    @include focus-ring;
+}
+
+// =============================================================================
+// Joined button groups
+// =============================================================================
+
+.btn-group > .se-btn,
+.btn-group > .se-select,
+.btn-group > .se-text-field {
+    margin: 0;
+}
+
+.btn-group > .se-btn:not(:first-child),
+.btn-group > .se-select:not(:first-child),
+.btn-group > .se-text-field:not(:first-child),
+.se-input-group > .se-btn:not(:first-child) {
+    margin-left: -1px;
+}
+
+// Legacy prepend/append inputs
+.input-prepend > .se-hl-west-container > .se-btn {
+    margin: 0 -1px 0 0;
+}
+
+.input-append > .se-hl-east-container > .se-btn {
+    margin: 0 0 0 -1px;
+}
+
+.btn-group-justified > .se-btn {
+    flex: 1 1 0;
+    width: 0;
+    min-width: 0;
+}
+
+// =============================================================================
+// Circle buttons (wiring connection options): small round icon buttons
+// =============================================================================
+
+.se-btn.btn-circle,
+.btn-group-circle > .se-btn {
+    width: 32px;
+    height: 32px;
+    min-height: 0;
+    padding: 0;
+    font-size: 14px;
+    border-radius: 50%;
+
+    &.btn-link {
+        border-width: 0;
+    }
+
+    &.btn-primary::before {
+        display: none;
+    }
+}
+
+.btn-group-circle {
+    gap: 4px;
+
+    > .se-btn:not(:first-child) {
+        margin-left: 0;
+    }
+}
+
+.se-btn.btn-circle.btn-lg,
+.btn-group-lg.btn-group-circle > .se-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 15px;
+}
+
+.se-btn.btn-circle.btn-sm,
+.btn-group-sm.btn-group-circle > .se-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 13px;
+}
+
+.se-btn.btn-circle.btn-xs,
+.btn-group-xs.btn-group-circle > .se-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+}
+
+// Circle buttons float over other content: solid fills
+.se-btn.btn-circle,
+.btn-group-circle > .se-btn {
+    &.btn-default,
+    &:not(.btn-primary):not(.btn-danger):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-link) {
+        background-color: var(--color-bg);
+        box-shadow: var(--shadow-sm);
+    }
+
+    &.btn-danger,
+    &.btn-success,
+    &.btn-warning {
+        color: var(--color-bg);
+        border-color: transparent;
+    }
+
+    @each $state in danger, success, warning {
+        &.btn-#{$state} {
+            background-color: var(--color-#{$state});
+
+            @include hover {
+                color: var(--color-bg);
+                background-color: color-mix(in srgb, var(--color-#{$state}) 82%, var(--color-text));
+            }
+
+            @include pressed {
+                background-color: color-mix(in srgb, var(--color-#{$state}) 70%, var(--color-text));
+            }
+        }
+    }
+}

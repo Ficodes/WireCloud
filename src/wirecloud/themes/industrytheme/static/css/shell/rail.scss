@@ -1,0 +1,159 @@
+// Navigation rail (left, 60px). The smartphone view uses it as a bottom bar.
+@use "mixins" as *;
+
+.wc-rail {
+    position: relative;
+    z-index: 20;
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 60px;
+    padding: 14px 0;
+    border-right: 1px solid var(--color-divider);
+    background: var(--color-bg);
+}
+
+.wc-rail-brand {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 34px;
+    height: 34px;
+    margin-bottom: 14px;
+    background: var(--color-accent-900);
+    color: var(--color-bg);
+    font: 600 15px/1 var(--font-heading);
+    user-select: none;
+}
+
+.wc-rail-items, .wc-rail-tools {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.wc-rail-spacer {
+    flex: 1 1 auto;
+}
+
+.wc-rail-item {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    color: inherit;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 0;
+    cursor: pointer;
+    @include interactive-tint;
+
+    &[hidden] {
+        display: none;
+    }
+
+    .lc-icon {
+        font-size: 19px;
+    }
+
+    &.active, &.active:hover {
+        background: var(--color-accent-100);
+        color: var(--color-accent-800);
+    }
+}
+
+.wc-color-scheme-toggle .lc-icon {
+    font-size: 18px;
+}
+
+// User menu (avatar)
+#wc-user-menu {
+    display: flex;
+    justify-content: center;
+    margin-top: 6px;
+
+    .wc-avatar-button {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        min-height: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: var(--color-accent);
+        color: var(--color-bg);
+        box-shadow: none;
+        cursor: pointer;
+
+        &::before {
+            display: none;
+        }
+
+        &:hover {
+            background: var(--color-accent-600);
+        }
+
+        &:focus-visible {
+            @include focus-ring;
+        }
+    }
+
+    .wc-avatar {
+        font: 600 14px/1 var(--font-heading);
+    }
+
+    .wc-avatar-name {
+        @include visually-hidden;
+    }
+
+    .wc-rail & .wc-signin-button {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        padding: 0;
+
+        .wc-signin-label {
+            @include visually-hidden;
+        }
+    }
+
+    .wc-signin-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+}
+
+// Smartphone: bottom bar
+[data-wc-view="smartphone"] {
+    .wc-shell {
+        flex-direction: column-reverse;
+    }
+
+    .wc-rail {
+        flex-direction: row;
+        width: auto;
+        height: 56px;
+        padding: 0 12px;
+        border-right: 0;
+        border-top: 1px solid var(--color-divider);
+    }
+
+    .wc-rail-brand {
+        display: none;
+    }
+
+    .wc-rail-items, .wc-rail-tools {
+        flex-direction: row;
+    }
+
+    #wc-user-menu {
+        margin: 0 0 0 6px;
+    }
+}

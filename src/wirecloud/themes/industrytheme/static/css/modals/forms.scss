@@ -1,0 +1,423 @@
+// Settings and form dialogs: preferences, workspace/tab dialogs, missing
+// dependencies, parametrization, the screen sizes field and the Layout
+// settings dialog. The generic stacked `.styled_form` layout used inside
+// dialogs lives in modals/dialog.scss.
+@use "mixins" as *;
+
+// =============================================================================
+// Preferences (PreferencesWindowMenu: .wc-platform-preferences-modal,
+// .wc-workspace-preferences-modal, .wc-tab-preferences-modal)
+//
+//   table.styled_form > tbody > tr
+//     td.label-cell > label[aria-describedby]   + td > input interface
+//   inheritable preferences:
+//     tr > td[colspan=2] > table.complexTable > tbody
+//       tr > td.label-cell[colspan=2] > label
+//       tr > td.inheritCell (checkbox + "Inherit") + td > input interface
+// =============================================================================
+
+[class*="-preferences-modal"] > .window_content {
+    padding-bottom: var(--space-4);
+
+    // Error alert displayed above the fields
+    > .alert {
+        margin-bottom: var(--space-4);
+    }
+}
+
+.window_menu table.styled_form {
+    margin: 0;
+
+    // The complex cell keeps an inline `padding: 0`
+    td[colspan] {
+        padding: 0;
+    }
+}
+
+// Inheritable preference: [ input ............ ] [x] Inherit
+.window_menu .complexTable {
+    > tbody {
+        gap: 5px;
+    }
+
+    > tbody > tr:has(> .inheritCell) {
+        flex-direction: row;
+        align-items: center;
+        gap: var(--space-3);
+
+        > td:not(.inheritCell) {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+    }
+
+    td.inheritCell {
+        order: 2;
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+
+        > input {
+            margin: 0;
+            accent-color: var(--color-accent);
+        }
+    }
+}
+
+// Disabled inputs while the value is inherited
+.window_menu table.styled_form td > .disabled,
+.window_menu table.styled_form td > :disabled {
+    opacity: 0.45;
+}
+
+// =============================================================================
+// Widget / operator settings (Wirecloud.Widget.PreferencesWindowMenu,
+// OperatorPreferencesWindowMenu: .wc-component-preferences-modal)
+// =============================================================================
+
+.wc-component-preferences-modal > .window_content {
+    padding-bottom: var(--space-4);
+}
+
+// =============================================================================
+// Workspace dialogs
+// =============================================================================
+
+// New workspace (name + optional mashup template)
+.wc-new-workspace-modal > .window_content,
+.window_menu.wc-new-workspace-modal > .window_content {
+    padding-bottom: var(--space-4);
+}
+
+// Upload workspace to my resources (PublishWorkspaceWindowMenu): warning
+// notice + a notebook of field groups
+.wc-upload-workspace-modal {
+    > .window_content > .alert:first-child {
+        margin-bottom: var(--space-4);
+    }
+
+    .styled_form .se-notebook {
+        height: 380px;
+        max-height: calc(100vh - 260px);
+    }
+
+    textarea[name="longdescription"] {
+        height: 220px;
+    }
+}
+
+// Upload resource to another marketplace (PublishResourceWindowMenu)
+.window_menu.publish_resource > .window_content {
+    padding-bottom: var(--space-4);
+}
+
+// Parametrization of a preference/property (ParametrizeWindowMenu). The
+// parametrizable inputs of the "Upload workspace" dialog
+// (.parametrizable_input) are styled in components/forms.scss.
+.window_menu.variable_parametrization > .window_content {
+    padding-bottom: var(--space-4);
+}
+
+// Parametrized value editor (ParametrizedTextInputInterface)
+.parametrized_text_input {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+
+    > .se-btn {
+        align-self: flex-start;
+        margin: 0;
+    }
+
+    > .context_selector {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-2);
+
+        > select {
+            @include input-base;
+            flex: 1 1 140px;
+            min-width: 0;
+        }
+
+        > .se-btn {
+            margin: 0;
+        }
+    }
+
+    > .description {
+        font-size: 12px;
+        color: color-mix(in srgb, var(--color-text) 65%, transparent);
+
+        &:empty {
+            display: none;
+        }
+    }
+
+    > .se-text-area {
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 72px;
+        margin: 0;
+        font-family: var(--font-mono);
+        font-size: 12px;
+    }
+}
+
+// Missing dependencies (MissingDependenciesWindowMenu)
+.wc-missing-dependencies-modal > .window_content {
+    > p {
+        color: color-mix(in srgb, var(--color-text) 85%, transparent);
+    }
+
+    > ul {
+        margin: 0 0 var(--space-4);
+        padding: 0;
+        list-style: none;
+        border-top: 1px solid var(--color-rule);
+
+        > li {
+            margin: 0;
+            padding: 6px 0;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--color-accent-800);
+            border-bottom: 1px solid var(--color-rule);
+            overflow-wrap: anywhere;
+        }
+    }
+}
+
+// =============================================================================
+// Screen sizes field (ScreenSizesInputInterface, workspace and tab settings)
+//
+//   .se-screen-size-field
+//     .se-container × N
+//       .se-input-group.se-screen-size-name    (.se-add-on + .se-text-field)
+//       .se-input-group.se-screen-size-from    (.se-add-on + .se-numeric-field)
+//       .se-input-group.se-screen-size-to
+//       .se-input-group.se-screen-size-columns
+//       .se-input-group.se-screen-size-rows
+//       .se-input-group.se-screen-size-buttons (edit + delete buttons)
+//     .se-btn (add)
+//
+// Rendered as the rows of a table: hairline rules, compact inputs.
+// =============================================================================
+
+.se-screen-size-field {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    border-top: 1px solid var(--color-divider);
+
+    > .se-container {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--color-rule);
+    }
+
+    > .se-container > .se-input-group {
+        display: flex;
+        align-items: stretch;
+        min-width: 0;
+        margin: 0;
+
+        > .se-add-on {
+            display: flex;
+            align-items: center;
+            padding: 0 6px;
+            font-size: 11px;
+            letter-spacing: 0.04em;
+            color: var(--color-text-muted);
+            white-space: nowrap;
+            background: transparent;
+            border: 1px solid var(--color-divider);
+            border-right: 0;
+        }
+
+        > .se-text-field,
+        > .se-numeric-field {
+            flex: 1 1 auto;
+            min-width: 0;
+            width: auto;
+            margin: 0;
+        }
+
+        > .se-numeric-field > input {
+            height: 100%;
+            font-family: var(--font-mono);
+            font-size: 12px;
+        }
+    }
+
+    .se-screen-size-name {
+        flex: 1.4 1 140px;
+    }
+
+    .se-screen-size-from,
+    .se-screen-size-to {
+        flex: 1 1 96px;
+    }
+
+    .se-screen-size-columns,
+    .se-screen-size-rows {
+        flex: 0.7 1 80px;
+    }
+
+    .se-screen-size-buttons {
+        flex: none;
+        gap: 2px;
+        margin-left: auto;
+
+        > .se-btn {
+            width: 30px;
+            min-height: 30px;
+            margin: 0;
+            padding: 0;
+            color: var(--color-accent);
+            background: transparent;
+            border-color: transparent;
+            box-shadow: none;
+
+            &::before,
+            &::after {
+                content: none;
+            }
+
+            &:hover {
+                background: var(--color-accent-hover);
+            }
+
+            &:active {
+                background: var(--color-accent-pressed);
+            }
+        }
+
+        > .se-btn.btn-danger {
+            color: var(--color-danger);
+
+            &:hover {
+                background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+            }
+        }
+    }
+
+    // Add screen size
+    > .se-btn {
+        align-self: flex-start;
+        margin: var(--space-2) 0 0;
+    }
+}
+
+// =============================================================================
+// Layout settings (.wc-layout-settings, built by the theme):
+//   table.table of screen sizes
+//   .wc-layout-settings-fields: two `.field`s side by side
+//     (Cell height (px) / Widget margin (px))
+//   .wc-layout-settings-note: 12px hint at 65%
+// See screenshots/light-06-layout-settings-dialog.png
+// =============================================================================
+
+.wc-layout-settings > .window_content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+
+    > * {
+        flex: none;
+        margin: 0;
+    }
+}
+
+.wc-layout-settings {
+    .table {
+        width: 100%;
+        margin: 0;
+        font-size: 13px;
+        border-collapse: collapse;
+
+        th {
+            @include overline;
+            padding: var(--space-2);
+            font-weight: 400;
+            text-align: left;
+            color: var(--color-text-muted);
+            border-bottom: 1px solid var(--color-divider);
+        }
+
+        td {
+            padding: var(--space-2);
+            border-bottom: 1px solid var(--color-rule);
+        }
+
+        tbody tr:hover {
+            background: color-mix(in srgb, var(--color-text) 4%, transparent);
+        }
+
+        tr.active,
+        tr[aria-selected="true"] {
+            background: var(--color-accent-100);
+            color: var(--color-accent-800);
+        }
+
+        .mono,
+        td.wc-layout-settings-range {
+            font-family: var(--font-mono);
+            font-size: 12px;
+        }
+
+        .text-right,
+        th.wc-layout-settings-columns,
+        td.wc-layout-settings-columns {
+            text-align: right;
+        }
+
+        // Inline editors inside the table cells
+        td > .se-text-field,
+        td > .se-numeric-field,
+        td > input {
+            width: 100%;
+            min-height: 30px;
+        }
+    }
+
+    // Two numeric fields side by side
+    .wc-layout-settings-fields {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+
+        > .field > .se-numeric-field,
+        > .field > .se-text-field,
+        > .field > input {
+            box-sizing: border-box;
+            width: 100%;
+            margin: 0;
+        }
+    }
+
+    .wc-layout-settings-note {
+        font-size: 12px;
+        line-height: 1.45;
+        color: color-mix(in srgb, var(--color-text) 65%, transparent);
+    }
+}
+
+@media (max-width: 600px) {
+    .wc-layout-settings .wc-layout-settings-fields {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .se-screen-size-field > .se-container > .se-input-group {
+        flex-basis: 45%;
+    }
+}

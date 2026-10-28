@@ -1,0 +1,9 @@
+{% extends 'wirecloud/views/base_plain.html' %}
+{% block path %}{{ trans("Error") }} 401{% endblock %}
+{% block content %}
+    <div class="wc-error-code mono" aria-hidden="true">401</div>
+    <h1>{% block title %}{{ trans("Error 401 - Unauthorized") }}{% endblock %}</h1>
+    <p>{{ trans("This server could not verify that you are authorized to access the document you requested (%(request_path)s). Either you supplied the wrong credentials (e.g., bad password), or your browser/application does not understand how to supply the credentials required.", request_path=request_path|e) }}</p>
+    <p class="text-muted">{{ trans("Authentication required") }}</p>
+    <a class="se-btn btn-primary wc-error-home" href="{{ url("wirecloud.root") }}">{{ trans("Go to WireCloud") }}</a>
+{% endblock %}

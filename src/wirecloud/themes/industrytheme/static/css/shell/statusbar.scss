@@ -1,0 +1,70 @@
+// Status bar (30px)
+@use "mixins" as *;
+
+.wc-statusbar {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 16px;
+    height: 30px;
+    padding: 0 20px;
+    font-size: 12px;
+    color: color-mix(in srgb, var(--color-text) 65%, transparent);
+    border-top: 1px solid var(--color-divider);
+    background: var(--color-bg);
+    white-space: nowrap;
+
+    &.hidden {
+        display: none;
+    }
+}
+
+.wc-statusbar-state {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+
+    .lc-icon {
+        font-size: 13px;
+    }
+}
+
+.wc-statusbar-message {
+    @include text-truncate;
+}
+
+.wc-statusbar-spacer {
+    flex: 1 1 auto;
+}
+
+.wc-statusbar-counts {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.wc-statusbar-link {
+    padding: 0;
+    font: inherit;
+    color: var(--color-accent-text);
+    background: none;
+    border: 0;
+    cursor: pointer;
+
+    &:hover {
+        color: var(--color-accent-800);
+        text-decoration: underline;
+    }
+}
+
+@media (max-width: 640px) {
+    .wc-statusbar-state {
+        display: none;
+    }
+}
+
+// The status bar replaces the footer of the wiring editor
+.wc-shell .wiring-footer {
+    display: none !important;
+}

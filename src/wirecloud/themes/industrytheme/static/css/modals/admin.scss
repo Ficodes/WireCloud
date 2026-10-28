@@ -1,0 +1,929 @@
+// Administration dialogs: AdminPanelWindowMenu (.wc-admin-panel) and
+// UserManagementWindowMenu (.wc-user-management + its child dialogs).
+//
+// The user management view renders "cards" (.um-card) in a grid. Here they
+// are restyled as the rows of a `.table`-style list: hairline row rules,
+// a 26px avatar, name + secondary text columns and ghost row actions
+// (Delete in the danger color; it already opens an AlertWindowMenu confirm).
+@use "mixins" as *;
+
+// Small ghost button used for row actions
+@mixin ghost-action($color: var(--color-accent)) {
+    min-height: 28px;
+    margin: 0;
+    padding: 0 var(--space-2);
+    font-size: 13px;
+    color: $color;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 0;
+    box-shadow: none;
+
+    &::before,
+    &::after {
+        content: none;
+    }
+
+    &:hover {
+        background: color-mix(in srgb, #{$color} 10%, transparent);
+    }
+
+    &:active {
+        background: color-mix(in srgb, #{$color} 18%, transparent);
+    }
+}
+
+// =============================================================================
+// Administration panel
+//   .panel "System Information" > dl.info-list
+//   .panel "Statistics" > .stats-grid > .panel.stat-card × 4
+//   .panel "Actions" > User Management button
+// =============================================================================
+
+.wc-admin-panel > .window_content {
+    min-height: 0;
+    padding-bottom: var(--space-6);
+
+    > .panel {
+        margin: 0 0 var(--space-6);
+        padding: 0;
+        color: inherit;
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+
+        &:last-child {
+            margin-bottom: 0;
+        }
+
+        > .panel-heading {
+            display: flex;
+            align-items: center;
+            padding: 0 0 6px;
+            color: inherit;
+            background: transparent;
+            border: 0;
+            border-bottom: 1px solid var(--color-divider);
+
+            > .panel-title {
+                @include overline;
+                margin: 0;
+                font-family: var(--font-body);
+                font-weight: 500;
+                color: var(--color-text-muted);
+            }
+        }
+
+        > .panel-body {
+            padding: var(--space-3) 0 0;
+            background: transparent;
+        }
+    }
+}
+
+.wc-admin-panel .info-list {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 6px 24px;
+    margin: 0;
+    font-size: 14px;
+
+    > dt {
+        margin: 0;
+        font-size: 13px;
+        letter-spacing: 0;
+        text-transform: none;
+        color: var(--color-text-muted);
+    }
+
+    > dd {
+        margin: 0;
+    }
+}
+
+.wc-admin-panel .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 22px;
+    padding: 6px;
+}
+
+// Stat cards: blueprint frames (hairline + "+" marks), whatever the state
+.wc-admin-panel .stat-card {
+    @include blueprint-marks(after);
+    margin: 0;
+    padding: 0;
+    text-align: left;
+    color: var(--color-text);
+    background: transparent;
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+    box-shadow: none;
+
+    > .panel-heading:empty {
+        display: none;
+    }
+
+    > .panel-body {
+        padding: var(--space-4);
+        background: transparent;
+    }
+
+    .stat-value {
+        @include heading(36px);
+        margin: 0 0 6px;
+        line-height: 1;
+        color: var(--color-text);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .stat-label {
+        @include overline;
+        font-weight: 400;
+        color: var(--color-text-muted);
+        opacity: 1;
+    }
+}
+
+// =============================================================================
+// User management
+// =============================================================================
+
+.wc-user-management > .window_content {
+    min-height: 0;
+    padding-bottom: var(--space-4);
+}
+
+// Users / Groups / Organizations notebook
+.wc-user-management > .window_content > .se-notebook {
+    position: relative;
+    inset: auto;
+    height: min(640px, calc(100vh - 140px));
+    min-height: 320px;
+
+    > .se-notebook-content-wrapper > .se-notebook-tab-content {
+        padding: 0;
+        overflow: hidden;
+    }
+}
+
+.user-management-tab {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+
+    > .alert {
+        flex: none;
+        margin: var(--space-2) 0;
+    }
+}
+
+// Toolbar: back · search · create
+.um-toolbar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) 0;
+    background: transparent;
+    border: 0;
+
+    > .se-btn {
+        flex: none;
+        margin: 0;
+        white-space: nowrap;
+    }
+
+    > .um-search {
+        flex: 1 1 auto;
+        min-width: 0;
+        width: auto;
+        margin: 0;
+    }
+}
+
+// The lists, rendered as tables
+.um-users-list,
+.um-groups-list,
+.um-orgs-list {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-height: none;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    border-top: 1px solid var(--color-divider);
+    @include scrollbars;
+}
+
+.um-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: 44px;
+    padding: 6px var(--space-2);
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--color-rule);
+    border-radius: 0;
+    box-shadow: none;
+    transform: none;
+    transition: background-color 0.12s linear;
+
+    &:hover {
+        background: color-mix(in srgb, var(--color-text) 4%, transparent);
+        box-shadow: none;
+        transform: none;
+    }
+}
+
+.um-card-header {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+    margin: 0;
+}
+
+// 26px avatars (users) and icons (groups, organizations)
+.um-avatar,
+.um-icon {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    font-family: var(--font-heading);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-accent-800);
+    background: var(--color-accent-100);
+
+    > i {
+        width: 14px;
+        height: 14px;
+    }
+}
+
+// Name (14px) | secondary text (12px, 60%) as two columns
+.um-card-info {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    align-items: baseline;
+    gap: var(--space-4);
+    min-width: 0;
+}
+
+.um-card-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text);
+    @include text-truncate;
+
+    &:only-child {
+        grid-column: 1 / -1;
+    }
+}
+
+.um-card-subtitle {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    @include text-truncate;
+}
+
+// Row actions: ghost buttons
+.um-card-actions {
+    flex: none;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 2px;
+
+    > .se-btn {
+        flex: none;
+        min-width: 0;
+        @include ghost-action;
+    }
+
+    > .se-btn.btn-danger {
+        @include ghost-action(var(--color-danger));
+    }
+}
+
+// Loading / empty / error states
+.um-loading,
+.um-empty,
+.um-error {
+    padding: var(--space-8) var(--space-4);
+    font-size: 14px;
+    text-align: center;
+    color: var(--color-text-muted);
+}
+
+.um-loading::before {
+    content: "";
+    display: block;
+    width: 18px;
+    height: 18px;
+    margin: 0 auto var(--space-3);
+    border: 1.5px solid var(--color-divider);
+    border-top-color: var(--color-accent);
+    border-radius: 0;
+    animation: um-spin 0.9s linear infinite;
+}
+
+@keyframes um-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .um-loading::before {
+        animation-duration: 3s;
+    }
+}
+
+.um-empty {
+    @include icon("square-dashed", before, 28px);
+
+    &::before {
+        display: block;
+        margin: 0 auto var(--space-3);
+        color: var(--color-text-subtle);
+    }
+}
+
+.um-error {
+    margin: var(--space-4) 0;
+    padding: var(--space-4);
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-danger) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-danger) 45%, transparent);
+    border-left-width: 2px;
+    border-left-color: var(--color-danger);
+    border-radius: 0;
+}
+
+// =============================================================================
+// Edit / create user, group and organization dialogs
+// (.wc-edit-user, .wc-edit-group, .wc-add-group, .wc-add-org,
+//  .wc-add-group-to-org, FormWindowMenu .wc-add-user)
+// =============================================================================
+
+.wc-edit-user,
+.wc-edit-group,
+.wc-add-group,
+.wc-add-org,
+.wc-add-group-to-org {
+    transform: none;
+
+    > .window_content {
+        min-height: 0;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+}
+
+// The notebook grows with its contents (tab contents are not absolutely
+// positioned here)
+.wc-user-edit-content {
+    display: block;
+    width: 100%;
+
+    .se-notebook {
+        position: relative;
+        inset: auto;
+        height: auto;
+        min-height: 0;
+    }
+
+    .se-notebook-content-wrapper {
+        position: relative;
+        overflow: visible;
+    }
+
+    .se-notebook-tab-content {
+        position: static;
+        height: auto;
+        padding: 0;
+        overflow: visible;
+    }
+}
+
+// Two-column form: label above the input, checkboxes inline
+.um-edit-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4) 16px;
+    padding: var(--space-4) 0 0;
+
+    > :not(.form-group) {
+        grid-column: 1 / -1;
+    }
+
+    > .alert {
+        margin: 0;
+    }
+
+    // Plain fields (e.g. "Search group..." when adding a group to an
+    // organization)
+    > .se-text-field {
+        box-sizing: border-box;
+        width: 100%;
+        margin: 0;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+
+        > label {
+            flex: none;
+            margin: 0;
+            font-size: 12px;
+            font-weight: 400;
+            line-height: 1.4;
+            text-align: left;
+            color: color-mix(in srgb, var(--color-text) 70%, transparent);
+        }
+
+        > .se-text-field,
+        > .se-password-field,
+        > .se-select {
+            box-sizing: border-box;
+            width: 100%;
+            margin: 0;
+        }
+
+        // Boolean fields: [x] Label
+        &:has(> input.checkbox) {
+            flex-direction: row-reverse;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 8px;
+
+            > label {
+                font-size: 14px;
+                color: var(--color-text);
+            }
+        }
+
+        > input.checkbox {
+            width: 16px;
+            height: 16px;
+            margin: 0;
+            accent-color: var(--color-accent);
+            cursor: pointer;
+        }
+    }
+}
+
+.um-add-group-desc {
+    margin: 0;
+    font-size: 13px;
+    color: color-mix(in srgb, var(--color-text) 85%, transparent);
+}
+
+.um-add-group-label {
+    display: block;
+    margin: 0 0 5px;
+    font-size: 12px;
+    font-weight: 400;
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.um-add-user-field {
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0;
+}
+
+// Save / Cancel inside the edit dialogs: right aligned, Cancel first
+.um-dialog-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    margin: var(--space-4) 0 0;
+    padding: var(--space-3) 0 var(--space-1);
+    border-top: 0;
+
+    > .se-btn {
+        min-width: 0;
+        margin: 0;
+        padding-inline: calc(var(--space-3) * 1.2);
+    }
+
+    > .btn-primary {
+        order: 2;
+    }
+}
+
+// Group members
+.um-member-list {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--color-divider);
+}
+
+.um-member-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    min-height: 38px;
+    margin: 0;
+    padding: 4px 0 4px var(--space-1);
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--color-rule);
+    border-radius: 0;
+
+    &:hover {
+        background: color-mix(in srgb, var(--color-text) 4%, transparent);
+    }
+}
+
+.um-member-name {
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--color-text);
+    @include text-truncate;
+}
+
+.um-member-row > .um-member-remove-btn {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    min-width: 0;
+    font-size: 16px;
+    line-height: 1;
+    @include ghost-action(var(--color-danger));
+    padding: 0;
+}
+
+.um-member-list > .um-empty,
+.um-member-list > .um-loading {
+    padding: var(--space-6) var(--space-4);
+}
+
+// Permissions
+.um-permissions-view {
+    padding: var(--space-4) 0 0;
+}
+
+.um-permissions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin: 0;
+}
+
+.um-permission-category {
+    margin: 0;
+    overflow: visible;
+    background: transparent;
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+}
+
+.um-permission-category-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 4px 4px 4px 12px;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-divider);
+}
+
+.um-permission-category-title {
+    @include overline;
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.um-permission-category-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.um-select-all-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--color-text-muted);
+    border-radius: 0;
+    cursor: pointer;
+    user-select: none;
+
+    &:hover {
+        color: var(--color-text);
+        background: var(--color-hover);
+    }
+
+    > input[type="checkbox"] {
+        width: 14px;
+        height: 14px;
+        margin: 0;
+        accent-color: var(--color-accent);
+    }
+}
+
+.um-category-btn.se-btn {
+    width: 26px;
+    @include ghost-action(var(--color-text-muted));
+    padding: 0;
+
+    &.active {
+        color: var(--color-text);
+        background: var(--color-pressed);
+    }
+}
+
+.um-permission-item {
+    margin: 0;
+    padding: 0;
+    border-bottom: 1px solid var(--color-rule);
+
+    &:last-child {
+        border-bottom: 0;
+    }
+
+    > label.checkbox {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        box-sizing: border-box;
+        width: 100%;
+        margin: 0;
+        padding: 8px 12px;
+        font-size: 14px;
+        font-weight: 400;
+        color: var(--color-text);
+        cursor: pointer;
+        transition: background-color 0.12s linear;
+
+        &:hover {
+            background: var(--color-hover);
+        }
+
+        > input[type="checkbox"] {
+            flex: none;
+            width: 16px;
+            height: 16px;
+            margin: 2px 0 0;
+            accent-color: var(--color-accent);
+        }
+    }
+}
+
+.um-permission-description {
+    margin: 0;
+    padding: 0 12px 8px 38px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: color-mix(in srgb, var(--color-text) 65%, transparent);
+}
+
+// =============================================================================
+// Organization hierarchy (.wc-org-hierarchy). The graph is an SVG drawn
+// with presentation attributes; CSS properties override them.
+//
+//   g.org-node > rect (shadow), rect (box), text (FA glyph), text (name),
+//                text (type), title, g (edit), g (add child), g (remove)
+// =============================================================================
+
+.wc-org-hierarchy > .window_content {
+    display: flex;
+    flex-direction: column;
+    min-height: min(560px, calc(100vh - 160px));
+    max-height: 85vh;
+    overflow: auto;
+}
+
+.um-org-hierarchy-view {
+    flex: 1 1 auto;
+    padding: 0;
+}
+
+.um-org-hierarchy-flex {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.um-org-hierarchy-header {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0 0 var(--space-3);
+    border-bottom: 1px solid var(--color-divider);
+
+    > .se-btn {
+        margin: 0;
+    }
+}
+
+.um-org-sitemap-icon {
+    display: flex;
+    color: var(--color-accent);
+
+    > i {
+        width: 18px;
+        height: 18px;
+    }
+}
+
+.um-org-hierarchy-title {
+    @include heading(17px);
+    min-width: 0;
+    @include text-truncate;
+}
+
+// Node count, as a neutral `.tag`
+.um-org-hierarchy-badge {
+    flex: none;
+    margin-left: auto;
+    padding: 3px 10px;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    color: var(--color-neutral-800);
+    background: var(--color-neutral-100);
+    border-radius: 0;
+}
+
+// Canvas with the wiring dot grid
+.um-org-svg-wrapper {
+    flex: 1 1 auto;
+    display: flex;
+    justify-content: center;
+    min-height: 320px;
+    margin-top: var(--space-4);
+    padding: 20px;
+    overflow: auto;
+    background-color: transparent;
+    background-image: radial-gradient(color-mix(in srgb, var(--color-text) 16%, transparent) 1px, transparent 1px);
+    background-size: 20px 20px;
+    border: 1px solid var(--color-divider);
+    @include scrollbars;
+}
+
+.um-org-svg {
+    display: block;
+    flex-shrink: 0;
+    overflow: visible;
+
+    // Connections + arrow heads
+    > g > path {
+        stroke: var(--color-accent);
+        stroke-width: 1.5;
+    }
+
+    marker path {
+        fill: var(--color-accent);
+    }
+
+    .org-node {
+        // Drop shadow: removed (flat line drawing)
+        > rect:nth-child(1) {
+            display: none;
+        }
+
+        // Node box: groups are hairline boxes on --bg, organizations
+        // get the accent tint
+        > rect:nth-child(2) {
+            fill: var(--color-bg);
+            stroke: var(--color-divider);
+            stroke-width: 1;
+            rx: 0;
+            ry: 0;
+        }
+
+        > rect:nth-child(2)[fill="#4a90d9"] {
+            fill: var(--color-accent-100);
+            stroke: var(--color-accent);
+        }
+
+        > text {
+            font-family: var(--font-body);
+        }
+
+        // Font Awesome glyph: no icon font in this theme
+        > text:nth-of-type(1) {
+            display: none;
+        }
+
+        > text:nth-of-type(2) {
+            fill: var(--color-text);
+            font-weight: 500;
+            font-size: 13px;
+        }
+
+        > text:nth-of-type(3) {
+            fill: var(--color-text-muted);
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        // Node actions: square ghost buttons
+        > g {
+            cursor: pointer;
+
+            > rect {
+                fill: var(--color-bg);
+                stroke: var(--color-divider);
+                rx: 0;
+                ry: 0;
+            }
+
+            > path {
+                fill: var(--color-text-muted);
+                stroke: var(--color-text-muted);
+            }
+
+            &:hover > rect {
+                fill: var(--color-accent-100);
+                stroke: var(--color-accent);
+            }
+
+            &:hover > path {
+                fill: var(--color-accent);
+                stroke: var(--color-accent);
+            }
+        }
+
+        // Add child (+)
+        > g:nth-of-type(2) > line {
+            stroke: var(--color-accent);
+            stroke-width: 1.5;
+        }
+
+        // Remove (×)
+        > g:nth-of-type(3) > line {
+            stroke: var(--color-danger);
+            stroke-width: 1.5;
+        }
+
+        > g:nth-of-type(3):hover > rect {
+            fill: color-mix(in srgb, var(--color-danger) 10%, var(--color-bg));
+            stroke: var(--color-danger);
+        }
+    }
+}
+
+// =============================================================================
+// Narrow screens
+// =============================================================================
+
+@media (max-width: 768px) {
+    .um-card {
+        flex-wrap: wrap;
+    }
+
+    .um-card-info {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+    }
+
+    .um-edit-form {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .um-permissions-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .um-toolbar {
+        flex-wrap: wrap;
+
+        > .um-search {
+            order: 3;
+            flex-basis: 100%;
+        }
+    }
+}

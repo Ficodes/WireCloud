@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}" data-wc-theme="{{ THEME }}" data-wc-view="plain">
+<head>
+    <title>{% block title %}{{ trans("WireCloud Platform") }}{% endblock %}</title>
+
+    {% block meta %}
+{% include "wirecloud/views/_head.html" %}
+    {% endblock %}
+
+    {% block css %}
+        <link rel="stylesheet" href="{{ static("css/cache.css") }}">
+        {% block extra_css %}{% endblock %}
+    {% endblock %}
+
+    {% block bootstrap %}
+        {{ wirecloud_bootstrap(VIEW_MODE, true)|safe }}
+    {% endblock %}
+
+    {% block extra_scripts %}{% endblock %}
+</head>
+
+<body class="wc-plain-page">
+    <header id="wirecloud_header" class="wc-plain-header" role="banner">
+        <a class="wc-plain-brand" href="{{ url("wirecloud.root") }}"><span class="wc-brand-mark" aria-hidden="true">WC</span><span>WireCloud</span></a>
+        <div class="wirecloud_app_bar"><span id="wirecloud_breadcrum" class="wc-breadcrumb" role="navigation" aria-label="{{ trans("Breadcrumb") }}">{% block path %}{% endblock %}</span></div>
+        <div id="wc-user-menu" role="navigation" aria-label="{{ trans("User menu") }}"></div>
+    </header>
+    <main class="plain_content">
+        <div class="wc-plain-card blueprint">
+            <i class="corner tl" aria-hidden="true"></i><i class="corner tr" aria-hidden="true"></i><i class="corner bl" aria-hidden="true"></i><i class="corner br" aria-hidden="true"></i>
+            {% block content %}
+            {% endblock %}
+        </div>
+    </main>
+    {% block footer %}{% endblock %}
+</body>
+</html>

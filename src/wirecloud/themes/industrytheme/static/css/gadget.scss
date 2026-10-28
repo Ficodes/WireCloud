@@ -1,0 +1,24 @@
+// Widget documents (iframes and shadow DOM widgets). Widgets inherit the
+// Industry fonts and colors through the same tokens; the color scheme is
+// propagated by the platform as `data-wc-color-scheme` on the root element
+// of the widget document (or on the host element of shadow DOM widgets).
+@use "tokens";
+
+@include tokens.tokens(":host", ':host([data-wc-color-scheme="dark"])', ":host(:not([data-wc-color-scheme]))");
+
+html {
+    background: var(--color-bg);
+}
+
+body, :host {
+    color: var(--color-text);
+    background: var(--color-bg);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+body {
+    position: static;
+    overflow: auto;
+}

@@ -1,0 +1,567 @@
+// Share, embed, upgrade/downgrade and logs dialogs.
+@use "mixins" as *;
+
+// =============================================================================
+// Share dialog (SharingWindowMenu, .wc-dashboard-share-modal)
+//   h4 "Visibility options"
+//   label.wc-share-visibility-option.radio × 3 (wirecloud/workspace/visibility_option)
+//   h4 "Users and groups with access"
+//   input.se-text-field.wc-dashboard-share-input (+ typeahead)
+//   .wc-dashboard-share-list > .wc-dashboard-share-item × N (wirecloud/workspace/sharing_user)
+// =============================================================================
+
+.wc-dashboard-share-modal > .window_content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+
+    > * {
+        flex: none;
+    }
+
+    > h4 {
+        margin: var(--space-2) 0 0;
+    }
+
+    > h4:first-child {
+        margin-top: 0;
+    }
+}
+
+// Visibility options, styled like the design system `.radio`
+.wc-share-visibility-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1.45;
+    cursor: pointer;
+
+    &.radio {
+        display: flex;
+    }
+
+    > .wc-share-option-btn {
+        position: relative;
+        flex: none;
+        display: flex;
+        padding-top: 2px;
+
+        > input {
+            position: absolute;
+            width: 0;
+            height: 0;
+            margin: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        > .dot {
+            box-sizing: border-box;
+            width: 16px;
+            height: 16px;
+            border: 1.5px solid var(--color-divider);
+            border-radius: 50%;
+            transition: border-color 0.12s linear;
+        }
+
+        > input:checked + .dot {
+            background: var(--color-accent);
+            border-color: var(--color-accent);
+            box-shadow: inset 0 0 0 3px var(--color-bg);
+        }
+
+        > input:focus-visible + .dot {
+            outline: 2px solid var(--color-accent);
+            outline-offset: 2px;
+        }
+
+        > input:disabled + .dot {
+            opacity: 0.45;
+        }
+    }
+
+    &:hover > .wc-share-option-btn > .dot {
+        border-color: var(--color-accent);
+    }
+
+    > .wc-share-option-heading-img {
+        flex: none;
+        display: flex;
+        padding-top: 2px;
+        color: var(--color-text-muted);
+
+        > span {
+            width: 16px;
+            height: 16px;
+        }
+    }
+
+    > .wc-share-option-heading-content {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .wc-share-option-title {
+        font-weight: 500;
+    }
+
+    .wc-share-option-description {
+        font-size: 13px;
+        font-weight: 400;
+        color: color-mix(in srgb, var(--color-text) 65%, transparent);
+    }
+}
+
+// "Add a person, a group or an organization"
+.wc-dashboard-share-input,
+.window_menu .wc-dashboard-share-input {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0;
+}
+
+// Optional row for an explicit "Add" button next to the input:
+//   div.wc-dashboard-share-add > input.wc-dashboard-share-input + .se-btn
+.wc-dashboard-share-add {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+
+    > .wc-dashboard-share-input {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    > .se-btn {
+        flex: none;
+        margin: 0;
+    }
+}
+
+// People with access
+.wc-dashboard-share-list {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    max-height: 220px;
+    margin: 0;
+    overflow-y: auto;
+    border: 0;
+    border-top: 1px solid var(--color-divider);
+    @include scrollbars;
+
+    // Disabled while the dashboard is public
+    &.disabled {
+        opacity: 0.45;
+    }
+}
+
+.wc-dashboard-share-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    padding: 7px 0;
+    font-size: 14px;
+    border-bottom: 1px solid var(--color-divider);
+
+    > div {
+        display: block;
+        white-space: normal;
+    }
+
+    // 26px avatar: the only circle in the system
+    > .wc-dashboard-share-item-icon {
+        flex: none;
+        display: grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        padding: 0;
+        border-radius: 50%;
+        background: var(--color-accent-100);
+        color: var(--color-accent-800);
+        font-size: 13px;
+
+        > .fas,
+        > .fa {
+            width: 14px;
+            height: 14px;
+        }
+    }
+
+    > .wc-dashboard-share-item-description {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding: 0;
+
+        > .user-fullname {
+            font-weight: 400;
+            @include text-truncate;
+        }
+
+        > .user-username {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--color-text-muted);
+            @include text-truncate;
+        }
+    }
+
+    > .wc-dashboard-share-item-permission {
+        flex: none;
+        padding: 0;
+        font-size: 12px;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+    }
+
+    > .wc-dashboard-share-item-options {
+        flex: none;
+        display: flex;
+
+        > .se-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            min-height: 0;
+            padding: 0;
+            color: var(--color-accent);
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 0;
+
+            > .se-icon {
+                width: 14px;
+                height: 14px;
+            }
+
+            &:hover {
+                background: var(--color-accent-hover);
+            }
+
+            &:active {
+                background: var(--color-accent-pressed);
+            }
+
+            // The owner cannot be removed: keep the slot, hide the button
+            &.disabled {
+                visibility: hidden;
+            }
+        }
+    }
+}
+
+// =============================================================================
+// Embed dialog (EmbedCodeWindowMenu, wirecloud/modals/embed_code)
+// =============================================================================
+
+.wc-embed-code-modal > .window_content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+
+    > * {
+        flex: none;
+        margin: 0;
+    }
+}
+
+.wc-embed-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+
+    .se-select {
+        box-sizing: border-box;
+        width: 100%;
+        margin: 0;
+    }
+}
+
+.wc-embed-help {
+    margin: 0;
+    font-size: 14px;
+    color: color-mix(in srgb, var(--color-text) 85%, transparent);
+}
+
+// Mono snippet in a hairline box
+.wc-embed-code > .se-text-area,
+.wc-embed-code-modal .se-text-area {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 104px;
+    margin: 0;
+    padding: 12px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--color-accent-800);
+    word-break: break-all;
+    white-space: pre-wrap;
+    background: transparent;
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+    box-shadow: none;
+    resize: vertical;
+
+    &:focus {
+        border-color: var(--color-accent);
+    }
+
+    &::selection {
+        background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+    }
+}
+
+// =============================================================================
+// Upgrade / downgrade dialog (UpgradeWindowMenu,
+// wirecloud/modals/upgrade_downgrade_component)
+// =============================================================================
+
+.wc-upgrade-component-info {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+    gap: 12px;
+    margin-bottom: var(--space-4);
+
+    .se-select {
+        box-sizing: border-box;
+        width: 100%;
+        margin: 0;
+    }
+}
+
+.wc-upgrade-component-version {
+    display: flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 0 10px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    border: 1px solid var(--color-divider);
+}
+
+.window_menu .wc-upgrade-component-changelog-title,
+.wc-upgrade-component-changelog-title {
+    margin: 0 0 var(--space-2);
+    font-size: 11px;
+    color: var(--color-text-muted);
+}
+
+.wc-upgrade-component-changelog > article,
+.wc-upgrade-component-modal article {
+    box-sizing: border-box;
+    height: 300px;
+    max-height: 45vh;
+    padding: var(--space-3) var(--space-4);
+    overflow: auto;
+    font-size: 13px;
+    border: 1px solid var(--color-divider);
+    border-left: 2px solid var(--color-divider);
+    @include scrollbars;
+
+    &.loading,
+    &.disabled {
+        opacity: 0.45;
+    }
+
+    &.upgrade {
+        border-left-color: var(--color-success);
+    }
+
+    &.downgrade {
+        border-left-color: var(--color-danger);
+    }
+
+    > :first-child {
+        margin-top: 0;
+    }
+}
+
+// =============================================================================
+// Logs dialog (LogWindowMenu, .logwindowmenu). Entries are rendered as rows
+// of a table: level marker, relative date, message and an optional
+// "Details" expander (wirecloud/logs/details).
+// =============================================================================
+
+.logwindowmenu > .window_content {
+    min-height: 120px;
+    max-height: 70vh;
+    padding-top: 0;
+
+    > .alert {
+        display: grid;
+        grid-template-columns: 10px 116px minmax(0, 1fr);
+        column-gap: var(--space-3);
+        align-items: baseline;
+        margin: 0;
+        padding: 9px 0;
+        font-size: 13px;
+        line-height: 1.45;
+        color: var(--color-text);
+        background: transparent;
+        border: 0;
+        border-bottom: 1px solid var(--color-rule);
+        border-radius: 0;
+        box-shadow: none;
+
+        // Level marker (square)
+        &::before {
+            content: "";
+            position: static;
+            display: block;
+            align-self: center;
+            width: 7px;
+            height: 7px;
+            margin: 0;
+            background: var(--color-accent);
+            -webkit-mask: none;
+            mask: none;
+        }
+
+        &.alert-error::before {
+            background: var(--color-danger);
+        }
+
+        &.alert-warning::before {
+            background: var(--color-warning);
+        }
+
+        &.alert-info::before {
+            background: var(--color-accent);
+        }
+
+        // No clearfix: it would become an extra grid item
+        &::after {
+            content: none;
+        }
+
+        > .wc-log-date {
+            margin: 0;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 400;
+            color: var(--color-text-muted);
+            white-space: nowrap;
+        }
+
+        > .wc-log-title {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        > .se-expander {
+            grid-column: 2 / -1;
+            margin: 6px 0 0;
+        }
+    }
+
+    // Separator between log cycles
+    > hr {
+        height: 0;
+        margin: var(--space-4) 0 0;
+        background: none;
+        border: 0;
+        border-top: 1px dashed var(--color-divider);
+    }
+}
+
+// Expander inside log entries: quiet "Details" toggle
+.logwindowmenu .se-expander {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+
+    > .panel-heading {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-height: 0;
+        padding: 0;
+        font-size: 12px;
+        line-height: 20px;
+        color: var(--color-accent-text);
+        background: transparent;
+        border: 0;
+
+        > .se-btn {
+            width: 20px;
+            height: 20px;
+            min-height: 0;
+            margin: 0;
+            padding: 0;
+            color: inherit;
+            font-size: 12px;
+        }
+
+        &:hover > .title {
+            text-decoration: underline;
+        }
+    }
+
+    &.expanded > .panel-body {
+        padding: var(--space-2) 0 0;
+        background: transparent;
+        border: 0;
+    }
+}
+
+// Exception details (wirecloud/logs/details)
+.wc-log-details {
+    font-size: 13px;
+
+    > h6 {
+        margin: var(--space-3) 0 var(--space-1);
+        font-size: 11px;
+        color: var(--color-text-muted);
+    }
+
+    > h6:first-child {
+        margin-top: 0;
+    }
+
+    > p {
+        margin: 0;
+        overflow-wrap: anywhere;
+    }
+
+    > pre {
+        max-height: 260px;
+        margin: 0;
+        padding: var(--space-3);
+        overflow: auto;
+        font-size: 11.5px;
+        line-height: 1.5;
+        color: var(--color-accent-800);
+        white-space: pre;
+        word-break: normal;
+        background: transparent;
+        border: 1px solid var(--color-divider);
+        @include scrollbars;
+    }
+}
+
+@media (max-width: 600px) {
+    .logwindowmenu > .window_content > .alert {
+        grid-template-columns: 10px minmax(0, 1fr);
+
+        > .wc-log-title,
+        > .se-expander {
+            grid-column: 2;
+        }
+    }
+
+    .wc-embed-options,
+    .wc-upgrade-component-info {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

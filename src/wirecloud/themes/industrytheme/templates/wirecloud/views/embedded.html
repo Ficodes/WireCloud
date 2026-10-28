@@ -1,0 +1,13 @@
+{% extends "wirecloud/views/base.html" %}
+
+{% block title %}{{ trans("WireCloud Platform") }}{% endblock %}
+
+{% block rail %}{% endblock %}
+
+{% block header %}<div id="wirecloud_header" class="hidden"></div>{% endblock %}
+
+{% block footer %}{% endblock %}
+
+{% block bootstrap %}
+{{ wirecloud_bootstrap("embedded")|safe }}
+{% endblock %}

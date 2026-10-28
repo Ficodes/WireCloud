@@ -1,0 +1,315 @@
+// Widgets on the dashboard. View mode: minimal chrome (kicker title and a
+// faint minimize button). Edit mode: grip, title, settings, minimize and
+// remove; selected widgets get an accent frame, a resize square and a size
+// badge.
+@use "mixins" as *;
+
+.wc-widget {
+    box-sizing: border-box;
+    margin: 0;
+    overflow: visible;
+
+    &.ui-draggable-dragging > .grid-stack-item-content > .wc-widget-heading {
+        cursor: grabbing;
+    }
+
+    // Removal can be undone for a few seconds (see the theme scripts)
+    &.wc-widget-removing {
+        display: none !important;
+    }
+}
+
+.wc-widget > .grid-stack-item-content {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden !important;
+    color: var(--color-text);
+    background: var(--color-bg);
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.wc-widget-heading {
+    position: absolute;
+    z-index: 4;
+    display: none;
+    flex: none;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 32px;
+    margin: 0;
+    padding: 0 8px 0 12px;
+    background: var(--color-bg);
+    border: 0;
+    user-select: none;
+
+    .wc-titled-widget > .grid-stack-item-content > & {
+        position: relative;
+    }
+
+    .wc-workspace-editing &,
+    .wc-minimized-widget > .grid-stack-item-content > &,
+    .wc-titled-widget > .grid-stack-item-content > & {
+        display: flex;
+    }
+
+    > .panel-title {
+        @include text-truncate;
+        flex: 1 1 auto;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        font: 400 10px/1.3 var(--font-body);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--color-accent);
+    }
+
+    .se-btn {
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        width: 22px;
+        height: 22px;
+        min-width: 0;
+        min-height: 0;
+        padding: 0;
+        color: inherit;
+        background: none;
+        border: 0;
+        box-shadow: none;
+        opacity: 0.45;
+
+        &::before {
+            display: none;
+        }
+
+        &:hover, &:focus-visible {
+            background: var(--color-hover);
+            opacity: 1;
+        }
+
+        .se-icon {
+            font-size: 14px;
+        }
+    }
+
+    .errorbutton {
+        color: var(--color-danger);
+        opacity: 1;
+    }
+}
+
+.wc-widget-heading-actions {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 2px;
+}
+
+// Edit mode
+.wc-workspace-editing .wc-widget-heading {
+    height: 34px;
+    padding: 0 6px;
+    border-bottom: 1px solid var(--color-divider);
+
+    > .panel-title {
+        font: 500 13px/1.3 var(--font-body);
+        letter-spacing: 0;
+        text-transform: none;
+        color: inherit;
+    }
+
+    .se-btn {
+        opacity: 0.7;
+    }
+
+    // The grip toggles whether viewers can move the widget: it always looks
+    // like a grip, highlighted when viewers are allowed to move the widget
+    .wc-grip-button {
+        cursor: inherit;
+        opacity: 0.7;
+
+        .se-icon {
+            font-size: 15px;
+        }
+
+        .fa-anchor::before {
+            -webkit-mask-image: url("../icons/grip-vertical.svg");
+            mask-image: url("../icons/grip-vertical.svg");
+        }
+
+        .fa-grip-vertical {
+            color: var(--color-accent);
+        }
+    }
+
+    .wc-moveable-widget > .grid-stack-item-content > & {
+        cursor: grab;
+    }
+}
+
+.wc-minimized-widget > .grid-stack-item-content > .wc-widget-heading {
+    border-bottom: 0;
+}
+
+.wc-widget-body {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+
+    > iframe, > wirecloud-widget {
+        position: absolute;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+        border: 0;
+    }
+
+    .wc-minimized-widget > .grid-stack-item-content > & {
+        visibility: hidden;
+        height: 0;
+    }
+}
+
+// Inline title edition
+.wc-widget-heading .se-editable-element[contenteditable="true"] {
+    padding: 0 4px;
+    outline: 1px solid var(--color-accent);
+    background: var(--color-surface);
+}
+
+// Selected widget
+.wc-widget-selected > .grid-stack-item-content {
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-md);
+
+    > .wc-widget-heading {
+        color: var(--color-accent-800);
+        background: var(--color-accent-100);
+    }
+}
+
+.wc-widget-size-badge {
+    position: absolute;
+    right: 20px;
+    bottom: 6px;
+    z-index: 5;
+    display: none;
+    padding: 2px 6px;
+    font: 11px/1.3 var(--font-mono);
+    color: var(--color-bg);
+    background: var(--color-accent);
+    pointer-events: none;
+
+    .wc-workspace-editing .wc-widget-selected:not(.wc-minimized-widget) & {
+        display: block;
+    }
+}
+
+// GridStack resize handles: only the bottom-right one is drawn (a 14×14
+// accent square on the selected widget); the others stay functional
+.grid-stack > .grid-stack-item > .ui-resizable-handle {
+    background-image: none !important;
+    opacity: 1;
+
+    &::after {
+        display: none;
+    }
+}
+
+.grid-stack > .grid-stack-item > .ui-resizable-se {
+    right: var(--gs-item-margin-right, 0px) !important;
+    bottom: var(--gs-item-margin-bottom, 0px) !important;
+    width: 14px !important;
+    height: 14px !important;
+    background: var(--color-accent) !important;
+    transform: none !important;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.wc-workspace-editing .grid-stack > .wc-widget-selected > .ui-resizable-se,
+.wc-workspace-editing .grid-stack > .wc-widget:hover > .ui-resizable-se {
+    opacity: 1;
+}
+
+// Full dragboard widgets
+.wc-widget-fulldragboard {
+    position: fixed !important;
+    top: var(--wc-fulldragboard-top, 0px) !important;
+    left: var(--wc-fulldragboard-left, 0px) !important;
+    z-index: 0 !important;
+    width: var(--wc-fulldragboard-width, 100%) !important;
+    height: var(--wc-fulldragboard-height, 100%) !important;
+    pointer-events: none;
+
+    > .grid-stack-item-content {
+        border: 0;
+        box-shadow: none;
+
+        > .wc-widget-body, > .wc-widget-body > * {
+            pointer-events: none !important;
+        }
+
+        > .wc-widget-heading {
+            cursor: default;
+            pointer-events: auto;
+
+            .fa-minus {
+                display: none;
+            }
+        }
+    }
+}
+
+.wc-workspace-tab-content.wc-fulldragboard-active > .grid-stack > .wc-widget:not(.wc-widget-fulldragboard):not(.wc-docked-widget):not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    z-index: 1;
+}
+
+// Missing widgets
+.wc-missing-widget > .grid-stack-item-content {
+    border-style: dashed;
+    border-color: var(--color-danger);
+
+    > .wc-widget-heading > .panel-title {
+        color: var(--color-danger);
+    }
+}
+
+// Widgets that require the user's attention
+.wc-widget-highlight > .grid-stack-item-content {
+    animation: wc-widget-highlight 1.2s ease-in-out 3;
+}
+
+@keyframes wc-widget-highlight {
+    50% {
+        border-color: var(--color-accent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 35%, transparent);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wc-widget-highlight > .grid-stack-item-content {
+        animation: none;
+        border-color: var(--color-accent);
+    }
+}
+
+// Operators running in the workspace view (hidden iframes)
+.wc-operator {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border: 0;
+    visibility: hidden;
+}
+
+// Missing widget page (rendered inside the widget iframe)
+.wc-missing-widget-page {
+    padding: 10px;
+}
