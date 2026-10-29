@@ -257,7 +257,7 @@ def test_url_helpers_and_download_response(monkeypatch, tmp_path):
     with_state = http.get_redirect_response(_request(query="state=/next"))
     assert with_state.headers["location"] == "http://root/next"
     abs_state = http.get_redirect_response(_request(query="state=https://dest/"))
-    assert abs_state.headers["location"] == "https://dest/"
+    assert abs_state.headers["location"] == "http://root/"
 
     # Download response branches
     base_dir = tmp_path / "base"

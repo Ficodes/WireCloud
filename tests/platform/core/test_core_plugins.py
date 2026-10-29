@@ -388,15 +388,14 @@ def test_get_ajax_endpoints_paths(monkeypatch):
     monkeypatch.setattr(core_plugins.settings, "OID_CONNECT_ENABLED", True)
     oidc_endpoints = plugin.get_ajax_endpoints("classic", request)
     oidc_login = next(e for e in oidc_endpoints if e.id == "LOGIN_VIEW")
-    assert "redirect_uri=" in oidc_login.url
-    assert "state=" in oidc_login.url
+    assert "return_to=" in oidc_login.url
 
     patterns_with_query = _base_patterns()
     patterns_with_query["login"] = URLTemplate(urlpattern="/login?x=1", defaults={})
     monkeypatch.setattr(core_plugins, "get_plugin_urls", lambda: patterns_with_query)
     oidc_endpoints_q = plugin.get_ajax_endpoints("classic", request)
     oidc_login_q = next(e for e in oidc_endpoints_q if e.id == "LOGIN_VIEW")
-    assert "&redirect_uri=" in oidc_login_q.url
+    assert "&return_to=" in oidc_login_q.url
 
 
 def test_get_ajax_endpoints_missing_proxy_raises(monkeypatch):

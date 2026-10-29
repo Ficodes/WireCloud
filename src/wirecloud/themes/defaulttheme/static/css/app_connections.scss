@@ -1,0 +1,91 @@
+// Copyright (c) 2026 Future Internet Consulting and Development Solutions S.L.
+
+// This file is part of Wirecloud.
+
+// Wirecloud is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Wirecloud is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+
+// You should have received a copy of the GNU Affero General Public License
+// along with Wirecloud.  If not, see <http://www.gnu.org/licenses/>.
+
+.window_menu.wc-app-connections {
+    width: 780px;
+    min-width: 0;
+    max-width: calc(100vw - 32px);
+}
+
+.wc-app-connections > .window_content {
+    min-height: 120px;
+    max-height: min(65vh, 640px);
+    overflow: auto;
+    overflow-wrap: anywhere;
+}
+
+.wc-app-connections {
+    .panel:last-child {
+        margin-bottom: 0;
+    }
+
+    .panel-title {
+        font-weight: 600;
+    }
+
+    .panel-subtitle {
+        margin-top: 4px;
+    }
+
+    .app-connection-permissions {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        line-height: 1.5;
+    }
+
+    .app-connection-permission {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin: 8px 0;
+        font-weight: normal;
+
+        > input {
+            flex: none;
+            margin-top: 4px;
+        }
+    }
+
+    .app-connection-help {
+        margin: 12px 0 0;
+    }
+
+    .app-connection-footer {
+        display: flex;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 16px;
+
+        > .se-btn {
+            flex: none;
+        }
+    }
+
+    .app-connection-details {
+        flex: 1;
+        min-width: 140px;
+
+        > summary {
+            cursor: pointer;
+        }
+
+        > p {
+            margin-bottom: 0;
+        }
+    }
+}

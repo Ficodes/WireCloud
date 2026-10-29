@@ -6,6 +6,58 @@ permissions:
   contents: read
 
 jobs:
+  oauth_and_mcp:
+    name: OAuth and MCP (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-test.txt
+            constraints-mcp.txt
+
+      - name: Install tested OAuth and MCP dependencies
+        run: python -m pip install -c constraints-mcp.txt -r requirements.txt -r requirements-test.txt mcp
+
+      - name: Require the MCP SDK
+        # Missing optional dependencies must fail this job instead of skipping MCP tests.
+        run: python -c "from mcp.server import MCPServer"
+
+      - name: Test OAuth, MCP, and core integration
+        run: |
+          python -m pytest tests -q \
+            --cov=wirecloud.oauth2provider \
+            --cov=wirecloud.mcp \
+            --cov=wirecloud.commons.auth \
+            --cov-branch \
+            --cov-fail-under=100 \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage-oauth-mcp.xml \
+            --junitxml=oauth-mcp-results.xml
+
+      - name: Store OAuth and MCP test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: oauth-mcp-python-${{ matrix.python }}
+          path: |
+            coverage-oauth-mcp.xml
+            oauth-mcp-results.xml
+          if-no-files-found: ignore
+
   test_and_coverage:
     name: Test and coverage
     permissions:

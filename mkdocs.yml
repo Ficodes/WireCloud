@@ -28,6 +28,8 @@ nav:
   - Administration: administration.md
   - Migrating from WireCloud 1: migration.md
   - HTTP API: api.md
+  - AI access (MCP): mcp.md
+  - OAuth client connections: oauth2.md
   - Component development:
       - Packaging components: components.md
       - FIWARE Application Mashup - Widget API Specification: mashup-platform-api.md

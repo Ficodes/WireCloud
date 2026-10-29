@@ -243,15 +243,23 @@ async def insert_workspace(db: DBSession, workspace: Workspace) -> None:
 
 
 async def change_workspace(db: DBSession, workspace: Workspace, user: Optional[User]) -> None:
+    from wirecloud.platform.workspace.concurrency import conditional_query, check_write
     await cache.delete(_workspace_cache_key(workspace, user))
     await cache.delete(_variable_values_cache_key(workspace, user))
 
-    workspace.last_modified = datetime.now(timezone.utc)
-    query = {"_id": ObjectId(workspace.id)}
+    timestamp = datetime.now(timezone.utc)
+    timestamp = timestamp.replace(microsecond=timestamp.microsecond // 1000 * 1000)
+    if workspace.last_modified is not None:
+        from datetime import timedelta
+        previous = workspace.last_modified.replace(tzinfo=timezone.utc)
+        timestamp = max(timestamp, previous.replace(microsecond=previous.microsecond // 1000 * 1000) + timedelta(milliseconds=1))
+    workspace.last_modified = timestamp
+    query = conditional_query(workspace.id, {"_id": ObjectId(workspace.id)})
 
     data = workspace.model_dump(by_alias=True)
 
-    await db.client.workspaces.replace_one(query, data)
+    result = await db.client.workspaces.replace_one(query, data)
+    check_write(workspace.id, result, workspace.last_modified)
     await update_workspace_in_index(db, workspace)
 
 
@@ -274,8 +282,10 @@ async def is_a_workspace_with_that_name(db: DBSession, name: str, creator_id: Id
 
 
 async def delete_workspace(db: DBSession, workspace: Workspace) -> None:
-    query = {"_id": ObjectId(workspace.id)}
-    await db.client.workspaces.delete_one(query)
+    from wirecloud.platform.workspace.concurrency import conditional_query, check_write
+    query = conditional_query(workspace.id, {"_id": ObjectId(workspace.id)})
+    result = await db.client.workspaces.delete_one(query)
+    check_write(workspace.id, result, deleted=True)
     await delete_workspace_from_index(workspace)
 
 

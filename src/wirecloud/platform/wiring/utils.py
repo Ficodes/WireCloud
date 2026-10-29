@@ -287,11 +287,13 @@ async def check_wiring(db: DBSession, request: Request, user: UserAll, new_wirin
             old_operator = old_wiring_status.operators[operator_id]
             added_preferences = set(operator.preferences.keys()) - set(old_operator.preferences.keys())
             removed_preferences = set(old_operator.preferences.keys()) - set(operator.preferences.keys())
-            updated_preferences = set(operator.preferences.keys()).intersection(old_operator.preferences.keys())
+            updated_preferences = {key for key in set(operator.preferences).intersection(old_operator.preferences)
+                                   if operator.preferences[key] != old_operator.preferences[key]}
 
             added_properties = set(operator.properties.keys()) - set(old_operator.properties.keys())
             removed_properties = set(old_operator.properties.keys()) - set(operator.properties.keys())
-            updated_properties = set(operator.properties.keys()).intersection(old_operator.properties.keys())
+            updated_properties = {key for key in set(operator.properties).intersection(old_operator.properties)
+                                 if operator.properties[key] != old_operator.properties[key]}
         else:
             # New operator
             added_preferences = operator.preferences.keys()

@@ -158,7 +158,42 @@ async def populate(self, db, wirecloud_user) -> bool:
 
 This hook runs when an administrator executes `python -m manage populate`, not automatically at every startup. It receives a database session and WireCloud's internal `wirecloud` user. Make it safe to repeat and commit database work consistently with the existing CRUD helpers.
 
+## Runtime resources
+
+Use FastAPI's native router lifespan for background services, database indexes,
+and other runtime resources. Attaching it to the router keeps startup and
+shutdown beside the endpoints that need them:
+
+```python
+from contextlib import asynccontextmanager
+from fastapi import APIRouter
+
+
+@asynccontextmanager
+async def lifespan(app):
+    async with AcmeClient() as client:
+        app.state.acme_client = client
+        yield
+
+
+router = APIRouter(lifespan=lifespan)
+```
+
+Register this router using `app.include_router(router)` in the plugin constructor,
+as in the minimal example. FastAPI composes the router lifespans with WireCloud's
+application lifespan: settings are validated first, resources start in router
+registration order, and they close in reverse order before the database closes.
+The same cleanup occurs if a later router fails to start. Runtime resources are
+not opened during build or offline plugin discovery. A separate WireCloud
+plugin lifecycle hook is unnecessary.
+
 ## Other extension hooks
+
+Keep identity-provider handling in WireCloud's auth hooks;
+resource plugins can register their audiences and scopes with
+[`wirecloud.oauth2provider`](oauth2.md). That module provides authorization,
+themeable consent and connection management, and scoped bearer verification.
+The [MCP plugin](mcp.md) uses this public API; other plugins need no MCP dependency.
 
 Override only the hooks the plugin needs:
 

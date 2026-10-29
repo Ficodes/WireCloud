@@ -17,11 +17,13 @@
 # along with Wirecloud.  If not, see <http://www.gnu.org/licenses/>.
 
 from wirecloud import settings
-from wirecloud.platform.plugins import URLTemplate, get_idm_get_authorization_url_functions
+from wirecloud.platform.plugins import URLTemplate
 
 patterns: dict[str, URLTemplate] = {
     # Auth
     'login': URLTemplate(urlpattern='/login', defaults={}),
+    'wirecloud.login_form': URLTemplate(urlpattern='/login', defaults={}),
+    'wirecloud.begin_login': URLTemplate(urlpattern='/auth/login', defaults={}),
     'oidc_login_callback': URLTemplate(urlpattern='/oidc/callback', defaults={}),
     'logout': URLTemplate(urlpattern='/logout', defaults={}),
     'wirecloud.token_refresh': URLTemplate(urlpattern='/api/auth/refresh', defaults={}),
@@ -35,7 +37,5 @@ patterns: dict[str, URLTemplate] = {
 }
 
 def get_urlpatterns() -> dict[str, URLTemplate]:
-    if getattr(settings, 'OID_CONNECT_ENABLED', False) and getattr(settings, 'OID_CONNECT_PLUGIN', "") in get_idm_get_authorization_url_functions():
-        patterns['login'] = get_idm_get_authorization_url_functions()[getattr(settings, 'OID_CONNECT_PLUGIN', "")]()
-
-    return patterns
+    login = patterns['wirecloud.begin_login'] if settings.OID_CONNECT_ENABLED else patterns['login']
+    return {**patterns, 'login': login}

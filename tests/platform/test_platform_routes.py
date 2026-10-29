@@ -78,16 +78,15 @@ async def test_render_workspace_view_login_redirects_and_errors(monkeypatch, db_
 
     redirected = await routes.render_workspace_view(db_session, request, None, "wirecloud", "home")
     assert isinstance(redirected, RedirectResponse)
-    assert "next=" in redirected.headers["location"]
+    assert "return_to=" in redirected.headers["location"]
 
     monkeypatch.setattr(routes.settings, "OID_CONNECT_ENABLED", True)
     redirected_oidc = await routes.render_workspace_view(db_session, request, None, "wirecloud", "home")
-    assert "redirect_uri=" in redirected_oidc.headers["location"]
-    assert "state=" in redirected_oidc.headers["location"]
+    assert "return_to=" in redirected_oidc.headers["location"]
 
     monkeypatch.setattr(routes, "get_absolute_reverse_url", lambda *_args, **_kwargs: "https://wc/login?x=1")
     redirected_oidc_with_query = await routes.render_workspace_view(db_session, request, None, "wirecloud", "home")
-    assert "&redirect_uri=" in redirected_oidc_with_query.headers["location"]
+    assert "&return_to=" in redirected_oidc_with_query.headers["location"]
 
     monkeypatch.setattr(routes.settings, "ALLOW_ANONYMOUS_ACCESS", True)
 

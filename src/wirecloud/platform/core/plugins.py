@@ -472,14 +472,7 @@ class WirecloudCorePlugin(WirecloudPlugin):
             raise ValueError('Missing proxy url pattern. Is the proxy plugin enabled?')
 
         login_url_pattern = URLTemplate(urlpattern=url_patterns['login'].urlpattern, defaults={})
-        if getattr(settings, 'OID_CONNECT_ENABLED', False):
-            if '?' in login_url_pattern.urlpattern:
-                login_url_pattern.urlpattern += '&'
-            else:
-                login_url_pattern.urlpattern += '?'
-            login_url_pattern.urlpattern += f"redirect_uri={quote_plus(get_absolute_reverse_url('oidc_login_callback', request))}"
-            # Add the current URL as the state, in order to redirect to the same page after login
-            login_url_pattern.urlpattern += f"&state={quote_plus(request.url.path + (('?' + request.url.query) if request.url.query else ''))}"
+        login_url_pattern.urlpattern += ('&' if '?' in login_url_pattern.urlpattern else '?') + f"return_to={quote_plus(request.url.path + (('?' + request.url.query) if request.url.query else ''))}"
 
         endpoints = (
             AjaxEndpoint(id='IWIDGET_COLLECTION', url=build_url_template(url_patterns['wirecloud.iwidget_collection'],

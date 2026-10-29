@@ -1,0 +1,54 @@
+/*
+ * Copyright (c) 2026 Future Internet Consulting and Development Solutions S.L.
+ *
+ * This file is part of Wirecloud.
+ *
+ * Wirecloud is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Wirecloud is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with Wirecloud.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+.oauth-page { min-height: 100vh; height: auto; margin: 0; overflow: auto; }
+.oauth-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 32px; }
+.oauth-brand { display: flex; align-items: center; gap: 12px; }
+.oauth-brand img { object-fit: contain; }
+.oauth-main { width: min(100% - 40px, 650px); margin: 32px auto; }
+.oauth-panel .panel-title { margin: 0; }
+.oauth-panel .panel-body > * + * { margin-top: 16px; }
+.oauth-panel .alert { margin-bottom: 16px; }
+.oauth-panel .se-alert-heading:empty { display: none; }
+.oauth-permissions { padding-left: 24px; }
+.oauth-permissions li { margin: 8px 0; overflow-wrap: anywhere; }
+.oauth-details summary { width: fit-content; cursor: pointer; }
+.oauth-details dl, .oauth-details p { margin-top: 12px; }
+.oauth-details dt { margin-top: 8px; }
+.oauth-details dd, .oauth-details p, .oauth-panel strong { overflow-wrap: anywhere; }
+.oauth-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin: 0; }
+.oauth-actions .se-btn { margin: 0; }
+.oauth-help, .oauth-footer { margin: 20px; text-align: center; }
+.oauth-connections { padding: 0; list-style: none; }
+.oauth-connections > li + li { margin-top: 24px; }
+.oauth-connection-form { margin: 16px 0; }
+.oauth-permission-options { border: 0; padding: 0; margin: 0 0 16px; }
+.oauth-permission-options legend { font-size: 1em; font-weight: 600; margin-bottom: 8px; }
+.oauth-permission-options label { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0; font-weight: normal; }
+.oauth-permission-options input { flex: none; margin-top: 4px; }
+.oauth-connection-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.oauth-connection-heading > div { min-width: 0; overflow-wrap: anywhere; }
+.oauth-connection-heading form { margin: 0; }
+.oauth-connection-heading h2, .oauth-connection-heading p { margin: 0; }
+@media (max-width: 520px) {
+    .oauth-header { padding: 16px 20px; }
+    .oauth-header-label { display: none; }
+    .oauth-main { margin-top: 16px; }
+    .oauth-actions .se-btn { flex: 1; }
+}

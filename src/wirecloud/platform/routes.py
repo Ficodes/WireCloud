@@ -42,15 +42,7 @@ router = APIRouter()
 
 async def render_workspace_view(db: DBSession, request: Request, user: Optional[UserAll], owner: str, workspace: str) -> Response:
     login_url = get_absolute_reverse_url("login", request)
-    if getattr(settings, 'OID_CONNECT_ENABLED', False):
-        if '?' in login_url:
-            login_url += '&'
-        else:
-            login_url += '?'
-        login_url += f"redirect_uri={quote_plus(get_absolute_reverse_url('oidc_login_callback', request))}"
-        login_url += f"&state={quote_plus(request.url.path + '?' + request.url.query)}"
-    else:
-        login_url += f"?next={quote_plus(request.url.path + '?' + request.url.query)}"
+    login_url += ('&' if '?' in login_url else '?') + f"return_to={quote_plus(request.url.path + '?' + request.url.query)}"
 
     if settings.ALLOW_ANONYMOUS_ACCESS is False and user is None:
         return RedirectResponse(login_url)

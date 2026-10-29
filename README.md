@@ -77,6 +77,8 @@ follow the complete [getting-started guide](docs/getting-started.md).
 | Operate, back up, and restore WireCloud | [Administration](docs/administration.md) |
 | Build widgets, operators, or mashups | [Component development](docs/components.md) |
 | Integrate with WireCloud over HTTP | [HTTP API](docs/api.md) |
+| Connect an AI assistant | [MCP plugin](docs/mcp.md) |
+| Offer OAuth connections from a plugin | [OAuth module](docs/oauth2.md) |
 | Customize the interface or backend | [Themes](docs/themes.md) and [plugins](docs/plugins.md) |
 | Migrate an existing deployment | [Migration guide](docs/migration.md) |
 

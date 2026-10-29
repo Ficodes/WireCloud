@@ -3311,3 +3311,75 @@ msgstr "サイドバーの表示モード"
 #: static/js/wirecloud/ui/WidgetViewMenuItems.js:194
 msgid "Top sidebar"
 msgstr "上側のサイドバー"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:47
+msgid "Access denied. Reopen App connections and try again."
+msgstr "アクセスが拒否されました。「アプリケーションの接続」を開き直して、もう一度お試しください。"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:28
+#: static/js/wirecloud/ui/WirecloudHeader.js:101
+msgid "App connections"
+msgstr "アプリケーションの接続"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:99
+msgid "Application ID"
+msgstr "アプリケーション ID"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:83
+msgid ""
+"Applications you authorize will appear here. You can revoke their access at "
+"any time."
+msgstr "承認したアプリケーションがここに表示されます。アクセス権はいつでも取り消せます。"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../mcp/tools.py:11
+msgid "Create and edit workspaces, tabs, components, layouts, preferences, and wiring"
+msgstr "ワークスペース、タブ、コンポーネント、レイアウト、設定、ワイヤリングの作成と編集"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../mcp/tools.py:12
+msgid "Delete owned workspaces and remove permitted workspace contents"
+msgstr "所有するワークスペースの削除と、削除権限のあるワークスペース内のコンテンツの削除"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../mcp/tools.py:13
+msgid "Install finished component packages for your account"
+msgstr "自分のアカウントへの完成済みコンポーネントパッケージのインストール"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:57
+msgid "Loading app connections…"
+msgstr "アプリケーションの接続を読み込み中…"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:82
+msgid "No connected applications"
+msgstr "接続されたアプリケーションはありません"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../mcp/tools.py:10
+msgid "Read accessible workspaces, components, and documentation; export workspaces"
+msgstr "アクセス可能なワークスペース、コンポーネント、ドキュメントの閲覧と、ワークスペースのエクスポート"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:33
+msgid "Retry"
+msgstr "再試行"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:87
+msgid "Revoke"
+msgstr "取り消す"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:88
+msgid "Revoke access for"
+msgstr "アクセス権を取り消す対象:"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:43
+msgid "Unable to load app connections. Please try again."
+msgstr "アプリケーションの接続を読み込めませんでした。もう一度お試しください。"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../mcp/tools.py:14
+msgid "Uninstall components from your personal collection"
+msgstr "自分のコレクションからのコンポーネントのアンインストール"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:45
+msgid "Your session has expired. Sign in again to manage app connections."
+msgstr "セッションの有効期限が切れました。アプリケーションの接続を管理するには、もう一度サインインしてください。"

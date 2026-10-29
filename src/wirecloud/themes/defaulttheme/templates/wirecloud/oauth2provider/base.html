@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}{{ trans("Application connections") }}{% endblock %} · WireCloud</title>
+    <link rel="icon" href="{{ static('images/favicon.ico') }}">
+    {% block styles %}
+    <link rel="stylesheet" href="{{ static('css/cache.css') }}">
+    <link rel="stylesheet" href="{{ static('css/oauth2provider.css') }}">
+    {% endblock %}
+    {% block scripts %}
+    <script defer src="{{ static('js/cache.js', view='oauth2') }}"></script>
+    {% endblock %}
+</head>
+<body class="oauth-page">
+    <header class="oauth-header">
+        {% block branding %}
+        <a class="oauth-brand" href="{{ home_url }}" aria-label="{{ trans('WireCloud home') }}">
+            <img src="{{ static('images/logos/header.png') }}" alt="" width="58" height="35">
+            <span>WireCloud</span>
+        </a>
+        {% endblock %}
+        <span class="oauth-header-label">{{ trans("Application connections") }}</span>
+    </header>
+    <main class="oauth-main" id="main-content">
+        {% block content %}{% endblock %}
+    </main>
+    {% block footer %}
+    {% include "wirecloud/views/footer.html" %}
+    {% endblock %}
+</body>
+</html>

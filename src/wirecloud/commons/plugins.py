@@ -70,4 +70,3 @@ class WirecloudCommonsPlugin(WirecloudPlugin):
 
     def get_management_commands(self, subparsers: _SubParsersAction) -> dict[str, Callable]:
         return setup_commands(subparsers)
-

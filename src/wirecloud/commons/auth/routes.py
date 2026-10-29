@@ -16,15 +16,19 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Wirecloud.  If not, see <http://www.gnu.org/licenses/>.
 
-from fastapi import APIRouter, Request, Query, Body, Path
-from fastapi.responses import HTMLResponse, Response
-from datetime import datetime, timezone
+from contextlib import asynccontextmanager
+from typing import AsyncIterator, Literal, Optional
+
+from fastapi import APIRouter, FastAPI, HTTPException, Request, Query, Body, Path
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from datetime import datetime, timedelta, timezone
 from pydantic import ValidationError
 import jwt
 import asyncio
-from urllib.parse import urlparse
+import inspect
+from urllib.parse import parse_qsl, urlencode, urlparse, urlsplit, urlunsplit
 
-from wirecloud.commons.auth.models import Group
+from wirecloud.commons.auth.models import DBLoginAttempt, Group
 from wirecloud.commons.search import add_user_to_index, add_group_to_index
 from wirecloud.database import Id
 from wirecloud.commons.auth.schemas import UserLogin, UserToken, UserWithPassword, UserTokenType, User, UserCreate, \
@@ -35,36 +39,154 @@ from wirecloud.commons.auth.crud import get_user_with_password, set_login_date_f
     create_group_if_not_exists, remove_user_from_all_groups, set_token_expiration, remove_user_idm_data, \
     get_user_with_all_info_by_username, get_token_idm_session, update_user_with_all_info, delete_user, \
     get_group_by_name, get_user_by_id, create_group_db, add_group_to_users, remove_group_to_users, update_group, \
-    delete_group, create_organization_db, get_all_organization_groups, update_path_for_descendants, delete_organization
+    delete_group, create_organization_db, get_all_organization_groups, update_path_for_descendants, delete_organization, \
+    ensure_login_attempt_indexes, create_login_attempt
 from wirecloud.commons.auth.utils import check_password, SessionDepNoCSRF, SessionDep, \
-    UserDep, UserDepNoCSRF, RealUserDep, hash_password
-from wirecloud.database import DBDep, commit
+    UserDep, UserDepNoCSRF, RealUserDep, hash_password, accepts_context, consume_login_attempt, validate_login_return_to
+from wirecloud.database import DBDep, commit, get_session
 from wirecloud.commons.utils.http import build_error_response, build_validation_error_response, produces, consumes, \
     get_redirect_response, get_absolute_reverse_url, resolve_url_name, authentication_required
 from wirecloud import settings
 from wirecloud import docs as root_docs
-from wirecloud.commons.auth import docs
+from wirecloud.commons.auth import docs, tokens
 from wirecloud.platform.plugins import get_idm_get_token_functions, get_idm_get_user_functions, \
-    get_idm_backchannel_logout_functions
+    get_idm_backchannel_logout_functions, get_idm_get_authorization_url_functions
 from wirecloud.platform.routes import render_wirecloud
 from wirecloud.platform.workspace.crud import get_workspace_by_username_and_name
 from wirecloud.translation import gettext as _
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    provider = app.dependency_overrides.get(get_session, get_session)
+    async for db in provider():
+        await ensure_login_attempt_indexes(db)
+        await commit(db)
+    yield
+
+
 router = APIRouter()
-base_router = APIRouter()
+base_router = APIRouter(lifespan=lifespan)
 admin_router = APIRouter()
+
+
+@base_router.get(
+    "/auth/login",
+    summary=docs.begin_login_summary,
+    description=docs.begin_login_description,
+    response_class=RedirectResponse,
+    status_code=302,
+    response_description=docs.begin_login_response_description,
+    responses={
+        302: {
+            "headers": {
+                "Location": {"description": docs.login_redirect_location_description, "schema": {"type": "string"}},
+                "Set-Cookie": {"description": docs.begin_login_browser_cookie_description, "schema": {"type": "string"}},
+            },
+        },
+        400: {
+            "description": docs.begin_login_bad_request_response_description,
+            "content": {"application/json": {
+                "schema": docs.login_http_error_schema, "example": docs.begin_login_bad_request_response_example,
+            }},
+        },
+        503: {
+            "description": docs.begin_login_unavailable_response_description,
+            "content": {"application/json": {
+                "schema": docs.login_http_error_schema, "example": docs.begin_login_unavailable_response_example,
+            }},
+        },
+    },
+)
+async def begin_login(
+    request: Request,
+    db: DBDep,
+    return_to: str = Query("/", description=docs.begin_login_return_to_description),
+    next_url: Optional[str] = Query(None, alias="next", description=docs.begin_login_next_description),
+    prompt: Optional[Literal["login", "select_account", "consent", "none"]] = Query(
+        None, description=docs.begin_login_prompt_description
+    ),
+) -> RedirectResponse:
+    return_to = validate_login_return_to(next_url or return_to)
+    if not settings.OID_CONNECT_ENABLED:
+        destination = get_absolute_reverse_url("wirecloud.login_form", request)
+        return RedirectResponse(destination + "?" + urlencode({"return_to": return_to}), 302)
+
+    provider = getattr(settings, "OID_CONNECT_PLUGIN", "")
+    functions = get_idm_get_authorization_url_functions()
+    if provider not in functions:
+        raise HTTPException(503, "Authentication provider is unavailable")
+
+    state, browser = "wc." + tokens.random_token(), tokens.random_token()
+    attempt = DBLoginAttempt(
+        id=tokens.digest(state), state=state, nonce=tokens.random_token(), code_verifier=tokens.random_token(),
+        return_to=return_to, browser=tokens.digest(browser), expires_at=tokens.now() + timedelta(minutes=10),
+    )
+    await create_login_attempt(db, attempt)
+    await commit(db)
+    context = attempt.model_dump(exclude={"id"})
+    base = tokens.public_base(request)
+    exchange = get_idm_get_token_functions().get(provider)
+    context["pkce"] = exchange is not None and accepts_context(exchange)
+    context["redirect_uri"] = base + "/oidc/callback"
+    function = functions[provider]
+    result = function(login_context=context) if accepts_context(function) else function()
+    if inspect.isawaitable(result):
+        result = await result
+    parts = urlsplit(result.urlpattern)
+    query = dict(parse_qsl(parts.query))
+    query.update(state=state, nonce=attempt.nonce, redirect_uri=context["redirect_uri"])
+    if prompt:
+        query["prompt"] = prompt
+    if context["pkce"]:
+        query.update(code_challenge=tokens.pkce(attempt.code_verifier), code_challenge_method="S256")
+    destination = urlunsplit(parts._replace(query=urlencode(query)))
+    response = RedirectResponse(
+        destination, 302, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"}
+    )
+    response.set_cookie(
+        "wc_login_browser", browser, httponly=True, secure=base.startswith("https:"), samesite="lax", max_age=600
+    )
+    return response
 
 
 @base_router.get(
     "/oidc/callback",
     summary=docs.oidc_login_summary,
     description=docs.oidc_login_description,
-    response_class=HTMLResponse,
+    response_class=Response,
+    status_code=302,
     response_description=docs.oidc_login_response_description,
     responses={
+        302: {
+            "headers": {
+                "Location": {"description": docs.login_redirect_location_description, "schema": {"type": "string"}},
+                "Set-Cookie": {"description": docs.login_session_cookie_description, "schema": {"type": "string"}},
+            },
+        },
+        400: {
+            "description": docs.oidc_login_bad_request_response_description,
+            "content": {"application/json": {
+                "schema": {"oneOf": [docs.login_http_error_schema, {"$ref": "#/components/schemas/HTTPError"}]},
+                "examples": docs.oidc_login_bad_request_response_examples,
+            }},
+        },
+        401: root_docs.generate_error_response_openapi_description(
+            docs.oidc_login_unauthorized_response_description, "Invalid user"),
+        500: root_docs.generate_error_response_openapi_description(
+            docs.oidc_login_configuration_error_response_description,
+            "OIDC provider is not configured correctly! Contact your administrator."),
+        502: root_docs.generate_error_response_openapi_description(
+            docs.oidc_login_provider_error_response_description, "Identity provider request failed"),
         422: root_docs.generate_validation_error_response_openapi_description(
             docs.oidc_login_validation_error_response_description)
-    }
+    },
+    openapi_extra={"parameters": [
+        {"name": "state", "in": "query", "required": True,
+         "description": docs.oidc_login_state_description, "schema": {"type": "string"}},
+        {"name": "wc_login_browser", "in": "cookie", "required": True,
+         "description": docs.oidc_login_browser_cookie_description, "schema": {"type": "string"}},
+    ]},
 )
 async def oidc_login(request: Request, db: DBDep, code: str = Query(description=docs.oidc_login_code_description)):
     if not getattr(settings, "OID_CONNECT_ENABLED", False):
@@ -79,15 +201,19 @@ async def oidc_login(request: Request, db: DBDep, code: str = Query(description=
     token_data_get_func = get_idm_get_token_functions()[getattr(settings, "OID_CONNECT_PLUGIN", "")]
     user_get_func = get_idm_get_user_functions()[getattr(settings, "OID_CONNECT_PLUGIN", "")]
 
+    login_context = await consume_login_attempt(request, db)
+
     redirect_uri = get_absolute_reverse_url('oidc_login_callback', request)
 
     try:
         if asyncio.iscoroutinefunction(token_data_get_func):
             # If the function is a coroutine, we need to await it
-            token_data = await token_data_get_func(code=code, refresh_token=None, redirect_uri=redirect_uri)
+            token_data = await token_data_get_func(code=code, refresh_token=None, redirect_uri=redirect_uri,
+                **({"login_context": login_context} if accepts_context(token_data_get_func) else {}))
         else:
             # If the function is a regular function, we can call it directly
-            token_data = token_data_get_func(code=code, refresh_token=None, redirect_uri=redirect_uri)
+            token_data = token_data_get_func(code=code, refresh_token=None, redirect_uri=redirect_uri,
+                **({"login_context": login_context} if accepts_context(token_data_get_func) else {}))
 
         if asyncio.iscoroutinefunction(user_get_func):
             # If the function is a coroutine, we need to await it
@@ -209,13 +335,18 @@ async def oidc_login(request: Request, db: DBDep, code: str = Query(description=
     },
     openapi_extra={
         "requestBody": {
+            "required": True,
+            "description": docs.login_credentials_description,
             "content": {
                 "application/json": {
-                    "schema": {"$ref": "#/components/schemas/UserLogin"}
+                    "schema": {"$ref": "#/components/schemas/UserLogin"},
+                    "example": docs.login_credentials_example,
                 },
                 "application/x-www-form-urlencoded": {
-                    "schema": {"$ref": "#/components/schemas/UserLogin"}
-                }
+                    "schema": {"$ref": "#/components/schemas/UserLogin"},
+                    "example": docs.login_credentials_example,
+                },
+                "multipart/form-data": {"schema": {"$ref": "#/components/schemas/UserLogin"}},
             }
         }
     }
@@ -260,7 +391,13 @@ async def api_login(request: Request, db: DBDep):
     summary=docs.login_page_summary,
     description=docs.login_page_description,
     response_class=HTMLResponse,
-    response_description=docs.login_page_response_description
+    response_description=docs.login_page_response_description,
+    openapi_extra={"parameters": [
+        {"name": "return_to", "in": "query", "required": False,
+         "description": docs.login_return_to_description, "schema": {"type": "string"}},
+        {"name": "state", "in": "query", "required": False,
+         "description": docs.login_state_description, "schema": {"type": "string"}},
+    ]},
 )
 async def login_page(request: Request):
     return render_wirecloud(request, page="registration/login", title="Login", extra_context={"form": {"errors": False}})
@@ -273,32 +410,53 @@ async def login_page(request: Request):
     response_class=HTMLResponse,
     response_description=docs.login_response_description,
     responses={
-        401: root_docs.generate_error_response_openapi_description(
-            docs.login_unauthorized_response_description,
-            "Invalid username or password"),
-        406: root_docs.generate_not_acceptable_response_openapi_description(
-            docs.login_not_acceptable_response_description,
-            ["application/json", "application/x-www-form-urlencoded", "multipart/form-data"]),
+        200: {"description": docs.login_invalid_credentials_response_description},
+        302: {
+            "description": docs.login_response_description,
+            "headers": {
+                "Location": {"description": docs.login_redirect_location_description, "schema": {"type": "string"}},
+                "Set-Cookie": {"description": docs.login_session_cookie_description, "schema": {"type": "string"}},
+            },
+        },
+        400: {
+            "description": docs.login_bad_request_response_description,
+            "content": {"application/json": {
+                "schema": docs.login_http_error_schema, "example": docs.begin_login_bad_request_response_example,
+            }},
+        },
         415: root_docs.generate_unsupported_media_type_response_openapi_description(
             docs.login_unsupported_media_type_response_description),
         422: root_docs.generate_validation_error_response_openapi_description(
             docs.login_validation_error_response_description)
     },
     openapi_extra={
+        "parameters": [
+            {"name": "return_to", "in": "query", "required": False,
+             "description": docs.login_return_to_description, "schema": {"type": "string"}},
+            {"name": "state", "in": "query", "required": False,
+             "description": docs.login_state_description, "schema": {"type": "string"}},
+        ],
         "requestBody": {
+            "required": True,
+            "description": docs.login_credentials_description,
             "content": {
                 "application/json": {
-                    "schema": {"$ref": "#/components/schemas/UserLogin"}
+                    "schema": {"$ref": "#/components/schemas/UserLogin"},
+                    "example": docs.login_credentials_example,
                 },
                 "application/x-www-form-urlencoded": {
-                    "schema": {"$ref": "#/components/schemas/UserLogin"}
-                }
+                    "schema": {"$ref": "#/components/schemas/UserLogin"},
+                    "example": docs.login_credentials_example,
+                },
+                "multipart/form-data": {"schema": {"$ref": "#/components/schemas/UserLogin"}},
             }
         }
     }
 )
 @consumes(["application/json", "application/x-www-form-urlencoded", "multipart/form-data"])
 async def login(request: Request, db: DBDep):
+    if "return_to" in request.query_params:
+        request.state.login_return_to = validate_login_return_to(request.query_params["return_to"])
     try:
         if request.state.mimetype == "application/x-www-form-urlencoded" or request.state.mimetype == "multipart/form-data":
             login_data = UserLogin.model_validate(await request.form(max_files=0, max_fields=50))
@@ -355,8 +513,21 @@ async def login(request: Request, db: DBDep):
     "/logout",
     summary=docs.logout_summary,
     description=docs.logout_description,
-    response_class=HTMLResponse,
-    response_description=docs.logout_response_description
+    response_class=Response,
+    status_code=302,
+    response_description=docs.logout_response_description,
+    responses={
+        302: {"headers": {
+            "Location": {"description": docs.login_redirect_location_description, "schema": {"type": "string"}},
+            "Set-Cookie": {"description": docs.logout_cookie_description, "schema": {"type": "string"}},
+        }},
+        401: root_docs.generate_error_response_openapi_description(
+            docs.logout_unauthorized_response_description, "You are not logged in"),
+    },
+    openapi_extra={"parameters": [
+        {"name": "state", "in": "query", "required": False,
+         "description": docs.login_state_description, "schema": {"type": "string"}},
+    ]},
 )
 async def logout(request: Request, db: DBDep, session: SessionDepNoCSRF, user: UserDepNoCSRF):
     if not session:
@@ -399,7 +570,12 @@ async def logout(request: Request, db: DBDep, session: SessionDepNoCSRF, user: U
         200: {"content": {"application/json": {"example": docs.token_refresh_response_model_example}}},
         401: root_docs.generate_error_response_openapi_description(
             docs.token_refresh_unauthorized_response_description,
-            "You are not logged in")
+            "You are not logged in"),
+        500: root_docs.generate_error_response_openapi_description(
+            docs.token_refresh_configuration_error_response_description,
+            "OIDC provider is not configured correctly! Contact your administrator."),
+        502: root_docs.generate_error_response_openapi_description(
+            docs.token_refresh_provider_error_response_description, "Identity provider request failed"),
     }
 )
 async def token_refresh(request: Request, db: DBDep, session: SessionDep, user: UserDep):

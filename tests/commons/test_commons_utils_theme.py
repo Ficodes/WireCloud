@@ -10,6 +10,12 @@ from wirecloud.commons.utils import theme
 from wirecloud.commons.utils.http import NotFound
 
 
+@pytest.fixture(autouse=True)
+def isolate_theme_caches(monkeypatch):
+    monkeypatch.setattr(theme, "JINJA2_TEMPLATES", {})
+    monkeypatch.setattr(theme, "THEME_TRANSLATIONS", {})
+
+
 def test_generate_jinja2_templates(monkeypatch, tmp_path):
     monkeypatch.setattr(theme, "AVAILABLE_THEMES", ["a", "missing", "broken"])
     mod_a = SimpleNamespace(__file__=str(tmp_path / "a" / "__init__.py"), parent=None)

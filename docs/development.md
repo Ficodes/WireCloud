@@ -61,6 +61,35 @@ pytest --cov
 pytest --cov --cov-report=html
 ```
 
+### OAuth and MCP integration
+
+CI runs the full backend suite on Python 3.11 and 3.13 with the pinned MCP
+dependencies, alongside the regular Python 3.9 and JavaScript jobs. To reproduce
+the MCP environment in a Python 3.11+ virtual environment:
+
+```bash
+python -m pip install -c constraints-mcp.txt -r requirements.txt -r requirements-test.txt mcp
+python -m pytest tests
+```
+
+The `oauth-mcp-python-*` CI artifacts contain JUnit results and branch coverage
+for OAuth, MCP, and the authentication module. Both matrix jobs require 100% line
+and branch coverage for these modules. To run the same coverage gate locally:
+
+```bash
+python -m pytest tests \
+  --cov=wirecloud.oauth2provider --cov=wirecloud.mcp \
+  --cov=wirecloud.commons.auth \
+  --cov-branch --cov-fail-under=100 --cov-report=term-missing
+```
+
+The integration tests exercise all
+33 tools through the official SDK and run discovery, consent, token exchange,
+an authenticated SDK call, and revocation over real HTTP sockets with a deployment
+URL prefix. MongoDB and search remain mocked; these tests do not contact a live
+identity provider. See the [OAuth](oauth2.md#verification) and
+[MCP](mcp.md#maintenance-and-verification) pages for the boundaries covered.
+
 ## Documentation
 
 Install the pinned documentation tool and build in strict mode:
@@ -77,6 +106,24 @@ mkdocs serve
 ```
 
 The navigation is declared in `mkdocs.yml`. Add each new page there; strict builds reject broken internal links and configuration warnings. Read the Docs uses `.readthedocs.yaml` and installs only `docs/requirements.txt`, so documentation builds remain independent of the application and its external services.
+
+## Release wheels
+
+The package workflow builds the regular wheel once, then generates the standalone
+MCP variant from it:
+
+```bash
+python -m pip install build packaging
+python -m build --wheel
+python scripts/build-mcp-wheel.py dist/*.whl
+```
+
+Run the last command with the regular wheel only. It creates a second wheel with
+a `+mcp` local version, Python 3.11 minimum, and mandatory dependency pins from
+`constraints-mcp.txt`. Application files and frontend assets remain byte-identical;
+the script updates distribution metadata, installation paths, and wheel integrity
+records. CI verifies each wheel in a separate environment before storing both in
+the `wirecloud-wheels` artifact and attaching both files to published releases.
 
 ## Translations
 

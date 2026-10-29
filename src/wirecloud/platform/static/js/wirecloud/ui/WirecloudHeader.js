@@ -97,6 +97,14 @@
             item.addIconClass('fas fa-cog');
             user_menu.append(item);
 
+            if ('OAUTH2_CONNECTIONS' in Wirecloud.URLs && Wirecloud.contextManager.get('realuser') == null) {
+                item = new StyledElements.MenuItem(utils.gettext('App connections'), function () {
+                    const dialog = new Wirecloud.ui.AppConnectionsWindowMenu();
+                    dialog.show();
+                });
+                user_menu.append(item.addIconClass('fas fa-plug'));
+            }
+
             if (Wirecloud.contextManager.get('isstaff') === true && 'DJANGO_ADMIN' in Wirecloud.URLs) {
                 item = new StyledElements.MenuItem(utils.gettext('Django Admin panel'), function () {
                     window.open(Wirecloud.URLs.DJANGO_ADMIN, '_blank');

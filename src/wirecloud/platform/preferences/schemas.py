@@ -55,9 +55,8 @@ class WorkspacePreference(BaseModel):
     value: Optional[str] = None
 
 
-from wirecloud.platform.workspace.models import DBWorkspacePreference
-
-WorkspacePreferenceWithName = DBWorkspacePreference
+class WorkspacePreferenceWithName(WorkspacePreference):
+    name: str
 
 TabPreference = WorkspacePreference
 

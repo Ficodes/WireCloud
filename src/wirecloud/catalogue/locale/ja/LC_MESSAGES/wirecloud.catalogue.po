@@ -1,0 +1,254 @@
+# Japanese translations for WireCloud.
+# Copyright (C) 2026 Future Internet Consulting and Development Solutions S.L.
+# This file is distributed under the same license as the WireCloud project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: WireCloud VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-08-07 13:12+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../../utils.py:185
+#, python-format
+msgid ""
+"%(file_name)s was not encoded using the specified charset (%(charset)s "
+"according to the widget descriptor file)."
+msgstr "%(file_name)s は、指定された文字セットを使用してエンコードされませんでした (ウィジェット記述子ファイルに従った %(charset)s)."
+
+#: ../../../routes.py:408
+msgid "Error opening the changelog file"
+msgstr "変更履歴ファイルを開く際にエラーが発生しました"
+
+#: ../../../routes.py:490
+msgid "Error opening the userguide file"
+msgstr "ユーザ・ガイドのファイルを開く際にエラーが発生しました"
+
+#: ../../../routes.py:121
+msgid ""
+"Error writing the resource into the filesystem. Please, contact the server "
+"administrator."
+msgstr "ファイル・システムへのリソースの書き込み中にエラーが発生しました。サーバ管理者に連絡してください。"
+
+#: ../../../utils.py:155
+#, python-format
+msgid "Invalid embedded file: %s"
+msgstr "無効な埋め込みファイル: %s"
+
+#: ../../../routes.py:169
+msgid "Invalid orderby value"
+msgstr "orderby値が無効です"
+
+#: ../../../routes.py:102
+msgid "Missing component file in the request"
+msgstr "リクエストにコンポーネント・ファイルがありません"
+
+#: ../../../utils.py:149
+#, python-format
+msgid "Missing embedded file: %s"
+msgstr "埋め込みファイルがありません: %s"
+
+#: ../../../routes.py:118
+msgid "Resource already exists"
+msgstr "リソースは既に存在します"
+
+#: ../../../routes.py:112
+msgid "The uploaded file is not a zip file"
+msgstr "アップロードされたファイルは zip ファイルではありません"
+
+#: ../../../utils.py:168
+msgid "Unable to process component description file"
+msgstr "コンポーネント記述ファイルを処理できません"
+
+#: ../../../utils.py:165 ../../../utils.py:170
+#, python-format
+msgid "Unable to process component description file: %s"
+msgstr "コンポーネント記述ファイルを処理できません: %s"
+
+#: ../../../routes.py:471
+#, python-format
+msgid ""
+"You can find the userguide of this component in this external <a "
+"target=\"_blank\" href=\"%s\">link</a>"
+msgstr "このコンポーネントのユーザ・ガイドは、この<a target=\"_blank\" href=\"%s\">リンク</a>で見つけることができます"
+
+#: ../../../routes.py:238
+msgid "You do not have permission to delete components"
+msgstr "コンポーネントを削除する権限がありません"
+
+#: ../../../routes.py:94
+msgid "You do not have permission to install components"
+msgstr "コンポーネントをインストールする権限がありません"
+
+#: ../../../routes.py:330
+msgid "You do not have permission to uninstall components"
+msgstr "コンポーネントをアンインストールする権限がありません"
+
+#: ../../../routes.py:292 ../../../routes.py:387 ../../../routes.py:463
+#: ../../../routes.py:540
+msgid "You do not have permission to view resource"
+msgstr "リソースを表示する権限がありません"
+
+#: ../../../utils.py:112
+#, python-format
+msgid "file cannot be parsed as markdown: %s"
+msgstr "ファイルはマークダウンとして解析できません: %s"
+
+#: ../../../utils.py:106
+#, python-format
+msgid "file is not encoded using UTF-8: %s"
+msgstr "ファイルは UTF-8 を使用してエンコードされていません: %s"
+
+#: ../../../utils.py:101
+#, python-format
+msgid "missing file: %s"
+msgstr "ファイルがありません: %s"
+
+#: ../../../utils.py:139
+#, python-format
+msgid "missing image file: %s"
+msgstr "画像ファイルがありません: %s"
+
+#: ../../../routes.py:244 ../../../routes.py:336
+#, python-format
+msgid "user %(username)s is not the owner of the resource %(resource_id)s"
+msgstr "ユーザ %(username)s はリソース %(resource_id)s の所有者ではありません"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:154
+msgid "Add more files"
+msgstr "ファイルを追加"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:226
+msgid "Add to workspace"
+msgstr "ワークスペースに追加"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:178
+msgid "Cancel"
+msgstr "キャンセル"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/ResourceDetailsView.js:103
+msgid "Change Log"
+msgstr "変更ログ"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:266
+msgid "Delete"
+msgstr "削除"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:275
+msgid "Delete all versions"
+msgstr "すべてのバージョンを削除"
+
+#: ../../../static/js/wirecloud/WirecloudCatalogue.js:279
+#, python-format
+msgid "Deleting %(title)s (%(uri)s)"
+msgstr "%(title)s (%(uri)s) を削除"
+
+#: ../../../static/js/wirecloud/WirecloudCatalogue.js:272
+#, python-format
+msgid "Deleting all versions of %(title)s (%(group_id)s)"
+msgstr "%(title)s (%(group_id)s) のすべてのバージョンを削除"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/ResourceDetailsView.js:82
+msgid "Documentation"
+msgstr "ドキュメンテーション"
+
+#: ../../../static/js/wirecloud/WirecloudCatalogue.js:148
+msgid "Doing catalogue search"
+msgstr "カタログ検索中"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:217
+msgid "Download"
+msgstr "ダウンロード"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:59
+msgid "Error uploading the following components:"
+msgstr "次のコンポーネントをアップロード中にエラーが発生しました:"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:123
+msgid "Home page"
+msgstr "ホーム・ページ"
+
+#: ../../../static/js/wirecloud/WirecloudCatalogue.js:223
+#, python-format
+msgid "Installing component from %(url)s"
+msgstr "%(url)s からのコンポーネントのインストール"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:139
+msgid "Issue tracker"
+msgstr "イシュー・トラッカー"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:156
+msgid "License details"
+msgstr "ライセンスの詳細"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/ResourceDetailsView.js:78
+msgid "Main Info"
+msgstr "メイン情報"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:329
+msgid "N/A"
+msgstr "N/A"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:132
+msgid "Name"
+msgstr "名前"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:30
+msgid "No image available"
+msgstr "使用可能なイメージはありません"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:238
+msgid "Publish"
+msgstr "公開"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:146
+msgid "Remove this file"
+msgstr "このファイルを削除"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:117
+msgid "Select files from your computer"
+msgstr "コンピュータからファイルを選択"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:137
+msgid "Size"
+msgstr "サイズ"
+
+#: ../../../static/js/wirecloud/WirecloudCatalogue.js:133
+#: ../../../static/js/wirecloud/WirecloudCatalogue.js:246
+msgid "Unexpected response from server"
+msgstr "サーバーからの予期しない応答"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:248
+msgid "Uninstall"
+msgstr "アンインストール"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:257
+msgid "Uninstall all versions"
+msgstr "すべてのバージョンをアンインストール"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:164
+msgid "Upload"
+msgstr "アップロード"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:109
+msgid "Upload mashable application components"
+msgstr "マッシュアップ・コンポーネントをアップロード"
+
+#: ../../../static/js/wirecloud/WirecloudCatalogue.js:203
+#, python-format
+msgid "Uploading packaged component %(filename)s"
+msgstr "パッケージ化されたコンポーネント %(filename)s のアップロード"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:45
+msgid "Uploading packaged components"
+msgstr "パッケージ化されたコンポーネントのアップロード"

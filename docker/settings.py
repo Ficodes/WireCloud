@@ -51,6 +51,11 @@ def _env_languages(name: str, default: list[tuple[str, str]]) -> list[tuple[str,
 
 
 DEBUG = _env_bool("WIRECLOUD_DEBUG", False)
+MCP_PUBLIC_URL = _env_str("WIRECLOUD_MCP_PUBLIC_URL", "")
+AUTH_PUBLIC_URL = _env_str("WIRECLOUD_AUTH_PUBLIC_URL", "")
+MCP_ALLOWED_ORIGINS = _env_csv("WIRECLOUD_MCP_ALLOWED_ORIGINS", [])
+OAUTH2_PUBLIC_URL = _env_str("WIRECLOUD_OAUTH2_PUBLIC_URL", "")
+OAUTH2_DYNAMIC_REGISTRATION = _env_bool("WIRECLOUD_OAUTH2_DYNAMIC_REGISTRATION", True)
 
 BASEDIR = _env_str("WIRECLOUD_BASEDIR", "/var/lib/wirecloud")
 ALLOW_ANONYMOUS_ACCESS = _env_bool("WIRECLOUD_ALLOW_ANONYMOUS_ACCESS", True)

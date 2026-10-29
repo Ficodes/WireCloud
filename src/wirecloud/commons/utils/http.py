@@ -171,9 +171,14 @@ def build_error_response(request: Request, status_code: int, error_msg: str, ext
 
 
 def get_redirect_response(request: Request) -> Response:
+    continuation = getattr(request.state, "login_return_to", None)
+    if continuation is not None:
+        return Response(status_code=302, headers={"Location": continuation})
     # Get query state
     query_state = request.query_params.get("state", None)
     if query_state is not None:
+        if not query_state.startswith('/') or query_state.startswith('//') or '\\' in query_state or any(ord(c) < 32 for c in query_state):
+            query_state = '/'
         # Redirect to the state URL, converting it to an absolute URL if necessary
         if query_state.startswith('/'):
             query_state = get_absolute_reverse_url('wirecloud.root', request) + query_state[1:]

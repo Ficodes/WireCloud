@@ -1,4 +1,5 @@
 venv/
+venv-mcp/
 __pycache__/
 catalogue/
 !src/wirecloud/catalogue/

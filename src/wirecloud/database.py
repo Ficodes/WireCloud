@@ -195,5 +195,12 @@ async def commit(session: PyMongoSession) -> None:
         await session.start_transaction()
 
 
+async def rollback(session: PyMongoSession) -> None:
+    """Abort a failed operation even when its transport turns errors into data."""
+    if session.in_transaction:
+        await session._session.abort_transaction()
+        await session.start_transaction()
+
+
 DBSession = PyMongoSession
 DBDep = Annotated[PyMongoSession, Depends(get_session)]

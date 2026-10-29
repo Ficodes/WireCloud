@@ -137,6 +137,10 @@ const STYLED_ELEMENTS_FILES: string[] = [
 ]
 
 const get_scripts: (view: string) => string[] = (view: string): string[] => {
+    if (view === 'oauth2') {
+        return [];
+    }
+
     const common = [...SHIM_FILES,
             'js/StyledElements/Utils.js',
             'js/wirecloud/Utils.js',
@@ -243,6 +247,7 @@ const get_scripts: (view: string) => string[] = (view: string): string[] => {
                 'js/wirecloud/ui/ParametrizeWindowMenu.js',
                 'js/wirecloud/ui/PreferencesWindowMenu.js',
                 'js/wirecloud/ui/AdminPanelWindowMenu.js',
+                'js/wirecloud/ui/AppConnectionsWindowMenu.js',
                 'js/wirecloud/ui/UserManagementWindowMenu.js',
                 'js/wirecloud/ui/OperatorPreferencesWindowMenu.js',
                 'js/wirecloud/ui/PublishWorkspaceWindowMenu.js',

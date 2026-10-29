@@ -16,12 +16,21 @@ For production, place a TLS-terminating reverse proxy or ingress in front of Wir
 
 ### Use a published Docker image
 
-By default, each published release provides a multi-platform image on Docker
-Hub. Pin a release rather than relying on `latest` in production:
+Each published release provides regular and MCP image variants, both supporting
+`linux/amd64` and `linux/arm64`. Pin a release rather than relying on `latest` in
+production:
 
 ```bash
 docker pull ficodes/wirecloud:2.0.0
+docker pull ficodes/wirecloud:2.0.0-mcp
 ```
+
+The `-mcp` image includes the MCP SDK and its tested dependencies. Follow the
+[MCP deployment settings](mcp.md#docker) to enable the OAuth and MCP plugins at
+runtime. Stable releases also provide `latest` and `latest-mcp`, plus major/minor
+aliases with the same suffix convention. Prereleases do not update those aliases.
+The publishing repository can be overridden by CI's `DOCKER_IMAGE` variable;
+check the release notes for its canonical location.
 
 To use a published image with the supplied Compose stack, remove the `build`
 block from the `wirecloud` service in `docker/docker-compose.yml` and set its
@@ -40,10 +49,21 @@ configuration is supplied through the same environment variables documented in
 
 ## Install from a release wheel
 
-Published GitHub releases contain a pre-built `.whl` file. The same wheel is
-available as the `wirecloud-wheel` artifact on push and pull-request workflow
-runs. A wheel already contains the compiled frontend and translation catalogs,
-so a machine consuming it needs Python but does not need Node.js or npm.
+Published GitHub releases contain two standalone wheels:
+
+| Wheel (example release) | Python | Dependencies |
+| --- | --- | --- |
+| `wirecloud-2.0.0-py3-none-any.whl` | 3.9+ | Regular WireCloud installation. |
+| `wirecloud-2.0.0+mcp-py3-none-any.whl` | 3.11+ | WireCloud plus the MCP SDK and tested MCP dependency pins. |
+
+Both are available in the `wirecloud-wheels` artifact on push and pull-request
+workflow runs. Choose one wheel; each contains the complete application and
+compiled frontend and translation catalogs, so installation needs Python but
+does not need Node.js or npm.
+The MCP wheel uses a `+mcp` local version label to distinguish the release asset
+while retaining the same Python distribution name. Switching variants lets pip
+replace the installed WireCloud distribution without overlapping packages.
+The `+mcp` artifact is distributed through GitHub releases, rather than PyPI.
 
 ### Install from PyPI (planned)
 
@@ -91,6 +111,17 @@ source .venv/bin/activate
 python -m pip install ./packages/wirecloud-2.0.0-py3-none-any.whl
 mkdir -p config data
 ```
+
+For MCP, create the environment using Python 3.11 or newer and install the other
+wheel instead:
+
+```bash
+python -m pip install './packages/wirecloud-2.0.0+mcp-py3-none-any.whl'
+```
+
+Pip installs its MCP dependencies automatically; no extra or constraints argument
+is needed for this wheel. Enable the OAuth and MCP plugins and configure their
+public URLs as described in [MCP setup](mcp.md#enable-the-plugin).
 
 WireCloud imports a Python module named `settings`. Put the directory containing
 the selected `settings.py` first on `PYTHONPATH`. For example, the following
