@@ -33,6 +33,14 @@ def test_clean_html_without_base_url():
     assert 'target="_blank"' in cleaned
 
 
+def test_clean_html_closes_empty_elements():
+    # The result is parsed as HTML, where `<i class="fas fa-crosshairs"/>`
+    # would wrap the rest of the document
+    cleaned = html.clean_html('<p>Use the <i class="fas fa-crosshairs"></i> button<br/><img src="a.png"/></p>')
+    assert '<i class="fas fa-crosshairs"></i> button' in cleaned
+    assert '<br/><img src="a.png"/>' in cleaned
+
+
 def test_filter_changelog_versions():
     code = """
     <h2>v2.0.0 (latest)</h2><p>n2</p>
