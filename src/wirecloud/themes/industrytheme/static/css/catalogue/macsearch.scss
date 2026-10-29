@@ -56,10 +56,6 @@
     border-top: 1px solid var(--color-divider);
     @include scrollbars;
 
-    &.loading {
-        opacity: 0.45;
-    }
-
     > .alert {
         flex: none;
         margin: var(--space-3) 0 0;

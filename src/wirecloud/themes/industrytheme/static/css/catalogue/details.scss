@@ -15,10 +15,6 @@
 
 .details_interface {
     background: var(--color-bg);
-
-    &.loading > .resource_details {
-        opacity: 0.45;
-    }
 }
 
 .resource_details {
@@ -175,10 +171,6 @@
         box-sizing: border-box;
         padding: 22px 24px 32px;
         @include scrollbars;
-
-        &.loading {
-            opacity: 0.45;
-        }
 
         > .markdown-body {
             max-width: 78ch;

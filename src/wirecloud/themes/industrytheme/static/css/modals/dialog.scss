@@ -559,7 +559,8 @@
 
     // The screen sizes field needs room for five inputs per row
     &.wc-workspace-preferences-modal,
-    &.wc-tab-preferences-modal {
+    &.wc-tab-preferences-modal,
+    &.wc-layout-settings {
         --wc-dialog-width: 800px;
     }
 

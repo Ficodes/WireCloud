@@ -231,8 +231,10 @@
         min-width: 0;
         margin: 0;
 
+        // The label keeps its width; the input takes the rest
         > .se-add-on {
             display: flex;
+            flex: none;
             align-items: center;
             padding: 0 6px;
             font-size: 11px;
@@ -259,18 +261,22 @@
         }
     }
 
+    // Bases: label plus room for the value (four digits and the spinner)
     .se-screen-size-name {
-        flex: 1.4 1 140px;
+        flex: 1.4 1 150px;
     }
 
     .se-screen-size-from,
     .se-screen-size-to {
-        flex: 1 1 96px;
+        flex: 1 1 140px;
     }
 
-    .se-screen-size-columns,
+    .se-screen-size-columns {
+        flex: 0.7 1 115px;
+    }
+
     .se-screen-size-rows {
-        flex: 0.7 1 80px;
+        flex: 0.7 1 90px;
     }
 
     .se-screen-size-buttons {

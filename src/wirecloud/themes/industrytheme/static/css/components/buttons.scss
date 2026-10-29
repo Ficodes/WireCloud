@@ -143,6 +143,19 @@ input::-moz-focus-inner {
     padding: 0;
 }
 
+// Buttons that get the icon classes themselves (`fa fa-edit`, as some widgets
+// do) draw the icon as their only content
+.se-btn:is(.fa, .fas, .far, .fab, .fal) {
+    width: 34px;
+    padding: 0;
+
+    &::before {
+        flex: none;
+        width: 1.07em;
+        height: 1.07em;
+    }
+}
+
 // =============================================================================
 // States
 // =============================================================================

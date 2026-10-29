@@ -2,7 +2,10 @@
 @use "mixins" as *;
 
 .wc-workspace-tab-content {
-    padding: 16px 20px;
+    // Also used by the docked widgets (see docks.scss)
+    --wc-tab-padding-x: 20px;
+    --wc-tab-padding-y: 16px;
+    padding: var(--wc-tab-padding-y) var(--wc-tab-padding-x);
     overflow-x: hidden;
     overflow-y: auto;
     // Opening a top push dock changes the grid's top margin; scroll anchoring

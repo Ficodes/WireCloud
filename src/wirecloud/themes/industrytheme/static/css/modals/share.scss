@@ -369,7 +369,6 @@
     border-left: 2px solid var(--color-divider);
     @include scrollbars;
 
-    &.loading,
     &.disabled {
         opacity: 0.45;
     }

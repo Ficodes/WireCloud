@@ -60,16 +60,21 @@ $ease: cubic-bezier(0.2, 0, 0, 1);
     height: var(--wc-dock-height) !important;
 }
 
+// SidebarLayout computes these coordinates relative to the dock grids, which
+// cover the whole tab content, but docked widgets live in the main grid,
+// which is shifted by the tab content padding. Cancel that padding and leave
+// the GridStack gutter outside the workspace, so the panel is flush with the
+// edge when open and completely hidden when closed.
 .wc-docked-left:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
-    left: calc(var(--wc-dock-left) - var(--wc-dock-margin-left, 0px)) !important;
+    left: calc(var(--wc-dock-left) - var(--wc-tab-padding-x, 0px) - var(--wc-dock-margin-left, 0px)) !important;
 }
 
 .wc-docked-right:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
-    left: calc(var(--wc-dock-left) - var(--wc-dock-margin-right, 0px)) !important;
+    left: calc(var(--wc-dock-left) - var(--wc-tab-padding-x, 0px) + var(--wc-dock-margin-right, 0px)) !important;
 }
 
 .wc-docked-top:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
-    top: calc(var(--wc-dock-top) - var(--wc-dock-margin-top, 0px)) !important;
+    top: calc(var(--wc-dock-top) - var(--wc-tab-padding-y, 0px) - var(--wc-dock-margin-top, 0px)) !important;
 }
 
 .wc-docked-bottom:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
@@ -84,7 +89,13 @@ $ease: cubic-bezier(0.2, 0, 0, 1);
 
         > .grid-stack-item-content {
             box-shadow: var(--shadow-lg);
+            transition: box-shadow 0.3s $ease;
         }
+    }
+
+    // The shadow of a closed panel would show on the workspace edge
+    &.wc-dock-widget-overlay.wc-dock-widget-closed > .grid-stack-item-content {
+        box-shadow: none;
     }
 
     &.wc-dock-widget-push {
@@ -193,6 +204,19 @@ $ease: cubic-bezier(0.2, 0, 0, 1);
 
 .wc-docked-bottom.wc-dock-widget-open .wc-sidebar-bottom-handle {
     bottom: calc(100% - var(--wc-dock-margin-top, 0px));
+}
+
+// Closed docks: keep the handle on the workspace edge, past the outer gutter
+.wc-docked-left.wc-dock-widget-closed .wc-sidebar-left-handle {
+    left: calc(100% + var(--wc-dock-margin-left, 0px));
+}
+
+.wc-docked-right.wc-dock-widget-closed .wc-sidebar-right-handle {
+    right: calc(100% + var(--wc-dock-margin-right, 0px));
+}
+
+.wc-docked-top.wc-dock-widget-closed .wc-sidebar-top-handle {
+    top: calc(100% + var(--wc-dock-margin-top, 0px));
 }
 
 @media (prefers-reduced-motion: reduce) {
