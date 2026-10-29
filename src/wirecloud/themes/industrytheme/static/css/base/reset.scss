@@ -1,0 +1,365 @@
+// Base element styles, type scale and utility classes used by the platform.
+@use "mixins" as *;
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    @include scrollbars;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    @include heading;
+    margin: 0 0 var(--space-2);
+    color: inherit;
+}
+
+h1 { font-size: 42px; }
+h2 { font-size: 32px; }
+h3 { font-size: 25px; }
+h4 { font-size: 20px; }
+h5 { font-size: 16px; }
+
+h6 {
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+p {
+    margin: 0 0 var(--space-3);
+}
+
+a, .se-link {
+    color: var(--color-accent-text);
+    text-decoration: none;
+    text-underline-offset: 3px;
+    cursor: pointer;
+
+    &:hover {
+        color: var(--color-accent-800);
+        text-decoration: underline;
+    }
+}
+
+strong, b {
+    font-weight: 700;
+}
+
+small {
+    font-size: 12px;
+}
+
+img {
+    max-width: 100%;
+}
+
+hr {
+    height: 1px;
+    margin: var(--space-4) 0;
+    border: 0;
+    background: var(--color-divider);
+}
+
+blockquote {
+    margin: var(--space-3) 0;
+    padding: var(--space-1) var(--space-4);
+    border-left: 2px solid var(--color-accent);
+    color: var(--color-text-muted);
+}
+
+dl {
+    margin: 0 0 var(--space-4);
+}
+
+dt {
+    @include overline;
+    margin-top: var(--space-3);
+    color: var(--color-text-muted);
+}
+
+dd {
+    margin: 2px 0 0;
+}
+
+ul, ol {
+    margin: 0 0 var(--space-3);
+    padding-left: 22px;
+}
+
+code, kbd, samp, pre {
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+}
+
+code, kbd {
+    padding: 1px 4px;
+    background: var(--color-hover);
+    color: var(--color-accent-800);
+}
+
+pre {
+    margin: 0 0 var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    overflow: auto;
+    border: 1px solid var(--color-divider);
+    color: var(--color-accent-800);
+    white-space: pre-wrap;
+    word-break: break-word;
+
+    code {
+        padding: 0;
+        background: none;
+    }
+}
+
+button, input, select, textarea {
+    font: inherit;
+    color: inherit;
+}
+
+:focus {
+    outline: none;
+}
+
+:focus-visible {
+    @include focus-ring;
+}
+
+::selection {
+    background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+// =============================================================================
+// Transitions used by the platform. StyledElements.Alternatives waits for the
+// `transitionend` event, so these rules must always define a transition (a
+// very short one when the user prefers reduced motion).
+// =============================================================================
+
+.fade {
+    opacity: 0;
+    transition: opacity 0.18s linear;
+
+    &.in {
+        opacity: 1;
+    }
+}
+
+.slide {
+    transform: translate3d(0, 0, 0);
+    transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+
+    &.left {
+        transform: translate3d(-100%, 0, 0);
+    }
+
+    &.right {
+        transform: translate3d(100%, 0, 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fade, .slide {
+        transition-duration: 0.01s;
+    }
+}
+
+// =============================================================================
+// Utilities
+// =============================================================================
+
+.hidden {
+    display: none !important;
+}
+
+.disabled {
+    opacity: 0.45;
+}
+
+.text-center {
+    text-align: center !important;
+}
+
+.text-right {
+    text-align: right !important;
+}
+
+.text-muted {
+    color: var(--color-text-muted) !important;
+}
+
+.text-truncate {
+    @include text-truncate;
+}
+
+.text-danger {
+    color: var(--color-danger) !important;
+}
+
+.text-success {
+    color: var(--color-success) !important;
+}
+
+.text-warning {
+    color: var(--color-warning) !important;
+}
+
+.pull-right {
+    float: right !important;
+}
+
+.pull-left {
+    float: left !important;
+}
+
+.floatclearer {
+    clear: both;
+}
+
+.lead {
+    font-size: 17px;
+    line-height: 1.5;
+}
+
+.sr-only, .visually-hidden {
+    @include visually-hidden;
+}
+
+.mono {
+    font-family: var(--font-mono);
+}
+
+.kbd-chip {
+    @include key-chip;
+}
+
+// Blueprint frames: transparent hairline line drawings with "+" registration
+// marks at the corners (`.blueprint` + four `.corner` children)
+.blueprint {
+    position: relative;
+    @include blueprint-frame;
+
+    > .corner {
+        position: absolute;
+        width: 11px;
+        height: 11px;
+        color: var(--color-mark);
+        pointer-events: none;
+
+        &::before, &::after {
+            content: "";
+            position: absolute;
+            background: currentColor;
+        }
+
+        &::before {
+            left: 5px;
+            top: 0;
+            width: 1px;
+            height: 100%;
+        }
+
+        &::after {
+            top: 5px;
+            left: 0;
+            width: 100%;
+            height: 1px;
+        }
+
+        &.tl { top: -6px; left: -6px; }
+        &.tr { top: -6px; right: -6px; }
+        &.bl { bottom: -6px; left: -6px; }
+        &.br { bottom: -6px; right: -6px; }
+    }
+}
+
+// Brand mark ("WC")
+.wc-brand-mark {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 34px;
+    height: 34px;
+    background: var(--color-accent-900);
+    color: var(--color-bg);
+    font: 600 15px/1 var(--font-heading);
+    letter-spacing: 0;
+}
+
+// Striped placeholder used for missing thumbnails
+.striped-placeholder {
+    background: repeating-linear-gradient(135deg, var(--color-hover) 0 1px, transparent 1px 9px);
+}
+
+// Cover layer displayed behind modal dialogs
+.disabled_background {
+    position: fixed;
+    inset: 0;
+    z-index: 101111;
+    background-color: var(--color-backdrop);
+}
+
+// Markdown contents (descriptions, documentation...)
+.markdown-body {
+    font-size: 14px;
+    line-height: 1.6;
+
+    h1, h2, h3, h4 {
+        margin-top: var(--space-6);
+    }
+
+    h1 { font-size: 30px; }
+    h2 { font-size: 25px; }
+    h3 { font-size: 20px; }
+    h4 { font-size: 17px; }
+
+    img {
+        border: 1px solid var(--color-divider);
+    }
+
+    table {
+        border-collapse: collapse;
+        margin: var(--space-3) 0;
+    }
+
+    th, td {
+        padding: var(--space-2);
+        border-bottom: 1px solid var(--color-rule);
+        text-align: left;
+    }
+
+    th {
+        @include overline;
+        color: var(--color-text-muted);
+        border-bottom-color: var(--color-divider);
+    }
+}
+
+// Pygments code highlighting (resource documentation, logs...)
+.codehilite {
+    .c, .c1, .cm, .cs { color: var(--color-text-muted); font-style: italic; }
+    .k, .kc, .kd, .kn, .kp, .kr, .kt, .ow { color: var(--color-accent-700); font-weight: 600; }
+    .s, .s1, .s2, .sb, .sc, .sd, .se { color: color-mix(in srgb, var(--color-success) 80%, var(--color-text)); }
+    .m, .mf, .mh, .mi, .mo, .no { color: color-mix(in srgb, var(--color-warning) 70%, var(--color-text)); }
+    .nf, .nc, .nn, .nt, .na { color: var(--color-accent-800); }
+    .err, .gr { color: var(--color-danger); }
+    .gd { color: var(--color-danger); }
+    .gi { color: var(--color-success); }
+}

@@ -1,0 +1,1040 @@
+// Wiring components: the draggable components of the canvas (widgets and
+// operators with their endpoints/ports) and the component groups listed by
+// the wiring sidebar and by the workspace "Add widget" drawer.
+//
+// ComponentDraggable DOM (see WiringEditor/ComponentDraggable.js):
+//
+// .panel.panel-default.component-draggable.component-{widget|operator}
+//      [.active] [.background] [.collapsed] [.missing] [.readonly]
+//      [.dragging] [.cloned]
+//   .panel-heading
+//     .panel-title > span
+//     .panel-options > .se-btn.we-prefs-btn, .se-btn.btn-remove|.btn-add
+//     .component-notice > .label.label-danger           (errors / missing)
+//     .endpoints.target-endpoints, .endpoints.source-endpoints  (collapsed)
+//   .panel-body
+//     .endpoints.target-endpoints[.orderable] > .endpoint …
+//     .endpoints.source-endpoints[.orderable] > .endpoint …
+//
+// .endpoint[.active][.disabled][.missing][.dragging]
+//   .endpoint-title
+//   .endpoint-anchor      (the platform reads its bounding box to draw the
+//                          connections: see "Ports" below)
+@use "mixins" as *;
+
+$component-width: 230px;
+$heading-height: 36px;
+$row-height: 28px;
+$row-padding: 12px;
+$port-size: 12px;
+$port-border: 1.5px;
+$thumbnail-size: 40px;
+
+// Replaces the Lucide icon drawn by an icon element (`.fa-*` classes are
+// mapped to Lucide masks by base/icons.scss).
+@mixin mask-icon($name) {
+    -webkit-mask-image: url("../icons/#{$name}.svg");
+    mask-image: url("../icons/#{$name}.svg");
+}
+
+// Type tags: widget = accent tint, operator = outline
+@mixin type-tag {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    font-family: var(--font-body);
+    font-size: 10px;
+    font-weight: 400;
+    line-height: 14px;
+    letter-spacing: 0.02em;
+    text-transform: lowercase;
+    white-space: nowrap;
+    background: var(--color-accent-100);
+    color: var(--color-accent-800);
+    border: 0;
+    border-radius: 0;
+}
+
+@mixin type-tag-outline {
+    background: transparent;
+    color: var(--color-accent);
+    border: 1px solid var(--color-accent);
+}
+
+// Faint square icon buttons used in the component headers
+@mixin faint-icon-button($size: 24px, $icon-size: 14px) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: $size;
+    height: $size;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    font-size: $icon-size;
+    line-height: 1;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    opacity: 0.6;
+    cursor: pointer;
+    @include focus-visible;
+
+    &:hover {
+        opacity: 1;
+        background: var(--color-hover);
+    }
+
+    &:active,
+    &.open {
+        opacity: 1;
+        background: var(--color-pressed);
+    }
+
+    &.disabled,
+    &.disabled:hover {
+        opacity: 0.25;
+        background: transparent;
+        cursor: not-allowed;
+    }
+}
+
+// =============================================================================
+// Draggable component
+// =============================================================================
+
+.panel.component-draggable {
+    position: absolute;
+    z-index: 10;
+    display: block;
+    width: $component-width;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+    box-shadow: var(--shadow-sm);
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
+
+    // Header -----------------------------------------------------------------
+
+    > .panel-heading {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: $heading-height;
+        margin: 0;
+        padding: 0 6px 0 10px;
+        background: transparent;
+        color: inherit;
+        border: 0;
+        border-bottom: 1px solid var(--color-divider);
+        border-radius: 0;
+        cursor: grab;
+
+        // No clearfix in flex headings (read only components reuse it for
+        // a lock icon)
+        &::after {
+            content: none;
+        }
+
+        // Type tag. Theme scripts may render it as a `.we-component-type`
+        // element (e.g. to translate it); otherwise it is generated here.
+        &::before {
+            content: "widget";
+            order: -1;
+            @include type-tag;
+        }
+
+        &:has(> .we-component-type)::before {
+            content: none;
+            display: none;
+        }
+
+        > .we-component-type {
+            order: -1;
+            @include type-tag;
+        }
+
+        > .panel-title {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: none;
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-body);
+            font-size: 13px;
+            font-weight: 500;
+            line-height: 1.2;
+            letter-spacing: 0;
+            text-transform: none;
+            color: inherit;
+            @include text-truncate;
+
+            > span {
+                display: block;
+                max-width: 100%;
+                @include text-truncate;
+            }
+        }
+
+        > .panel-options {
+            order: 2;
+            flex: none;
+            display: flex;
+            align-items: center;
+            gap: 0;
+            float: none;
+            margin: 0;
+            padding: 0;
+
+            > .se-btn {
+                @include faint-icon-button;
+            }
+
+            // "⋯" for the preferences menu, "×" for remove, "+" for add
+            > .we-prefs-btn > .fa-bars::before {
+                @include mask-icon("ellipsis");
+            }
+
+            > .btn-remove > .fa-times-circle::before,
+            > .btn-remove > .fa-trash::before {
+                @include mask-icon("x");
+            }
+
+            > .btn-add {
+                opacity: 1;
+                color: var(--color-accent-text);
+
+                > .fa-plus-circle::before {
+                    @include mask-icon("plus");
+                }
+            }
+        }
+    }
+
+    &.component-operator > .panel-heading {
+        &::before {
+            content: "operator";
+            @include type-tag-outline;
+        }
+
+        > .we-component-type {
+            @include type-tag-outline;
+        }
+    }
+
+    // Body: inputs on the left, outputs on the right ---------------------------
+
+    > .panel-body {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin: 0;
+        padding: 0 0 4px;
+        overflow: visible;
+        background: transparent;
+        border: 0;
+
+        &:empty {
+            display: none;
+        }
+
+        // Kept apart: a selector list with `:has()` would be dropped as a
+        // whole by browsers without support for it
+        &:not(:has(.endpoint)) {
+            display: none;
+        }
+    }
+
+    &:not(:has(.endpoint)) > .panel-heading {
+        border-bottom-color: transparent;
+    }
+
+    // States -------------------------------------------------------------------
+
+    &.dragging {
+        z-index: 20;
+        box-shadow: var(--shadow-md);
+        cursor: grabbing;
+
+        > .panel-heading {
+            cursor: grabbing;
+        }
+    }
+
+    // Component being dragged from the sidebar
+    &.cloned {
+        z-index: 25;
+        box-shadow: var(--shadow-lg);
+    }
+
+    // Selected
+    &.active {
+        z-index: 15;
+        border-color: var(--color-accent);
+        box-shadow: var(--shadow-md);
+
+        > .panel-heading {
+            background: var(--color-accent-100);
+            color: var(--color-accent-800);
+            border-bottom-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+
+            &::before,
+            > .we-component-type {
+                background: var(--color-bg);
+            }
+        }
+    }
+
+    &.component-operator.active > .panel-heading {
+        &::before,
+        > .we-component-type {
+            background: transparent;
+        }
+    }
+
+    &.dragging.active {
+        z-index: 20;
+    }
+
+    // Component that is not part of the active behaviour
+    &.background {
+        z-index: 5;
+        background: color-mix(in srgb, var(--color-bg) 55%, transparent);
+        color: var(--color-text-subtle);
+        border-style: dashed;
+        box-shadow: none;
+
+        > .panel-heading {
+            &::before,
+            > .we-component-type {
+                opacity: 0.55;
+            }
+
+            > .component-notice {
+                opacity: 0.6;
+            }
+        }
+
+        .endpoint {
+            color: var(--color-text-subtle);
+        }
+
+        .endpoint-anchor::before {
+            border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+        }
+    }
+
+    &.background.active {
+        z-index: 15;
+        background: var(--color-bg);
+        color: var(--color-text);
+        border-style: solid;
+        box-shadow: var(--shadow-md);
+
+        > .panel-heading::before,
+        > .panel-heading > .we-component-type {
+            opacity: 1;
+        }
+    }
+
+    // Component whose resource is not installed
+    &.missing {
+        border-color: color-mix(in srgb, var(--color-danger) 65%, transparent);
+        border-style: dashed;
+
+        > .panel-heading {
+            border-bottom-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
+        }
+    }
+
+    // Read only components: a lock after the title
+    &.readonly > .panel-heading {
+        @include icon("lock", after, 12px);
+
+        &::after {
+            order: 1;
+            opacity: 0.6;
+        }
+    }
+}
+
+// Error / missing notice, hanging from the top edge
+.panel.component-draggable > .panel-heading > .component-notice {
+    position: absolute;
+    top: -10px;
+    right: 0;
+    left: 0;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+
+    > .label {
+        display: inline-flex;
+        align-items: center;
+        margin: 0;
+        padding: 2px 6px;
+        font-family: var(--font-body);
+        font-size: 10px;
+        font-weight: 500;
+        line-height: 14px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        background: var(--color-danger);
+        color: var(--color-on-danger, #fff);
+        border: 0;
+        border-radius: 0;
+        box-shadow: var(--shadow-sm);
+        cursor: pointer;
+        pointer-events: auto;
+
+        &:hover {
+            filter: brightness(0.92);
+        }
+    }
+}
+
+// =============================================================================
+// Endpoints
+// =============================================================================
+
+.component-draggable .endpoints {
+    position: relative;
+    display: block;
+    flex: 0 1 auto;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+
+    &.source-endpoints {
+        margin-left: auto;
+    }
+}
+
+.component-draggable .endpoint {
+    position: relative;
+    display: flex;
+    align-items: center;
+    float: none;
+    max-width: none;
+    height: $row-height;
+    margin: 0;
+    padding: 0 $row-padding;
+    @include mono(12px);
+    line-height: 1;
+    color: var(--color-text);
+    background: transparent;
+    border-radius: 0;
+    white-space: nowrap;
+    cursor: crosshair;
+    user-select: none;
+    -webkit-user-select: none;
+
+    > .endpoint-title {
+        display: block;
+        min-width: 0;
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: inherit;
+        line-height: $row-height;
+    }
+
+    &:hover {
+        background: var(--color-hover);
+    }
+
+    // Highlighted: hovered suggestion, endpoint of the selected connection or
+    // valid target while a connection is being created
+    &.active {
+        background: var(--color-accent-hover);
+        color: var(--color-accent-text);
+    }
+
+    // Endpoints that cannot be used by the connection being created
+    &.disabled {
+        opacity: 0.45;
+        cursor: default;
+    }
+
+    &.active.disabled {
+        opacity: 1;
+    }
+
+    // Ghost endpoint: still used by a connection but no longer provided by
+    // the component
+    &.missing {
+        color: var(--color-danger);
+
+        > .endpoint-title {
+            text-decoration: line-through;
+            text-decoration-thickness: 1px;
+        }
+    }
+}
+
+.component-draggable .source-endpoints .endpoint {
+    justify-content: flex-end;
+    text-align: right;
+}
+
+// -----------------------------------------------------------------------------
+// Ports
+//
+// The platform attaches connections to the outer edge of `.endpoint-anchor`
+// (left edge for inputs, right edge for outputs) at its vertical centre. The
+// anchor box is therefore half a port wide and starts on the outer edge of
+// the component border; the 12×12 square is drawn by `::before`, centred on
+// that edge (it sits 7px outside the content box of the component).
+// -----------------------------------------------------------------------------
+
+.component-draggable .endpoint-anchor {
+    position: absolute;
+    top: ($row-height - $port-size) * 0.5;
+    width: $port-size * 0.5;
+    height: $port-size;
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+
+    &::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        width: $port-size;
+        height: $port-size;
+        box-sizing: border-box;
+        background: var(--color-bg);
+        border: $port-border solid var(--color-accent);
+        border-radius: 0;
+    }
+}
+
+.component-draggable .target-endpoints .endpoint-anchor {
+    left: -1px;
+    right: auto;
+
+    &::before {
+        left: -($port-size * 0.5);
+    }
+}
+
+.component-draggable .source-endpoints .endpoint-anchor {
+    right: -1px;
+    left: auto;
+
+    &::before {
+        right: -($port-size * 0.5);
+    }
+}
+
+.component-draggable .endpoint:hover .endpoint-anchor::before {
+    border-color: var(--color-accent-700);
+}
+
+// Filled while active, or while it is a valid target of the connection being
+// created (the connections layer gets `.dragging` and the endpoints that
+// cannot be connected get `.disabled`)
+.component-draggable .endpoint.active .endpoint-anchor::before,
+.we-connections-layer.dragging ~ .component-draggable .endpoint:not(.disabled) .endpoint-anchor::before {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+.component-draggable .endpoint.missing .endpoint-anchor::before {
+    border-color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-danger) 15%, var(--color-bg));
+}
+
+.component-draggable .endpoint.missing.active .endpoint-anchor::before {
+    background: var(--color-danger);
+    border-color: var(--color-danger);
+}
+
+// -----------------------------------------------------------------------------
+// Orderable endpoints (ComponentDraggablePrefs > "Order endpoints")
+// -----------------------------------------------------------------------------
+
+.component-draggable .endpoints.orderable > .endpoint {
+    cursor: grab;
+    outline: 1px dashed color-mix(in srgb, var(--color-accent) 50%, transparent);
+    outline-offset: -3px;
+
+    &:hover {
+        background: var(--color-accent-hover);
+    }
+
+    // Placeholder left in the list while the endpoint is moved
+    &.dragging {
+        background: var(--color-accent-100);
+        outline-style: solid;
+        cursor: grabbing;
+
+        > .endpoint-title {
+            opacity: 0.35;
+        }
+    }
+}
+
+// Copy of the endpoint that follows the pointer while ordering. It is
+// appended to the canvas, outside the component.
+.wiring-diagram > .endpoint.cloned,
+.endpoint.cloned {
+    position: absolute;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    height: $row-height;
+    max-width: $component-width;
+    margin: 0;
+    padding: 0 $row-padding;
+    @include mono(12px);
+    line-height: 1;
+    white-space: nowrap;
+    background: var(--color-bg);
+    color: var(--color-accent-800);
+    border: 1px solid var(--color-accent);
+    border-radius: 0;
+    box-shadow: var(--shadow-md);
+    cursor: grabbing;
+
+    > .endpoint-title {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    > .endpoint-anchor {
+        display: none;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Collapsed components: only the header is shown, the endpoints are moved
+// into it and all the ports of each side are stacked at its vertical centre.
+// -----------------------------------------------------------------------------
+
+.panel.component-draggable.collapsed {
+    > .panel-heading {
+        border-bottom-color: transparent;
+
+        > .endpoints {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            display: block;
+            width: 0;
+            height: auto;
+            margin: 0;
+            padding: 0;
+            overflow: visible;
+
+            > .endpoint {
+                position: absolute;
+                top: 0;
+                width: 0;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+                background: none;
+                cursor: inherit;
+
+                > .endpoint-title {
+                    display: none;
+                }
+
+                > .endpoint-anchor {
+                    top: ($heading-height - $port-size) * 0.5;
+                    pointer-events: none;
+                }
+            }
+        }
+
+        > .target-endpoints {
+            left: 0;
+
+            > .endpoint {
+                left: 0;
+            }
+        }
+
+        > .source-endpoints {
+            right: 0;
+            left: auto;
+
+            > .endpoint {
+                right: 0;
+            }
+        }
+    }
+
+    > .panel-body {
+        display: none;
+    }
+}
+
+// =============================================================================
+// Component groups: wiring sidebar and workspace "Add widget" drawer
+//
+// .we-component-group
+//   .we-component-meta
+//     .panel-heading > .panel-title > span            (name)
+//     .panel-body                                     (display: contents)
+//       .se-thumbnail.se-thumbnail-sm[.se-thumbnail-missing] > img
+//       .we-component-vendor
+//       .we-component-version > .se-select
+//       .se-btn.btn-create.wc-create-resource-component
+//       .we-component-description
+//   .panel.we-component …                             (instances)
+// =============================================================================
+
+.we-component-group {
+    position: relative;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+}
+
+.we-component-meta {
+    position: relative;
+    display: grid;
+    grid-template-columns: $thumbnail-size minmax(0, 1fr) auto auto;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+        "thumb title  version add"
+        "thumb vendor version add";
+    column-gap: 12px;
+    row-gap: 1px;
+    align-items: center;
+    margin: 0;
+    padding: 8px;
+    background: transparent;
+    color: var(--color-text);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    user-select: none;
+    -webkit-user-select: none;
+
+    &:hover {
+        background: var(--color-hover);
+    }
+
+    > .panel-heading {
+        grid-area: title;
+        align-self: end;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        background: none;
+        color: inherit;
+        border: 0;
+        border-radius: 0;
+
+        > .panel-title {
+            margin: 0;
+            font-family: var(--font-body);
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.3;
+            letter-spacing: 0;
+            text-transform: none;
+            color: inherit;
+            @include text-truncate;
+
+            > span {
+                @include text-truncate;
+            }
+        }
+    }
+
+    // The children of the body share the grid with the heading
+    > .panel-body {
+        display: contents;
+    }
+
+    .se-thumbnail {
+        grid-area: thumb;
+        display: block;
+        width: $thumbnail-size;
+        height: $thumbnail-size;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: var(--color-bg);
+        border: 1px solid var(--color-divider);
+        border-radius: 0;
+        box-shadow: none;
+        font-size: 0;
+        line-height: 0;
+
+        > img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            max-width: none;
+            object-fit: cover;
+        }
+
+        // Striped placeholder (the platform adds a "No image available"
+        // text node, hidden by the zero font size)
+        &.se-thumbnail-missing {
+            background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--color-text) 8%, transparent) 0 1px, transparent 1px 6px);
+            color: transparent;
+
+            > img {
+                display: none;
+            }
+        }
+    }
+
+    .we-component-vendor {
+        grid-area: vendor;
+        align-self: start;
+        min-width: 0;
+        font-size: 12px;
+        line-height: 1.3;
+        color: var(--color-text-muted);
+        @include text-truncate;
+    }
+
+    .we-component-version {
+        grid-area: version;
+        min-width: 0;
+
+        .se-select {
+            display: inline-flex;
+            align-items: center;
+            width: auto;
+            min-width: 0;
+            max-width: 116px;
+            height: 28px;
+            min-height: 28px;
+            margin: 0;
+            padding: 0 26px 0 8px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            line-height: 1;
+            background: transparent;
+
+            > .se-select-text {
+                min-width: 0;
+                line-height: 26px;
+                @include text-truncate;
+            }
+
+            > .se-select-arrow {
+                right: 6px;
+                font-size: 13px;
+            }
+        }
+    }
+
+    .wc-create-resource-component {
+        grid-area: add;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        min-width: 0;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        font-size: 16px;
+        line-height: 1;
+        color: var(--color-text);
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        cursor: pointer;
+        @include focus-visible;
+
+        &:hover {
+            background: var(--color-hover);
+            color: var(--color-accent-text);
+        }
+
+        &:active {
+            background: var(--color-pressed);
+        }
+
+        &.disabled {
+            opacity: 0.45;
+            background: transparent;
+            cursor: not-allowed;
+        }
+    }
+
+    // Kept for assistive technologies; the drawer rows only show the name
+    // and the vendor
+    .we-component-description {
+        @include visually-hidden;
+    }
+}
+
+// Instances of a component (wiring sidebar): rows nested under the group,
+// draggable into the canvas
+.we-component-group > .panel.we-component {
+    position: relative;
+    display: block;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--color-text);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+
+    &:hover {
+        background: var(--color-hover);
+    }
+
+    &.active {
+        background: var(--color-accent-100);
+        color: var(--color-accent-800);
+    }
+
+    > .panel-heading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 30px;
+        margin: 0;
+        padding: 0 8px 0 ($thumbnail-size - 2px);
+        background: none;
+        color: inherit;
+        border: 0;
+        border-radius: 0;
+        @include icon("grip-vertical", before, 14px);
+
+        &::before {
+            order: -1;
+            opacity: 0.45;
+        }
+
+        &::after {
+            content: none;
+        }
+
+        > .panel-title {
+            order: 0;
+            flex: 1 1 auto;
+            min-width: 0;
+            margin: 0;
+            font-family: var(--font-body);
+            font-size: 13px;
+            font-weight: 400;
+            line-height: 1.3;
+            letter-spacing: 0;
+            text-transform: none;
+            color: inherit;
+            @include text-truncate;
+
+            > span {
+                @include text-truncate;
+            }
+        }
+
+        > .panel-subtitle {
+            order: 1;
+            flex: none;
+            margin: 0;
+            @include mono(11px);
+            color: var(--color-text-muted);
+        }
+
+        > .label {
+            order: 2;
+            flex: none;
+            margin: 0;
+            padding: 1px 6px;
+            font-family: var(--font-body);
+            font-size: 10px;
+            font-weight: 400;
+            line-height: 14px;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+            border: 0;
+            border-radius: 0;
+            background: var(--color-neutral-100);
+            color: var(--color-neutral-800);
+
+            &.label-success {
+                background: color-mix(in srgb, var(--color-success) 16%, transparent);
+                color: color-mix(in srgb, var(--color-success) 55%, var(--color-text));
+            }
+
+            &.label-warning {
+                background: color-mix(in srgb, var(--color-warning) 22%, transparent);
+                color: color-mix(in srgb, var(--color-warning) 45%, var(--color-text));
+            }
+
+            &.label-danger {
+                background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+                color: color-mix(in srgb, var(--color-danger) 65%, var(--color-text));
+            }
+
+            &.label-info {
+                background: var(--color-accent-100);
+                color: var(--color-accent-800);
+            }
+        }
+
+        > .panel-options {
+            order: 3;
+            flex: none;
+            display: flex;
+            float: none;
+            margin: 0;
+            padding: 0;
+
+            > .se-btn {
+                @include faint-icon-button;
+            }
+
+            > .we-prefs-btn > .fa-bars::before {
+                @include mask-icon("ellipsis");
+            }
+        }
+    }
+
+    // Already in the canvas, missing, volatile or without endpoints: it
+    // cannot be dragged
+    &.disabled,
+    &.disabled:hover {
+        opacity: 1;
+        background: transparent;
+        cursor: default;
+
+        > .panel-heading {
+            &::before {
+                visibility: hidden;
+            }
+
+            > .panel-title {
+                color: var(--color-text-muted);
+            }
+        }
+    }
+}

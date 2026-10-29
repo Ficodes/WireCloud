@@ -1,0 +1,226 @@
+// Sidebar docks: widgets docked to the edges of the dashboard. The geometry
+// is computed by Wirecloud.ui.SidebarLayout and exposed through custom
+// properties.
+@use "mixins" as *;
+
+$ease: cubic-bezier(0.2, 0, 0, 1);
+
+.wc-dock {
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    pointer-events: none;
+
+    &.hidden {
+        display: none;
+    }
+
+    .wc-dock-grid {
+        position: absolute;
+        inset: 0;
+        min-height: 100%;
+        pointer-events: none;
+    }
+
+    &.wc-dock-interacting {
+        pointer-events: auto;
+
+        .wc-dock-grid {
+            pointer-events: auto;
+        }
+    }
+}
+
+.wc-dock-left { right: auto; width: 100%; }
+.wc-dock-right { left: auto; width: 100%; }
+.wc-dock-top { bottom: auto; height: 100%; }
+.wc-dock-bottom { top: auto; height: 100%; }
+
+// Bottom docks use row 0 internally but their preview belongs at the bottom
+.wc-dock-grid-bottom > .grid-stack-placeholder {
+    top: auto !important;
+    bottom: 0;
+}
+
+.wc-docked-widget {
+    pointer-events: auto;
+    transition: transform 0.3s $ease !important;
+    will-change: transform;
+}
+
+.wc-docked-widget:not(.wc-docked-bottom) {
+    transition: transform 0.3s $ease, left 0.3s $ease, top 0.3s $ease !important;
+    will-change: transform, left, top;
+}
+
+.wc-docked-widget:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    left: var(--wc-dock-left) !important;
+    top: var(--wc-dock-top) !important;
+    width: var(--wc-dock-width) !important;
+    height: var(--wc-dock-height) !important;
+}
+
+// SidebarLayout computes these coordinates relative to the dock grids, which
+// cover the whole tab content, but docked widgets live in the main grid,
+// which is shifted by the tab content padding. Cancel that padding and leave
+// the GridStack gutter outside the workspace, so the panel is flush with the
+// edge when open and completely hidden when closed.
+.wc-docked-left:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    left: calc(var(--wc-dock-left) - var(--wc-tab-padding-x, 0px) - var(--wc-dock-margin-left, 0px)) !important;
+}
+
+.wc-docked-right:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    left: calc(var(--wc-dock-left) - var(--wc-tab-padding-x, 0px) + var(--wc-dock-margin-right, 0px)) !important;
+}
+
+.wc-docked-top:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    top: calc(var(--wc-dock-top) - var(--wc-tab-padding-y, 0px) - var(--wc-dock-margin-top, 0px)) !important;
+}
+
+.wc-docked-bottom:not(.ui-draggable-dragging):not(.ui-resizable-resizing) {
+    position: fixed !important;
+    top: auto !important;
+    bottom: var(--wc-dock-bottom, 0px) !important;
+}
+
+.wc-docked-widget {
+    &.wc-dock-widget-overlay {
+        z-index: 105;
+
+        > .grid-stack-item-content {
+            box-shadow: var(--shadow-lg);
+            transition: box-shadow 0.3s $ease;
+        }
+    }
+
+    // The shadow of a closed panel would show on the workspace edge
+    &.wc-dock-widget-overlay.wc-dock-widget-closed > .grid-stack-item-content {
+        box-shadow: none;
+    }
+
+    &.wc-dock-widget-push {
+        z-index: 95;
+    }
+}
+
+.wc-dock-interacting .wc-docked-widget,
+.wc-docked-widget.ui-draggable-dragging,
+.wc-docked-widget.ui-resizable-resizing {
+    transition: none !important;
+}
+
+// Docked widgets cannot be resized from the docked edge
+@each $side, $handles in (left: "w, sw, nw", right: "e, se, ne", top: "n, nw, ne", bottom: "s, se, sw") {
+    .wc-docked-#{$side} {
+        @each $handle in $handles {
+            .ui-resizable-#{$handle} {
+                display: none !important;
+                pointer-events: none !important;
+            }
+        }
+    }
+}
+
+.wc-dock-left .wc-dock-widget-closed, .wc-docked-left.wc-dock-widget-closed { transform: translateX(-100%); }
+.wc-dock-right .wc-dock-widget-closed, .wc-docked-right.wc-dock-widget-closed { transform: translateX(100%); }
+.wc-dock-top .wc-dock-widget-closed, .wc-docked-top.wc-dock-widget-closed { transform: translateY(-100%); }
+.wc-dock-bottom .wc-dock-widget-closed, .wc-docked-bottom.wc-dock-widget-closed { transform: translateY(100%); }
+
+.wc-dock-left .wc-dock-widget-open, .wc-docked-left.wc-dock-widget-open,
+.wc-dock-right .wc-dock-widget-open, .wc-docked-right.wc-dock-widget-open,
+.wc-dock-top .wc-dock-widget-open, .wc-docked-top.wc-dock-widget-open,
+.wc-dock-bottom .wc-dock-widget-open, .wc-docked-bottom.wc-dock-widget-open {
+    transform: none;
+}
+
+// Handles used to open/close docked widgets
+.wc-sidebar-left-handle,
+.wc-sidebar-right-handle,
+.wc-sidebar-top-handle,
+.wc-sidebar-bottom-handle {
+    position: absolute;
+    z-index: 110;
+    display: grid;
+    place-items: center;
+    color: var(--color-text);
+    background: var(--color-surface);
+    border: 1px solid var(--color-divider);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+
+    &:hover {
+        background: color-mix(in srgb, var(--color-text) 7%, var(--color-surface));
+    }
+
+    &:focus-visible {
+        @include focus-ring;
+    }
+}
+
+.wc-sidebar-left-handle {
+    top: 50%;
+    left: 100%;
+    padding: 15px 4px;
+    border-left: 0;
+    transform: translateY(-50%);
+}
+
+.wc-sidebar-right-handle {
+    top: 50%;
+    right: 100%;
+    padding: 15px 4px;
+    border-right: 0;
+    transform: translateY(-50%);
+}
+
+.wc-sidebar-top-handle {
+    top: 100%;
+    left: 50%;
+    padding: 1px 20px;
+    border-top: 0;
+    transform: translateX(-50%);
+}
+
+.wc-sidebar-bottom-handle {
+    bottom: 100%;
+    left: 50%;
+    padding: 1px 20px;
+    border-bottom: 0;
+    transform: translateX(-50%);
+}
+
+.wc-docked-left.wc-dock-widget-open .wc-sidebar-left-handle {
+    left: calc(100% - var(--wc-dock-margin-right, 0px));
+}
+
+.wc-docked-right.wc-dock-widget-open .wc-sidebar-right-handle {
+    right: calc(100% - var(--wc-dock-margin-left, 0px));
+}
+
+.wc-docked-top.wc-dock-widget-open .wc-sidebar-top-handle {
+    top: calc(100% - var(--wc-dock-margin-bottom, 0px));
+}
+
+.wc-docked-bottom.wc-dock-widget-open .wc-sidebar-bottom-handle {
+    bottom: calc(100% - var(--wc-dock-margin-top, 0px));
+}
+
+// Closed docks: keep the handle on the workspace edge, past the outer gutter
+.wc-docked-left.wc-dock-widget-closed .wc-sidebar-left-handle {
+    left: calc(100% + var(--wc-dock-margin-left, 0px));
+}
+
+.wc-docked-right.wc-dock-widget-closed .wc-sidebar-right-handle {
+    right: calc(100% + var(--wc-dock-margin-right, 0px));
+}
+
+.wc-docked-top.wc-dock-widget-closed .wc-sidebar-top-handle {
+    top: calc(100% + var(--wc-dock-margin-top, 0px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wc-docked-widget, .wc-docked-widget:not(.wc-docked-bottom), .wc-dragboard {
+        transition-duration: 0.01s !important;
+    }
+}

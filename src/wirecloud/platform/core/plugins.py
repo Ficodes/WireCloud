@@ -47,7 +47,7 @@ from wirecloud.platform.plugins import (get_active_features_info, get_plugin_url
                                             WirecloudPlugin, URLTemplate)
 from wirecloud.platform.context.schemas import BaseContextKey, WorkspaceContextKey
 from wirecloud.platform.preferences.routes import preferences_router
-from wirecloud.platform.preferences.schemas import PreferenceKey, TabPreferenceKey
+from wirecloud.platform.preferences.schemas import PreferenceKey, TabPreferenceKey, SelectEntry
 from wirecloud.platform.urls import patterns
 from wirecloud.platform.routes import get_current_theme, get_current_view
 from wirecloud.commons.auth.schemas import UserAll, Session
@@ -356,6 +356,19 @@ class WirecloudCorePlugin(WirecloudPlugin):
                 type='text',
                 description=_('List of domains separated by commas that can be used to authenticate in external services. Use * to allow any domain (DANGEROUS, since that could expose it to non-authorised services).'),
                 defaultValue='*'
+            ),
+            PreferenceKey(
+                name='color-scheme',
+                label=_('Color scheme'),
+                type='select',
+                description=_('Color scheme used by themes that support more than one. "System" follows the setting of your operating system.'),
+                initialEntries=[
+                    SelectEntry(value='system', label=_('System')),
+                    SelectEntry(value='light', label=_('Light')),
+                    SelectEntry(value='dark', label=_('Dark')),
+                ],
+                defaultValue='system',
+                requiredThemeConfig='color_schemes'
             )
         ]
 

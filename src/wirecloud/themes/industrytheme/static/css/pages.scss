@@ -1,0 +1,129 @@
+// Login, landing and error pages: a centered blueprint card on --color-bg
+@use "mixins" as *;
+
+.wc-plain-page {
+    min-height: 100vh;
+    overflow: auto;
+}
+
+.wc-plain-page .plain_content {
+    display: grid;
+    place-items: center;
+    min-height: calc(100vh - 58px);
+    padding: 40px 20px;
+}
+
+.wc-login-page .plain_content {
+    min-height: 100vh;
+}
+
+.wc-plain-card.blueprint, .wc-login-card.blueprint {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    width: min(560px, 100%);
+    padding: 32px 40px;
+    background: var(--color-bg);
+
+    h1 {
+        margin: 0;
+        font-size: 32px;
+    }
+
+    p {
+        margin: 0;
+        overflow-wrap: anywhere;
+    }
+}
+
+.wc-login-card.blueprint {
+    width: min(400px, 100%);
+    gap: 16px;
+
+    form {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        width: 100%;
+    }
+
+    .se-text-field, .se-password-field {
+        width: 100%;
+    }
+
+    .alert {
+        width: 100%;
+        margin: 0;
+
+        h4 {
+            margin: 0 0 4px;
+            font-size: 16px;
+        }
+
+        p {
+            margin: 0;
+        }
+    }
+}
+
+.wc-login-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font: 600 20px/1 var(--font-heading);
+
+    .wc-brand-mark {
+        width: 34px;
+        height: 34px;
+    }
+}
+
+.wc-login-submit {
+    align-self: stretch;
+    justify-content: center;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+
+    > label {
+        display: block;
+        font-size: 12px;
+        color: color-mix(in srgb, var(--color-text) 70%, transparent);
+    }
+}
+
+.wc-error-code {
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    color: var(--color-accent-text);
+}
+
+.wc-error-home {
+    margin-top: 8px;
+}
+
+.wc-landing-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 20px;
+    width: 100%;
+    margin: 8px 0;
+
+    h4 {
+        margin-bottom: 4px;
+    }
+
+    p {
+        font-size: 14px;
+        color: var(--color-text-muted);
+    }
+}
+
+.wc-landing-feature {
+    padding-top: 10px;
+    border-top: 1px solid var(--color-divider);
+}

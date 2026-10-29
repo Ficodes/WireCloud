@@ -238,8 +238,33 @@
             }
 
             priv.iconelement.className = "se-icon " + iconClass;
+            priv.iconClass = iconClass;
 
             return this;
+        }
+
+        /**
+         * Whether this Menu Item runs a destructive action. Danger items are
+         * flagged with the `se-popup-menu-item-danger` class.
+         *
+         * @type {Boolean}
+         */
+        get danger() {
+            return this.hasClassName('se-popup-menu-item-danger');
+        }
+
+        set danger(value) {
+            this.toggleClassName('se-popup-menu-item-danger', !!value);
+        }
+
+        /**
+         * Icon class currently associated with this Menu Item (if any)
+         *
+         * @type {String|null}
+         */
+        get iconClass() {
+            const iconClass = privates.get(this).iconClass;
+            return iconClass != null ? iconClass : null;
         }
 
 

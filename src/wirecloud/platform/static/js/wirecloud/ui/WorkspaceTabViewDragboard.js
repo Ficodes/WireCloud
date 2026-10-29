@@ -827,6 +827,22 @@
             });
 
             this._lastAppliedScreenSizeId = screenSize.id;
+            this.updateScreenSizeState();
+        }
+
+        /**
+         * Exposes the name of the active screen size through the
+         * `data-wc-screen-size` attribute of the root element when this
+         * dragboard belongs to the visible tab.
+         */
+        updateScreenSizeState() {
+            const uim = Wirecloud.UserInterfaceManager;
+            const workspace = this.tab.workspace;
+            if (uim == null || typeof uim.setRootState !== 'function' || workspace == null || workspace.activeTab !== this.tab) {
+                return;
+            }
+
+            uim.setRootState('screen-size', this.activeScreenSize.name);
         }
 
         /**

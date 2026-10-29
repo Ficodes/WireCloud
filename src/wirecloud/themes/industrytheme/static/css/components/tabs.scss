@@ -1,0 +1,335 @@
+// StyledElements notebooks (Notebook + Tab) and pills, styled like the
+// Industry tab bar: 0 12px tabs, text at 65% and a 2px accent rule under the
+// selected tab.
+//
+// Structure the JS relies on: the tab area scrolls horizontally (its
+// scrollLeft is animated by the move_left/move_right buttons), tab contents
+// are absolutely positioned inside the content wrapper and hidden ones are
+// collapsed.
+//
+// The workspace tab bar (`.wc-workspace` notebook) is restyled in
+// workspace/tabbar.scss.
+@use "mixins" as *;
+
+$tab-muted: color-mix(in srgb, var(--color-text) 65%, transparent);
+
+.se-notebook {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    min-width: 5em;
+    min-height: 5em;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+
+    &.full {
+        position: absolute;
+        inset: 0;
+    }
+
+    &:fullscreen {
+        background-color: var(--color-bg);
+    }
+
+    // Old disable layer
+    .disable-layer {
+        position: absolute;
+        inset: 0;
+        z-index: 1111111;
+        background: color-mix(in srgb, var(--color-bg) 50%, transparent);
+    }
+}
+
+// =============================================================================
+// Tab bar
+// =============================================================================
+
+.se-notebook-tabs-wrapper.se-horizontal-layout {
+    position: relative;
+    z-index: 2;
+    flex: 0 0 auto;
+    align-items: stretch;
+    width: auto;
+    height: 40px;
+    margin: 0;
+    padding: 0 var(--space-2);
+    overflow: visible;
+    font-size: 14px;
+    line-height: 1.3;
+    // The divider is an inset shadow so the selected tab rule paints over it
+    box-shadow: inset 0 -1px 0 var(--color-divider);
+    -webkit-user-select: none;
+    user-select: none;
+
+    > .se-hl-west-container,
+    > .se-hl-east-container {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        white-space: nowrap;
+        overflow: visible;
+    }
+
+    > .se-hl-center-container {
+        position: relative;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    // Tab scrolling buttons
+    .move_left,
+    .move_right {
+        width: 28px;
+        min-height: 28px;
+        padding: 0;
+        color: var(--color-text-muted);
+        background: transparent;
+        border-color: transparent;
+
+        &:hover {
+            color: var(--color-text);
+        }
+
+        &.disabled {
+            visibility: hidden;
+        }
+    }
+}
+
+.se-notebook-tab-area {
+    display: flex;
+    align-items: stretch;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    white-space: nowrap;
+
+    > .se-notebook-new-tab {
+        flex: none;
+        align-self: center;
+        margin-left: var(--space-1);
+    }
+}
+
+// "Add tab" buttons
+.se-notebook-new-tab {
+    width: 28px;
+    min-height: 28px;
+    padding: 0;
+    color: var(--color-accent-text);
+    background: transparent;
+    border-color: transparent;
+
+    &:hover {
+        background-color: var(--color-accent-hover);
+    }
+
+    &.disabled {
+        display: none;
+    }
+}
+
+.se-notebook-tab {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+    min-width: 1ex;
+    max-width: 260px;
+    height: 100%;
+    margin: 0;
+    padding: 2px 12px 0;
+    font-size: 14px;
+    font-weight: 400;
+    white-space: nowrap;
+    color: $tab-muted;
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    cursor: pointer;
+    transition: color 0.12s linear, border-color 0.12s linear;
+
+    &:hover {
+        color: var(--color-text);
+    }
+
+    &:focus {
+        outline: none;
+    }
+
+    &:focus-visible {
+        @include focus-ring(-2px);
+    }
+
+    &.selected {
+        color: var(--color-text);
+        font-weight: 500;
+        border-bottom-color: var(--color-accent);
+    }
+
+    > span {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    > img {
+        flex: none;
+        width: auto;
+        height: 16px;
+    }
+
+    // Closable tabs
+    > .close_button {
+        flex: none;
+        font-size: 13px;
+        color: var(--color-text-subtle);
+
+        &:hover {
+            color: var(--color-text);
+        }
+    }
+}
+
+// =============================================================================
+// Contents
+// =============================================================================
+
+.se-notebook-content-wrapper {
+    position: relative;
+    z-index: 1;
+    flex: 1 1 auto;
+    order: 1;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: transparent;
+}
+
+.se-notebook-tab-content {
+    position: absolute;
+    inset: 0;
+    padding: var(--space-4);
+    overflow: auto;
+    visibility: visible;
+    background: transparent;
+    @include scrollbars;
+}
+
+.hidden .se-notebook-tab-content,
+.se-notebook-tab-content.hidden {
+    visibility: hidden;
+    height: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+// Notebooks that are not `full` (form field groups) grow with their contents
+.se-notebook:not(.full) > .se-notebook-content-wrapper > .se-notebook-tab-content {
+    position: relative;
+    inset: auto;
+}
+
+// =============================================================================
+// Tabs below the contents
+// =============================================================================
+
+.se-notebook-bottom {
+    > .se-notebook-tabs-wrapper {
+        order: 2;
+        box-shadow: inset 0 1px 0 var(--color-divider);
+    }
+
+    .se-notebook-tab {
+        padding: 0 12px 2px;
+        border-bottom: 0;
+        border-top: 2px solid transparent;
+
+        &.selected {
+            border-top-color: var(--color-accent);
+        }
+    }
+}
+
+// =============================================================================
+// Breadcrumb-like notebooks
+// =============================================================================
+
+.se-notebook-crumbs .se-notebook-tab {
+    padding-inline: 6px;
+    border-bottom-color: transparent;
+
+    & + .se-notebook-tab::before {
+        content: "/";
+        position: absolute;
+        left: -4px;
+        font-weight: 400;
+        color: var(--color-text-subtle);
+    }
+
+    &.selected {
+        border-bottom-color: transparent;
+    }
+}
+
+// =============================================================================
+// Pills (StyledElements.Pills)
+// =============================================================================
+
+.se-pills {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.se-pill {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    min-height: 36px;
+    margin: 0;
+    padding: 2px 12px 0;
+    font-size: 14px;
+    color: $tab-muted;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.12s linear, border-color 0.12s linear;
+
+    &:hover {
+        color: var(--color-text);
+    }
+
+    &:focus {
+        outline: none;
+    }
+
+    &:focus-visible {
+        @include focus-ring(-2px);
+    }
+
+    &.active {
+        color: var(--color-text);
+        font-weight: 500;
+        border-bottom-color: var(--color-accent);
+        cursor: default;
+    }
+
+    &.disabled {
+        @include disabled;
+
+        &:hover {
+            color: $tab-muted;
+        }
+    }
+}

@@ -26,13 +26,15 @@
     const builder = new StyledElements.GUIBuilder();
 
     const WirecloudHeader = function WirecloudHeader() {
+        const defaults = this.defaults;
+
         this.wrapperElement = document.getElementById('wirecloud_header');
         this.app_bar = this.wrapperElement.querySelector('.wirecloud_app_bar');
         this.breadcrum = document.getElementById('wirecloud_breadcrum');
 
         this.backButton = new StyledElements.Button({
-            class: 'btn-large wc-back-button',
-            iconClass: 'fas fa-caret-left'
+            class: defaults.backButtonClass,
+            iconClass: defaults.backButtonIconClass
         });
         this.backButton.addEventListener('click', function () {
             this.currentView.goUp();
@@ -41,8 +43,8 @@
         this.backButton.insertInto(this.breadcrum.parentNode, this.breadcrum);
 
         this.menuButton = new StyledElements.PopupButton({
-            class: 'btn-large wc-menu-button',
-            iconClass: 'fas fa-bars'
+            class: defaults.menuButtonClass,
+            iconClass: defaults.menuButtonIconClass
         });
         this.menuButton.disable();
         this.menuButton.insertInto(this.breadcrum.parentNode);
@@ -58,8 +60,36 @@
         Wirecloud.addEventListener("viewcontextchanged", this.refresh.bind(this));
     };
 
+    /**
+     * Presentation defaults used by the header. Themes can change them by
+     * registering a subclass (see {Wirecloud.ui.registry}) that overrides
+     * `defaults`, without having to reimplement the header.
+     */
+    WirecloudHeader.defaults = Object.freeze({
+        backButtonClass: 'btn-large wc-back-button',
+        backButtonIconClass: 'fas fa-caret-left',
+        menuButtonClass: 'btn-large wc-menu-button',
+        menuButtonIconClass: 'fas fa-bars',
+        toolbarButtonClasses: ['btn-large', 'btn-primary'],
+        toolbarIconClasses: ['fa-fw'],
+        userMenuIconClasses: {
+            settings: 'fas fa-cog',
+            djangoadmin: 'fas fa-tasks',
+            switchuser: 'fas fa-exchange-alt',
+            adminpanel: 'fas fa-cogs',
+            backtouser: 'fas fa-undo',
+            signout: 'fas fa-sign-out-alt'
+        }
+    });
+
+    Object.defineProperty(WirecloudHeader.prototype, 'defaults', {
+        get: function () {
+            return this.constructor.defaults != null ? this.constructor.defaults : WirecloudHeader.defaults;
+        }
+    });
+
     WirecloudHeader.prototype._initUserMenu = function _initUserMenu() {
-        let user_name, user_menu, item;
+        let user_name;
 
         const wrapper = document.querySelector('#wc-user-menu');
         if (wrapper == null) {
@@ -89,62 +119,74 @@
                 }
             }).appendTo(wrapper);
 
-            user_menu = this.user_button.getPopupMenu();
-            item = new StyledElements.MenuItem(utils.gettext('Settings'), function () {
-                const dialog = new Wirecloud.ui.PreferencesWindowMenu('platform', Wirecloud.preferences);
-                dialog.show();
+            this.buildUserMenu(this.user_button.getPopupMenu());
+        }
+    };
+
+    /**
+     * Fills the user menu. Themes may override this method to add, remove
+     * or reorder the entries.
+     *
+     * @param {StyledElements.PopupMenu} user_menu
+     */
+    WirecloudHeader.prototype.buildUserMenu = function buildUserMenu(user_menu) {
+        const icons = this.defaults.userMenuIconClasses;
+        let item;
+
+        item = new StyledElements.MenuItem(utils.gettext('Settings'), function () {
+            const dialog = new Wirecloud.ui.PreferencesWindowMenu('platform', Wirecloud.preferences);
+            dialog.show();
+        });
+        item.addIconClass(icons.settings);
+        user_menu.append(item);
+
+        if (Wirecloud.contextManager.get('isstaff') === true && 'DJANGO_ADMIN' in Wirecloud.URLs) {
+            item = new StyledElements.MenuItem(utils.gettext('Django Admin panel'), function () {
+                window.open(Wirecloud.URLs.DJANGO_ADMIN, '_blank');
             });
-            item.addIconClass('fas fa-cog');
-            user_menu.append(item);
-
-            if (Wirecloud.contextManager.get('isstaff') === true && 'DJANGO_ADMIN' in Wirecloud.URLs) {
-                item = new StyledElements.MenuItem(utils.gettext('Django Admin panel'), function () {
-                    window.open(Wirecloud.URLs.DJANGO_ADMIN, '_blank');
-                });
-                item.addIconClass('fas fa-tasks');
-                user_menu.append(item);
-            }
-
-            item = new Wirecloud.ui.TutorialSubMenu();
-            user_menu.append(item);
-
-            user_menu.append(new se.Separator());
-
-            if (Wirecloud.contextManager.get('issuperuser') === true) {
-                item = new StyledElements.MenuItem(utils.gettext('Switch User'), function () {
-                    const dialog = new Wirecloud.ui.FormWindowMenu([{name: 'username', label: utils.gettext('User'), type: 'text', required: true}], utils.gettext('Switch User'), 'wc-switch-user');
-
-                    const typeahead = new Wirecloud.ui.UserTypeahead({autocomplete: true});
-                    typeahead.bind(dialog.form.fieldInterfaces.username.inputElement);
-
-                    dialog.executeOperation = (data) => {
-                        Wirecloud.switchUser(data.username);
-                    };
-
-                    dialog.show();
-                });
-                user_menu.append(item.addIconClass('fas fa-exchange-alt'));
-
-                item = new StyledElements.MenuItem(utils.gettext('Admin Panel'), function () {
-                    const dialog = new Wirecloud.ui.AdminPanelWindowMenu();
-                    dialog.show();
-                });
-                user_menu.append(item.addIconClass('fas fa-cogs'));
-            }
-
-            const realuser = Wirecloud.contextManager.get('realuser');
-            if (realuser != null) {
-                item = new StyledElements.MenuItem(
-                    utils.interpolate(utils.gettext('Back to %(user)s'), {user: realuser}),
-                    () => {Wirecloud.switchUser(realuser);}
-                );
-                user_menu.append(item.addIconClass('fas fa-undo'));
-            }
-
-            item = new StyledElements.MenuItem(utils.gettext('Sign out'), Wirecloud.logout);
-            item.addIconClass('fas fa-sign-out-alt');
+            item.addIconClass(icons.djangoadmin);
             user_menu.append(item);
         }
+
+        item = new Wirecloud.ui.TutorialSubMenu();
+        user_menu.append(item);
+
+        user_menu.append(new se.Separator());
+
+        if (Wirecloud.contextManager.get('issuperuser') === true) {
+            item = new StyledElements.MenuItem(utils.gettext('Switch User'), function () {
+                const dialog = new Wirecloud.ui.FormWindowMenu([{name: 'username', label: utils.gettext('User'), type: 'text', required: true}], utils.gettext('Switch User'), 'wc-switch-user');
+
+                const typeahead = new Wirecloud.ui.UserTypeahead({autocomplete: true});
+                typeahead.bind(dialog.form.fieldInterfaces.username.inputElement);
+
+                dialog.executeOperation = (data) => {
+                    Wirecloud.switchUser(data.username);
+                };
+
+                dialog.show();
+            });
+            user_menu.append(item.addIconClass(icons.switchuser));
+
+            item = new StyledElements.MenuItem(utils.gettext('Admin Panel'), function () {
+                const dialog = new Wirecloud.ui.AdminPanelWindowMenu();
+                dialog.show();
+            });
+            user_menu.append(item.addIconClass(icons.adminpanel));
+        }
+
+        const realuser = Wirecloud.contextManager.get('realuser');
+        if (realuser != null) {
+            item = new StyledElements.MenuItem(
+                utils.interpolate(utils.gettext('Back to %(user)s'), {user: realuser}),
+                () => {Wirecloud.switchUser(realuser);}
+            );
+            user_menu.append(item.addIconClass(icons.backtouser));
+        }
+
+        item = new StyledElements.MenuItem(utils.gettext('Sign out'), Wirecloud.logout);
+        item.addIconClass(icons.signout);
+        user_menu.append(item);
     };
 
     const paint_breadcrum_entry = function paint_breadcrum_entry(i, breadcrum_entry) {
@@ -200,10 +242,10 @@
         btn_group.className = 'btn-group';
         this.breadcrum.appendChild(btn_group);
         const buttons = newView.getToolbarButtons();
+        const defaults = this.defaults;
         for (let i = 0; i < buttons.length; i++) {
-            buttons[i].addClassName('btn-large');
-            buttons[i].addClassName('btn-primary');
-            buttons[i].addIconClassName('fa-fw');
+            defaults.toolbarButtonClasses.forEach((className) => buttons[i].addClassName(className));
+            defaults.toolbarIconClasses.forEach((className) => buttons[i].addIconClassName(className));
             buttons[i].insertInto(this.toolbar);
         }
     };

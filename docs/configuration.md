@@ -14,7 +14,7 @@ For containers, configure the variables below in `docker/.env` or through your d
 | `WIRECLOUD_INSTALLED_APPS` | core app list | Comma-separated Python modules that provide WireCloud plugins. |
 | `WIRECLOUD_DEFAULT_LANGUAGE` | `en` | Fallback language code. It must be present in `WIRECLOUD_LANGUAGES`. |
 | `WIRECLOUD_LANGUAGES` | `en:English,es:Spanish,pt:Portuguese` | Comma-separated `code:label` entries. |
-| `WIRECLOUD_AVAILABLE_THEMES` | `defaulttheme` | Comma-separated theme names. |
+| `WIRECLOUD_AVAILABLE_THEMES` | `defaulttheme` | Comma-separated theme names. Bundled themes: `defaulttheme`, `industrytheme` (light and dark color schemes), `fiwaretheme`, `fiwarelabtheme` and `fiwarelabdarktheme`. |
 | `WIRECLOUD_THEME_ACTIVE` | `defaulttheme` | Default theme; it must be in the available theme list. |
 
 The default installed apps are `wirecloud.commons`, `wirecloud.platform`, `wirecloud.catalogue`, `wirecloud.proxy`, `wirecloud.fiware`, and `wirecloud.keycloak`. The commons and catalogue apps are required. Enabling the platform app also requires the proxy app.

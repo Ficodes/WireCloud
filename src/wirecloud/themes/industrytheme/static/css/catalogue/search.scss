@@ -1,0 +1,502 @@
+// Legacy catalogue search interface (CatalogueSearchView, template
+// wirecloud/catalogue/search_interface) used by the Marketplace view:
+//
+//   .search_interface (Alternative)
+//     .se-border-layout
+//       .se-bl-north-container.search_bar  > .pagination
+//       .se-bl-west-container.search_bar   > .field (keywords), .field (type), reset .se-btn
+//       .se-bl-center-container            > .resource_list
+//         .alert (corrected query / errors) | .catalogueEmptyBox | .resource.panel × N
+//
+// BorderLayout.repaint() measures the north height and the west width, so
+// these are set here with border-box sizing.
+//
+// Every rule is scoped to `:where(.catalogue:not(.myresources))
+// .search_interface`: it styles the Marketplace catalogues only and never
+// reaches My resources (`.catalogue.myresources`, see
+// catalogue/resources.scss). The `:where()` part adds no specificity.
+@use "mixins" as *;
+
+// Type tags: one accent instead of the old green/yellow/red coding
+@mixin type-tag {
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+    padding: 3px 10px;
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.2;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    color: var(--color-neutral-800);
+    background: var(--color-neutral-100);
+    border: 1px solid transparent;
+    border-radius: 0;
+
+    // widget
+    &.label-success {
+        color: var(--color-accent-800);
+        background: var(--color-accent-100);
+    }
+
+    // operator
+    &.label-warning {
+        color: var(--color-accent-text);
+        background: transparent;
+        border-color: var(--color-accent);
+    }
+
+    // mashup, pack: neutral
+    &.label-important,
+    &.label-info {
+        color: var(--color-neutral-800);
+        background: var(--color-neutral-100);
+    }
+}
+
+// =============================================================================
+// Marketplace chrome
+// =============================================================================
+
+#marketplace {
+    background: var(--color-bg);
+
+    > .se-alternatives,
+    .catalogue {
+        background: transparent;
+    }
+
+    // "Marketplace list not available"
+    .marketplace-error-view {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: var(--space-8) var(--space-6);
+
+        > .alert {
+            max-width: 520px;
+        }
+    }
+}
+
+// =============================================================================
+// Layout
+// =============================================================================
+
+:where(.catalogue:not(.myresources)) .search_interface {
+    // Pagination bar
+    .se-bl-north-container.search_bar {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: var(--space-3);
+        box-sizing: border-box;
+        min-height: 44px;
+        padding: 0 24px;
+        z-index: 2;
+        background: var(--color-bg);
+        border-bottom: 1px solid var(--color-divider);
+    }
+
+    // Filters column
+    .se-bl-west-container.search_bar {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        box-sizing: border-box;
+        width: 220px;
+        padding: 20px 18px 20px 24px;
+        overflow: auto;
+        z-index: 2;
+        border-right: 1px solid var(--color-divider);
+        @include scrollbars;
+
+        > .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin: 0;
+
+            > label {
+                @include overline;
+                margin: 0;
+                font-weight: 500;
+                color: color-mix(in srgb, var(--color-text) 65%, transparent);
+            }
+
+            > .se-text-field,
+            > .se-select {
+                box-sizing: border-box;
+                width: 100%;
+                margin: 0;
+            }
+        }
+
+        // Refresh / Clear filters
+        > .se-btn {
+            align-self: flex-start;
+            margin: 0;
+        }
+    }
+
+    .se-bl-center-container {
+        @include scrollbars;
+    }
+}
+
+// Pagination: [|<] [<] Page: n/m [>] [>|] (look from components/data.scss;
+// only the placement in the bar is set here)
+:where(.catalogue:not(.myresources)) .search_interface .pagination {
+    display: flex;
+    align-items: center;
+
+    > .se-input-group {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        margin: 0;
+
+        > .se-btn {
+            margin: 0;
+        }
+    }
+}
+
+// =============================================================================
+// Results grid
+// =============================================================================
+
+:where(.catalogue:not(.myresources)) .search_interface .resource_list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    align-content: start;
+    gap: 22px;
+    box-sizing: border-box;
+    min-height: 100%;
+    padding: 22px 24px;
+
+    // Messages span the whole row
+    > .alert,
+    > .catalogueEmptyBox {
+        grid-column: 1 / -1;
+    }
+
+    > .alert {
+        margin: 0;
+    }
+
+    // "Showing results for <b>query</b>": a quiet hint above the grid
+    > .alert-info {
+        padding: 0;
+        font-size: 13px;
+        color: var(--color-text-muted);
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+
+        &::before {
+            content: none;
+        }
+
+        p {
+            margin: 0;
+        }
+
+        b {
+            font-weight: 500;
+            color: var(--color-accent-800);
+        }
+    }
+
+    // No results for this search
+    > .alert-error {
+        justify-self: center;
+        width: min(560px, 100%);
+
+        ul {
+            margin: var(--space-2) 0 0;
+        }
+
+        p:last-child {
+            margin-bottom: 0;
+        }
+    }
+}
+
+// =============================================================================
+// Resource cards: blueprint frames (template wirecloud/catalogue/resource)
+//   .resource.panel.panel-selectable.click_for_details.blueprint (+ 4 corners)
+//     .wc-resource-img-container > img.wc-resource-img
+//     .panel-heading > .wc-resource-type-line > .label, h2.resource_name,
+//                      .vendor, .rating
+//     .description
+//     .wc-resource-actions > .mainbutton
+// =============================================================================
+
+:where(.catalogue:not(.myresources)) .search_interface .resource_list > .resource {
+    position: relative; // corner marks
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: auto;
+    height: auto;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    text-align: left;
+    color: var(--color-text);
+    background: transparent;
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+    box-shadow: none;
+    cursor: pointer;
+    transition: border-color 0.12s linear, background-color 0.12s linear;
+
+    &:hover {
+        border-color: color-mix(in srgb, var(--color-text) 35%, transparent);
+        background: color-mix(in srgb, var(--color-accent) 4%, transparent);
+        box-shadow: none;
+    }
+
+    &:focus-visible,
+    &:focus-within {
+        border-color: var(--color-accent);
+    }
+
+    &.active,
+    &.selected {
+        border-color: var(--color-accent);
+        background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+    }
+
+    // Top area: thumbnail, or a striped placeholder
+    > .wc-resource-img-container {
+        position: static;
+        display: grid;
+        place-items: center;
+        box-sizing: border-box;
+        width: auto;
+        height: 108px;
+        padding: 10px;
+        overflow: hidden;
+        background: transparent;
+        border: 0;
+        border-bottom: 1px solid var(--color-divider);
+        border-radius: 0;
+
+        > .wc-resource-img {
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        &.se-thumbnail-missing {
+            background: repeating-linear-gradient(135deg, var(--color-hover) 0 1px, transparent 1px 9px);
+
+            > .wc-resource-img {
+                display: none;
+            }
+        }
+    }
+
+    > .panel-heading {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        min-width: 0;
+        padding: 12px 12px 0;
+        color: inherit;
+        background: transparent;
+        border: 0;
+
+        // No clearfix inside the flex column
+        &::after {
+            content: none;
+        }
+
+        > .wc-resource-type-line {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 2px;
+
+            > .label {
+                @include type-tag;
+            }
+        }
+
+        > .resource_name {
+            @include heading(17px);
+            align-self: stretch;
+            min-width: 0;
+            margin: 0;
+            line-height: 1.2;
+            color: var(--color-text);
+            text-decoration: none;
+
+            > .title-tooltip {
+                display: inline;
+            }
+        }
+
+        > .vendor {
+            max-width: 100%;
+            font-size: 12px;
+            color: color-mix(in srgb, var(--color-text) 65%, transparent);
+            @include text-truncate;
+        }
+
+        > .rating {
+            position: absolute;
+            top: 118px;
+            right: 12px;
+            margin: 0;
+            font-size: 11px;
+            line-height: 1;
+
+            &.disabled {
+                display: none;
+            }
+        }
+    }
+
+    // Two-line description
+    > .description {
+        display: -webkit-box;
+        flex: 1 1 auto;
+        height: auto;
+        min-height: calc(2 * 1.45em);
+        max-height: calc(2 * 1.45em);
+        margin: 6px 12px 0;
+        padding: 0;
+        overflow: hidden;
+        font-size: 13px;
+        line-height: 1.45;
+        color: color-mix(in srgb, var(--color-text) 80%, transparent);
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+    }
+
+    > .wc-resource-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: var(--space-2);
+        min-height: 28px;
+        padding: 8px 12px 12px;
+    }
+
+    &:hover > .panel-heading > .resource_name {
+        color: var(--color-accent-text);
+    }
+}
+
+// Main action (Install / Uninstall): a ghost button
+:where(.catalogue:not(.myresources)) .search_interface .resource_list > .resource .mainbutton {
+    float: none;
+    min-height: 28px;
+    margin: 0;
+    padding: 0 var(--space-2);
+    font-size: 13px;
+    color: var(--color-accent);
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+
+    &::before,
+    &::after {
+        content: none;
+    }
+
+    &:hover {
+        background: var(--color-accent-hover);
+    }
+
+    &:active {
+        background: var(--color-accent-pressed);
+    }
+
+    &.btn-danger {
+        color: var(--color-danger);
+
+        &:hover {
+            background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+        }
+
+        &:active {
+            background: color-mix(in srgb, var(--color-danger) 18%, transparent);
+        }
+    }
+}
+
+// =============================================================================
+// Empty catalogue: a centered blueprint card
+// =============================================================================
+
+:where(.catalogue:not(.myresources)) .search_interface .catalogueEmptyBox {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-8) 0;
+    text-align: center;
+
+    > .alert {
+        @include blueprint-marks(after);
+        display: block;
+        width: min(420px, 100%);
+        margin: 0;
+        padding: var(--space-6) var(--space-6) var(--space-4);
+        text-align: center;
+        color: var(--color-text);
+        background: transparent;
+        border: 1px solid var(--color-divider);
+        border-radius: 0;
+        box-shadow: none;
+
+        &::before {
+            content: none;
+        }
+
+        h4 {
+            @include heading(20px);
+            margin: 0 0 var(--space-2);
+            font-size: 20px;
+            letter-spacing: -0.015em;
+            text-transform: none;
+            color: inherit;
+        }
+
+        p {
+            margin: 0;
+            font-size: 14px;
+            color: var(--color-text-muted);
+        }
+    }
+}
+
+// =============================================================================
+// Narrow screens: filters on top of the results
+// =============================================================================
+
+@media (max-width: 720px) {
+    :where(.catalogue:not(.myresources)) .search_interface {
+        .se-bl-west-container.search_bar {
+            width: 168px;
+            padding: 16px 12px;
+        }
+
+        .se-bl-north-container.search_bar {
+            padding: 0 12px;
+        }
+
+        .resource_list {
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 16px;
+            padding: 16px 12px;
+        }
+    }
+}

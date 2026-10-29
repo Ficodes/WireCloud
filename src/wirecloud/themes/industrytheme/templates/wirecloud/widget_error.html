@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <style>
+        body { margin: 0; padding: 16px; font: 14px/1.55 "Barlow", system-ui, sans-serif; color: #1d1f20; background: #f2f2f3; }
+        h1 { margin: 0 0 8px; font: 600 20px/1.2 "Barlow Condensed", system-ui, sans-serif; }
+        p { margin: 0 0 6px; }
+        @media (prefers-color-scheme: dark) { body { color: #e4e6e8; background: #131517; } }
+    </style>
+</head>
+<body>
+    <h1>{% block title %}{{ trans("Error 400 - Bad request") }}{% endblock %}</h1>
+    <p>{{ error_msg|e }}</p>
+    <p>{{ details|e }}</p>
+</body>
+</html>

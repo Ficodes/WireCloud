@@ -1,0 +1,8 @@
+{% extends 'wirecloud/views/base_plain.html' %}
+{% block path %}{{ trans("Error") }} 404{% endblock %}
+{% block content %}
+    <div class="wc-error-code mono" aria-hidden="true">404</div>
+    <h1>{% block title %}{{ trans("Error 404 - Not Found") }}{% endblock %}</h1>
+    <p>{{ trans("The requested URL \"%(request_path)s\" was not found on this server.", request_path=request_path|e) }}</p>
+    <a class="se-btn btn-primary wc-error-home" href="{{ url("wirecloud.root") }}">{{ trans("Go to WireCloud") }}</a>
+{% endblock %}

@@ -78,7 +78,8 @@ CACHE_DIR = path.join(BASEDIR, 'cache')
 WIRECLOUD_HTTPS_VERIFY = True
 
 AVAILABLE_THEMES = [
-    "defaulttheme"
+    "defaulttheme",
+    "industrytheme"
 ]
 THEME_ACTIVE = "defaulttheme"
 

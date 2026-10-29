@@ -1,0 +1,8 @@
+<s:styledgui xmlns:s="http://wirecloud.conwet.fi.upm.es/StyledElements" xmlns:t="http://wirecloud.conwet.fi.upm.es/Template" xmlns="http://www.w3.org/1999/xhtml">
+    <div class="wc-embed-options">
+        <div class="field"><label for="embed-theme-select">{{ trans("Theme") }}</label><t:themeselect id="embed-theme-select" aria-label="{{ trans("Theme") }}" /></div>
+        <div class="field"><label for="embed-lang-select">{{ trans("Language") }}</label><t:langselect id="embed-lang-select" aria-label="{{ trans("Language") }}" /></div>
+    </div>
+    <p class="wc-embed-help">{{ trans("Paste this snippet in any page to embed the workspace in view mode.") }}</p>
+    <div class="wc-embed-code"><t:code/></div>
+</s:styledgui>

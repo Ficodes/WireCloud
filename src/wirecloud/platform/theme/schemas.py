@@ -16,6 +16,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with Wirecloud.  If not, see <http://www.gnu.org/licenses/>.
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from wirecloud.platform.theme import docs
@@ -24,3 +26,4 @@ class ThemeInfo(BaseModel):
     name: str = Field(description=docs.theme_info_name_description)
     label: str = Field(description=docs.theme_info_label_description)
     templates: dict[str, str] = Field(description=docs.theme_info_templates_description)
+    config: dict[str, Any] = Field(default_factory=dict, description=docs.theme_info_config_description)

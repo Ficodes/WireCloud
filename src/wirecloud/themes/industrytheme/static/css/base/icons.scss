@@ -1,0 +1,119 @@
+// Icons: Lucide masks painted with the current text color. The platform uses
+// Font Awesome class names (`fas fa-cog`), mapped here to Lucide icons; the
+// theme uses `.lc-icon.lc-<name>`.
+@use "icon-map" as map;
+
+.fa, .fas, .far, .fab, .fal, .lc-icon {
+    display: inline-block;
+    flex: none;
+    width: 1em;
+    height: 1em;
+    font-style: normal;
+    line-height: 1;
+    vertical-align: -0.125em;
+    text-align: center;
+}
+
+// Only the mapped names are drawn, so an unknown Font Awesome name shows
+// nothing (or its glyph, when a widget loads its own Font Awesome stylesheet)
+// instead of a filled square
+%lucide-mask::before {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 100%;
+    background-color: currentColor;
+    -webkit-mask: none center / contain no-repeat;
+    mask: none center / contain no-repeat;
+}
+
+@each $name in map.$lucide-icons {
+    .lc-#{$name} {
+        @extend %lucide-mask;
+
+        &::before {
+            -webkit-mask-image: url("../icons/#{$name}.svg");
+            mask-image: url("../icons/#{$name}.svg");
+        }
+    }
+}
+
+// The `.fa` class in the selector beats the `.fa-<name>::before` rules of a
+// Font Awesome stylesheet loaded by a widget, which come after these ones
+@each $fa, $lucide in map.$fa-icons {
+    :is(.fa, .fas, .far, .fab, .fal).fa-#{$fa} {
+        @extend %lucide-mask;
+
+        &::before {
+            -webkit-mask-image: url("../icons/#{$lucide}.svg");
+            mask-image: url("../icons/#{$lucide}.svg");
+        }
+    }
+}
+
+// Font Awesome helpers still used by the platform and widgets
+.fa-fw {
+    width: 1.25em;
+
+    &:is(.fa, .fas, .far, .fab, .fal)::before {
+        width: 1em;
+        margin: 0 auto;
+    }
+}
+
+.fa-lg {
+    font-size: 1.333em;
+}
+
+.fa-2x {
+    font-size: 2em;
+}
+
+.fa-3x {
+    font-size: 3em;
+}
+
+.fa-spin {
+    animation: lc-spin 1.2s linear infinite;
+}
+
+@keyframes lc-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fa-spin {
+        animation-duration: 3s;
+    }
+}
+
+.fa-stack {
+    position: relative;
+    display: inline-block;
+    width: 1.5em;
+    height: 1.5em;
+    vertical-align: middle;
+
+    &::before {
+        display: none;
+    }
+
+    > .fa-stack-1x,
+    > .fa-stack-2x {
+        position: absolute;
+        inset: 0;
+        margin: auto;
+    }
+
+    > .fa-stack-1x {
+        width: 1em;
+        height: 1em;
+    }
+
+    > .fa-stack-2x {
+        width: 1.5em;
+        height: 1.5em;
+    }
+}

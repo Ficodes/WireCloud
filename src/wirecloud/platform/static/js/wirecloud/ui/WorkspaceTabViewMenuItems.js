@@ -45,12 +45,16 @@
                 (new Wirecloud.ui.RenameWindowMenu(this.tab.model, utils.gettext('Rename Workspace Tab'))).show();
             });
             item.addIconClass("fas fa-pencil-alt");
+            item.commandId = "rename";
+            item.commandLabel = utils.gettext("Rename tab");
             items.push(item);
 
             item = new se.MenuItem(utils.gettext("Set as initial"), function () {
                 this.tab.model.setInitial();
             });
             item.addIconClass("fas fa-home");
+            item.commandId = "initial";
+            item.commandLabel = utils.gettext("Set tab as initial");
             item.setDisabled(this.tab.model.initial);
             items.push(item);
 
@@ -58,6 +62,8 @@
                 this.showSettings();
             }.bind(this.tab));
             item.addIconClass("fas fa-cog");
+            item.commandId = "settings";
+            item.commandLabel = utils.gettext("Tab settings");
             items.push(item);
 
             item = new se.MenuItem(utils.gettext("Remove"), () => {
@@ -71,6 +77,9 @@
                 }
             });
             item.addIconClass("fas fa-trash");
+            item.danger = true;
+            item.commandId = "remove";
+            item.commandLabel = utils.gettext("Remove tab");
             item.setDisabled(!this.tab.model.isAllowed('remove'));
             items.push(item);
 

@@ -1,0 +1,334 @@
+// Tutorials (Wirecloud.ui.Tutorial and Tutorial/*):
+//
+//   body > .controlLayer(.transparent|.hidden)         mask around the target
+//            > .controlLayerUp/Down/Left/Right        (positioned by Tutorial.js)
+//            > .controlLayerCenter                    (blocks the target when needed)
+//   body > .msgLayer
+//            > .window_menu.simpleDescription(.activeStep)   SimpleDescription
+//            > .pop-up.alert(.alert-info|.alert-warning)     PopUp (UserAction,
+//                 .pop-up-close, .warningIco, .pop-up-message,  FormAction…)
+//                 .pop-up-arrow.<downRight|downLeft|topLeft|topRight>
+//   .tuto_highlight on the target element, .disableLayer over blocked areas
+@use "mixins" as *;
+
+$tutorial-z: 200000;
+
+// =============================================================================
+// Mask
+// =============================================================================
+
+.controlLayer {
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    pointer-events: none;
+    border: 0;
+
+    > div {
+        pointer-events: all;
+    }
+
+    &.transparent > div {
+        opacity: 0;
+    }
+}
+
+.controlLayerUp,
+.controlLayerDown,
+.controlLayerLeft,
+.controlLayerRight {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: $tutorial-z;
+    background: var(--color-backdrop);
+    transition: left 0.4s ease-out, top 0.4s ease-out, height 0.4s ease-out, width 0.4s ease-out, opacity 0.4s ease-out;
+}
+
+// Covers the highlighted element when it must not be used in this step
+.controlLayerCenter {
+    position: absolute;
+    z-index: $tutorial-z;
+    background: transparent;
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+    transition: left 0.4s ease-out, top 0.4s ease-out, height 0.4s ease-out, width 0.4s ease-out, opacity 0.4s ease-out;
+}
+
+// Accent outline on the element the user has to look at / use. Drawn inside
+// the element so the mask does not cover it.
+.tuto_highlight {
+    outline: 2px solid var(--color-accent) !important;
+    outline-offset: -2px !important;
+}
+
+// Areas blocked during a step
+.disableLayer {
+    position: absolute;
+    z-index: $tutorial-z + 100000;
+    background: transparent;
+    cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .controlLayerUp,
+    .controlLayerDown,
+    .controlLayerLeft,
+    .controlLayerRight,
+    .controlLayerCenter {
+        transition-duration: 0.01s;
+    }
+}
+
+// =============================================================================
+// Step descriptions (SimpleDescription): small dialogs on --surface with
+// blueprint marks (the .corner children come from wirecloud/modals/base)
+// =============================================================================
+
+.window_menu.simpleDescription {
+    --wc-dialog-width: 380px;
+
+    display: none;
+    z-index: $tutorial-z + 100;
+    min-width: 220px;
+    background: var(--color-surface);
+
+    &.activeStep {
+        display: block;
+    }
+
+    > .window_content {
+        font-size: 14px;
+        line-height: 1.55;
+
+        b, strong {
+            font-weight: 500;
+        }
+
+        em {
+            font-style: normal;
+            color: var(--color-accent-text);
+        }
+
+        // Keys and UI names quoted in the instructions
+        code, kbd, .label {
+            @include key-chip;
+            padding: 0 5px;
+            background: transparent;
+            color: var(--color-accent-800);
+        }
+
+        img {
+            max-width: 100%;
+            border: 1px solid var(--color-divider);
+        }
+    }
+
+    // Cancel / Close, then Next
+    > .window_bottom {
+        > .cancelButton {
+            order: 1;
+        }
+
+        > .nextButton {
+            order: 2;
+        }
+    }
+}
+
+// =============================================================================
+// Pop-ups (PopUp): hints attached to an element, with a leader line
+// =============================================================================
+
+.pop-up {
+    @include blueprint-marks(after);
+    position: absolute;
+    z-index: $tutorial-z + 100;
+    display: block;
+    box-sizing: border-box;
+    max-width: 340px;
+    margin: 0;
+    padding: var(--space-3) 36px var(--space-3) var(--space-4);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--color-text);
+    background: var(--color-surface);
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+    box-shadow: var(--shadow-lg);
+
+    // Steps where the user has to act
+    &.alert-warning {
+        border-color: var(--color-accent);
+    }
+
+    // The generic alert icon is not used here
+    &::before {
+        content: none;
+    }
+
+    &.empty {
+        display: none;
+    }
+
+    > .pop-up-message {
+        display: inline;
+
+        b, strong {
+            font-weight: 500;
+        }
+
+        em {
+            font-style: normal;
+            color: var(--color-accent-text);
+        }
+    }
+
+    > .pop-up-close {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        color: var(--color-text-muted);
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 0;
+
+        &:hover {
+            color: var(--color-text);
+            background: var(--color-hover);
+        }
+    }
+
+    // Validation warning (FormAction sub steps)
+    > .warningIco {
+        position: absolute;
+        visibility: hidden;
+        margin-right: 8px;
+        color: var(--color-danger);
+    }
+}
+
+// Leader line from the pop-up corner towards the element: a diagonal hairline
+// in the accent with a square registration point at the far end. It replaces
+// the Font Awesome glyph the PopUp uses as arrow.
+.pop-up > .pop-up-arrow {
+    position: absolute;
+    display: block;
+    width: 14px;
+    height: 14px;
+    color: var(--color-accent);
+    font-size: 14px;
+    line-height: 1;
+    background: none;
+    pointer-events: none;
+
+    // The diagonal
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        display: block;
+        width: auto;
+        height: auto;
+        -webkit-mask: none;
+        mask: none;
+        background: linear-gradient(to top right, transparent calc(50% - 0.75px), currentColor calc(50% - 0.75px), currentColor calc(50% + 0.75px), transparent calc(50% + 0.75px));
+    }
+
+    // The registration point
+    &::after {
+        content: "";
+        position: absolute;
+        width: 5px;
+        height: 5px;
+        background: currentColor;
+    }
+
+    // Pop-up below the element, extending to the right: line to the top-left
+    &.downRight {
+        top: -14px;
+        left: -14px;
+
+        &::after {
+            top: -2px;
+            left: -2px;
+        }
+    }
+
+    // Pop-up below the element, extending to the left: line to the top-right
+    &.downLeft {
+        top: -14px;
+        right: -14px;
+
+        &::before {
+            background: linear-gradient(to bottom right, transparent calc(50% - 0.75px), currentColor calc(50% - 0.75px), currentColor calc(50% + 0.75px), transparent calc(50% + 0.75px));
+        }
+
+        &::after {
+            top: -2px;
+            right: -2px;
+        }
+    }
+
+    // Pop-up above the element, extending to the left: line to the bottom-right
+    &.topLeft {
+        bottom: -14px;
+        right: -14px;
+
+        &::after {
+            bottom: -2px;
+            right: -2px;
+        }
+    }
+
+    // Pop-up above the element, extending to the right: line to the bottom-left
+    &.topRight {
+        bottom: -14px;
+        left: -14px;
+
+        &::before {
+            background: linear-gradient(to bottom right, transparent calc(50% - 0.75px), currentColor calc(50% - 0.75px), currentColor calc(50% + 0.75px), transparent calc(50% + 0.75px));
+        }
+
+        &::after {
+            bottom: -2px;
+            left: -2px;
+        }
+    }
+}
+
+// Form actions: one pop-up per field, shown while the field is active or
+// invalid
+.pop-up.subFormAction {
+    visibility: hidden;
+
+    &.activate {
+        visibility: visible;
+    }
+
+    &.invalid {
+        visibility: visible;
+        color: var(--color-danger);
+        border-color: color-mix(in srgb, var(--color-danger) 55%, transparent);
+
+        > .warningIco {
+            position: relative;
+            display: inline-block;
+            visibility: visible;
+            vertical-align: -0.15em;
+        }
+    }
+}

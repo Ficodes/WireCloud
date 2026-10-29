@@ -208,7 +208,151 @@
                 }
             });
 
-            this.wrapperElement = (new se.GUIBuilder()).parse(options.template, {
+            this.wrapperElement = (new se.GUIBuilder()).parse(options.template, this.getTemplateComponents(), this).children[1];
+
+            this.wrapperElement.classList.add("wc-widget", "grid-stack-item");
+            this.wrapperElement.setAttribute('data-id', model.id);
+
+            this.contentElement = this.wrapperElement.children[0];
+            this.heading = this.wrapperElement.getElementsByClassName('wc-widget-heading')[0];
+
+            model.addEventListener('change', (widget, changes) => {
+                if (changes.indexOf('title') !== -1) {
+                    this.titleelement.setTextContent(widget.title);
+                }
+
+                if (changes.indexOf('meta') !== -1) {
+                    update_classes.call(this);
+                    update_buttons.call(this);
+                }
+
+                if (changes.indexOf('permissions') !== -1) {
+                    update_classes.call(this);
+                    update_buttons.call(this);
+                    this.updateGridPermissions();
+                }
+            });
+
+            model.addEventListener('unload', () => {
+                this.unhighlight();
+            });
+
+            model.addEventListener('load', () => {
+                this.contentElement.classList.add('in');
+
+                const containerToListen = (model.meta.macversion > 1) ? model.wrapperElement : model.wrapperElement.contentDocument.defaultView;
+
+                containerToListen.addEventListener('keydown', (event) => {
+                    if (event.keyCode === 27) { // escape
+                        Wirecloud.UserInterfaceManager.handleEscapeEvent();
+                    }
+                }, true);
+
+                containerToListen.addEventListener('click', () => {
+                    Wirecloud.UserInterfaceManager.handleEscapeEvent(true);
+                    this.unhighlight();
+                    this.select();
+                }, true);
+
+                this.repaint();
+            });
+
+            model.addEventListener('remove', () => {
+                if (this.tab.workspace.selectedWidget === this) {
+                    this.tab.workspace.selectWidget(null);
+                }
+                this.tab.dragboard.removeWidget(this);
+                this.dispatchEvent('remove');
+            });
+
+            // Clicking a widget while editing selects it
+            this.wrapperElement.addEventListener('mousedown', () => {
+                this.select();
+            }, true);
+
+            this.model.logManager.addEventListener('newentry', on_add_log.bind(this));
+
+            this.tab.workspace.addEventListener('editmode', () => {
+                update_classes.call(this);
+                update_buttons.call(this);
+                this.updateGridPermissions();
+            });
+
+            this.tab.workspace.addEventListener('show', () => notify_context.call(this));
+            this.tab.workspace.addEventListener('hide', () => notify_context.call(this));
+            this.tab.addEventListener('show', () => notify_context.call(this));
+            this.tab.addEventListener('hide', () => notify_context.call(this));
+
+            this.tab.dragboard.addWidget(this);
+
+            update_classes.call(this);
+            update_buttons.call(this);
+        }
+
+        /**
+         * The `{x, y, w, h, minimized, titlevisible, fulldragboard, visible}`
+         * object that should be persisted for the active screen size: `x`/`y`/`w`/`h`
+         * are read from the underlying GridStack node (when minimized, `h` is
+         * the remembered un-minimized height, not the collapsed one).
+         *
+         * @type {Object}
+         */
+        get currentLayout() {
+            const node = this.wrapperElement.gridstackNode || {};
+            const layout = this.layout || {};
+
+            const result = {
+                x: (node.x != null) ? node.x : layout.x,
+                y: (node.y != null) ? node.y : layout.y,
+                w: (node.w != null) ? node.w : layout.w,
+                h: layout.minimized ? (this._unminimizedHeight != null ? this._unminimizedHeight : layout.h) : ((node.h != null) ? node.h : layout.h),
+                minimized: !!layout.minimized,
+                titlevisible: !!layout.titlevisible,
+                fulldragboard: !!layout.fulldragboard,
+                visible: layout.visible !== false
+            };
+
+            if (layout.dock != null) {
+                result.dock = layout.dock;
+                result.dock_mode = layout.dock_mode || 'overlay';
+                result.dock_open = layout.dock_open === true;
+            } else if (layout.dock === null && ('dock' in layout)) {
+                result.dock = null;
+            }
+
+            return result;
+        }
+
+        get canMove() {
+            const layout = this.layout || {};
+            if (layout.fulldragboard) {
+                return false;
+            }
+            const role = this.tab.workspace.editing ? 'editor' : 'viewer';
+            return this.model.isAllowed('move', role);
+        }
+
+        get canResize() {
+            const layout = this.layout || {};
+            if (layout.fulldragboard || layout.minimized) {
+                return false;
+            }
+            const role = this.tab.workspace.editing ? 'editor' : 'viewer';
+            return this.model.isAllowed('resize', role);
+        }
+
+        /**
+         * Builders for the components available to the widget template
+         * (`wirecloud/workspace/widget`): `closebutton`, `errorbutton`,
+         * `grip`, `menubutton`, `minimizebutton`, `title`,
+         * `titlevisibilitybutton` and `iframe`. Themes can extend the widget
+         * chrome by registering a `WidgetView` subclass that overrides this
+         * method (see {Wirecloud.ui.registry}).
+         *
+         * @returns {Object.<String, Function>}
+         */
+        getTemplateComponents() {
+            return {
                 'closebutton': function (options, tcomponents, view) {
                     const button = new se.Button({
                         plain: true,
@@ -302,128 +446,7 @@
                 'iframe': function (options, tcomponents, view) {
                     return view.model.wrapperElement;
                 }
-            }, this).children[1];
-
-            this.wrapperElement.classList.add("wc-widget", "grid-stack-item");
-            this.wrapperElement.setAttribute('data-id', model.id);
-
-            this.contentElement = this.wrapperElement.children[0];
-            this.heading = this.wrapperElement.getElementsByClassName('wc-widget-heading')[0];
-
-            model.addEventListener('change', (widget, changes) => {
-                if (changes.indexOf('title') !== -1) {
-                    this.titleelement.setTextContent(widget.title);
-                }
-
-                if (changes.indexOf('meta') !== -1) {
-                    update_classes.call(this);
-                    update_buttons.call(this);
-                }
-
-                if (changes.indexOf('permissions') !== -1) {
-                    update_classes.call(this);
-                    update_buttons.call(this);
-                    this.updateGridPermissions();
-                }
-            });
-
-            model.addEventListener('unload', () => {
-                this.unhighlight();
-            });
-
-            model.addEventListener('load', () => {
-                this.contentElement.classList.add('in');
-
-                const containerToListen = (model.meta.macversion > 1) ? model.wrapperElement : model.wrapperElement.contentDocument.defaultView;
-
-                containerToListen.addEventListener('keydown', (event) => {
-                    if (event.keyCode === 27) { // escape
-                        Wirecloud.UserInterfaceManager.handleEscapeEvent();
-                    }
-                }, true);
-
-                containerToListen.addEventListener('click', () => {
-                    Wirecloud.UserInterfaceManager.handleEscapeEvent(true);
-                    this.unhighlight();
-                }, true);
-
-                this.repaint();
-            });
-
-            model.addEventListener('remove', () => {
-                this.tab.dragboard.removeWidget(this);
-                this.dispatchEvent('remove');
-            });
-
-            this.model.logManager.addEventListener('newentry', on_add_log.bind(this));
-
-            this.tab.workspace.addEventListener('editmode', () => {
-                update_classes.call(this);
-                update_buttons.call(this);
-                this.updateGridPermissions();
-            });
-
-            this.tab.workspace.addEventListener('show', () => notify_context.call(this));
-            this.tab.workspace.addEventListener('hide', () => notify_context.call(this));
-            this.tab.addEventListener('show', () => notify_context.call(this));
-            this.tab.addEventListener('hide', () => notify_context.call(this));
-
-            this.tab.dragboard.addWidget(this);
-
-            update_classes.call(this);
-            update_buttons.call(this);
-        }
-
-        /**
-         * The `{x, y, w, h, minimized, titlevisible, fulldragboard, visible}`
-         * object that should be persisted for the active screen size: `x`/`y`/`w`/`h`
-         * are read from the underlying GridStack node (when minimized, `h` is
-         * the remembered un-minimized height, not the collapsed one).
-         *
-         * @type {Object}
-         */
-        get currentLayout() {
-            const node = this.wrapperElement.gridstackNode || {};
-            const layout = this.layout || {};
-
-            const result = {
-                x: (node.x != null) ? node.x : layout.x,
-                y: (node.y != null) ? node.y : layout.y,
-                w: (node.w != null) ? node.w : layout.w,
-                h: layout.minimized ? (this._unminimizedHeight != null ? this._unminimizedHeight : layout.h) : ((node.h != null) ? node.h : layout.h),
-                minimized: !!layout.minimized,
-                titlevisible: !!layout.titlevisible,
-                fulldragboard: !!layout.fulldragboard,
-                visible: layout.visible !== false
             };
-
-            if (layout.dock != null) {
-                result.dock = layout.dock;
-                result.dock_mode = layout.dock_mode || 'overlay';
-                result.dock_open = layout.dock_open === true;
-            } else if (layout.dock === null && ('dock' in layout)) {
-                result.dock = null;
-            }
-
-            return result;
-        }
-
-        get canMove() {
-            const layout = this.layout || {};
-            if (layout.fulldragboard) {
-                return false;
-            }
-            const role = this.tab.workspace.editing ? 'editor' : 'viewer';
-            return this.model.isAllowed('move', role);
-        }
-
-        get canResize() {
-            const layout = this.layout || {};
-            if (layout.fulldragboard || layout.minimized) {
-                return false;
-            }
-            const role = this.tab.workspace.editing ? 'editor' : 'viewer';
-            return this.model.isAllowed('resize', role);
         }
 
         /**
@@ -757,6 +780,19 @@
                 });
             }
 
+            return this;
+        }
+
+        /**
+         * Selects this widget in its workspace view (only while editing).
+         *
+         * @returns {Wirecloud.ui.WidgetView}
+         */
+        select() {
+            const workspace = this.tab.workspace;
+            if (workspace.editing && typeof workspace.selectWidget === 'function') {
+                workspace.selectWidget(this);
+            }
             return this;
         }
 

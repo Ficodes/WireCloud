@@ -1,0 +1,170 @@
+// Upload components dialog (WirecloudCatalogue.UploadWindowMenu,
+// .window_menu.wc-upload-mac-modal, template wirecloud/catalogue/modals/upload):
+//
+//   .window_content
+//     .wc-upload-mac-message           (shown while there are no files)
+//       p.wc-upload-mac-help
+//       .wc-upload-mac-dropzone.blueprint (+ corners)
+//         .lc-icon.lc-upload, .wc-upload-mac-title, .wc-upload-mac-or,
+//         .wc-upload-mac-button > FileButton
+//     .se-model-table.full             (files to upload: name, size, remove;
+//                                       "Add more files" in the status row)
+//     .wc-upload-mac-border            (drag & drop feedback)
+//
+// States on the dialog root: .wc-upload-mac-modal-empty (no files) and
+// .drag-hover (files dragged over the dialog).
+@use "mixins" as *;
+
+.wc-upload-mac-modal > .window_content {
+    position: relative;
+    box-sizing: border-box;
+    height: 340px;
+    padding: 0;
+    overflow: hidden;
+}
+
+// ---- Empty state: help + drop zone -------------------------------------------
+
+.wc-upload-mac-message {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4) var(--space-2);
+}
+
+.wc-upload-mac-modal-empty .wc-upload-mac-message {
+    display: flex;
+}
+
+.wc-upload-mac-help {
+    flex: none;
+    margin: 0;
+    font-size: 14px;
+    color: color-mix(in srgb, var(--color-text) 85%, transparent);
+}
+
+.wc-upload-mac-dropzone {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 0;
+    margin: 6px; // room for the corner marks
+    padding: var(--space-4);
+    text-align: center;
+    background: transparent;
+    border: 1px dashed var(--color-accent-400);
+    border-radius: 0;
+    transition: background-color 0.15s linear, border-color 0.15s linear;
+
+    > .lc-icon {
+        width: 28px;
+        height: 28px;
+        margin-bottom: 4px;
+        color: var(--color-accent);
+    }
+}
+
+.wc-upload-mac-title {
+    @include heading(20px);
+    text-align: center;
+}
+
+.wc-upload-mac-or {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    text-align: center;
+}
+
+.wc-upload-mac-button {
+    margin-top: 4px;
+    text-align: center;
+
+    > .se-btn {
+        margin: 0;
+    }
+}
+
+// Files dragged over the dialog
+.wc-upload-mac-modal.drag-hover .wc-upload-mac-dropzone {
+    background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+    border-style: solid;
+    border-color: var(--color-accent);
+}
+
+.wc-upload-mac-border {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    box-sizing: border-box;
+    pointer-events: none;
+    border: 2px solid transparent;
+    transition: border-color 0.2s ease-in;
+}
+
+.wc-upload-mac-modal.drag-hover:not(.wc-upload-mac-modal-empty) .wc-upload-mac-border {
+    border-color: var(--color-accent);
+}
+
+// ---- Files to upload -----------------------------------------------------------
+
+.wc-upload-mac-modal .se-model-table.full {
+    position: absolute;
+    inset: var(--space-2) var(--space-4) 0;
+    width: auto;
+    height: auto;
+}
+
+.wc-upload-mac-modal-empty .se-model-table {
+    visibility: hidden;
+}
+
+.wc-upload-mac-modal .se-model-table {
+    // Size column
+    .se-model-table-row > .se-model-table-cell:nth-child(2) {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--color-text-muted);
+        white-space: nowrap;
+    }
+
+    // Remove file: ghost icon button
+    .se-model-table-cell > .se-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        color: var(--color-accent);
+        background: transparent;
+        border-color: transparent;
+        box-shadow: none;
+
+        &:hover {
+            background: var(--color-accent-hover);
+        }
+
+        &:active {
+            background: var(--color-accent-pressed);
+        }
+    }
+
+    // "Add more files"
+    .se-model-table-statusrow {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-2) 0 var(--space-3);
+
+        > .se-btn {
+            margin: 0;
+        }
+    }
+}

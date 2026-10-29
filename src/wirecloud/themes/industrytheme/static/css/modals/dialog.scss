@@ -1,0 +1,607 @@
+// Dialogs (Wirecloud.ui.WindowMenu and subclasses).
+//
+// DOM (wirecloud/modals/base template + WindowMenu.js):
+//   div.blueprint.wc-dialog.window_menu.<extra class>   (+ 4 .corner children)
+//     div.window_top      > h3 (title, drag handle) + .se-btn.plain.fa-remove
+//     div.window_content  (body; WindowMenu.repaint() sets its max-height)
+//     div.window_bottom   (buttons)
+//
+// WindowMenu.js positions the dialog (inline left/top), sets an inline
+// `display: block` when shown and measures offsetWidth/offsetHeight, so the
+// dialog must stay `position: absolute` with a CSS-defined width. The corner
+// marks sit outside the box: never clip the root with `overflow: hidden`.
+@use "mixins" as *;
+
+// Solid button (the primary look of components/buttons.scss) in a color
+@mixin solid-action($fill, $hover, $active) {
+    color: var(--color-bg);
+    background-color: $fill;
+    border-color: $fill;
+    @include blueprint-marks;
+
+    &:hover:not(.disabled):not(:disabled) {
+        color: var(--color-bg);
+        background-color: $hover;
+        border-color: $hover;
+    }
+
+    &:active:not(.disabled):not(:disabled) {
+        background-color: $active;
+        border-color: $active;
+    }
+}
+
+// =============================================================================
+// Frame
+// =============================================================================
+
+.window_menu {
+    // Dialog width. Variants below only change this property; the
+    // `min()` keeps a 16px gutter on narrow screens.
+    --wc-dialog-width: 480px;
+
+    position: absolute;
+    z-index: 101112; // above .disabled_background (101111)
+    box-sizing: border-box;
+    width: min(var(--wc-dialog-width), calc(100vw - 32px));
+    margin: 0;
+    padding: 0;
+    text-align: left;
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--color-text);
+    background: var(--color-bg);
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+    box-shadow: var(--shadow-lg);
+
+    // ---- Header ----------------------------------------------------------
+    > .window_top {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        min-height: 28px;
+        padding: var(--space-4) var(--space-4) 0;
+
+        > h3 {
+            @include heading(20px);
+            flex: 1 1 auto;
+            min-width: 0;
+            margin: 0;
+            overflow-wrap: anywhere;
+            cursor: move; // WindowMenu makes the title the drag handle
+            user-select: none;
+        }
+
+        // Close "×": ghost icon button
+        > .se-btn {
+            flex: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            min-height: 0;
+            margin: -4px -6px -4px auto;
+            padding: 0;
+            color: var(--color-text-muted);
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 0;
+            box-shadow: none;
+            cursor: pointer;
+            @include focus-visible;
+
+            > .se-icon {
+                width: 16px;
+                height: 16px;
+            }
+
+            &:hover {
+                color: var(--color-text);
+                background: var(--color-hover);
+            }
+
+            &:active {
+                background: var(--color-pressed);
+            }
+        }
+    }
+
+    // ---- Body ------------------------------------------------------------
+    > .window_content {
+        position: relative;
+        box-sizing: border-box;
+        padding: var(--space-3) var(--space-4);
+        overflow: auto;
+        @include scrollbars;
+
+        > :first-child {
+            margin-top: 0;
+        }
+
+        > :last-child {
+            margin-bottom: 0;
+        }
+
+        p {
+            margin: 0 0 var(--space-3);
+        }
+
+        // Section labels used inside dialog bodies (e.g. "Visibility options").
+        // Direct children only: markdown contents keep their headings.
+        > h4 {
+            @include overline;
+            margin: var(--space-6) 0 var(--space-2);
+            font-family: var(--font-body);
+            font-weight: 500;
+            line-height: 1.4;
+            color: var(--color-text-muted);
+        }
+
+        > h4:first-child {
+            margin-top: 0;
+        }
+
+        > h6 {
+            margin: var(--space-4) 0 var(--space-2);
+            color: var(--color-text-muted);
+        }
+
+        ul, ol {
+            margin: 0 0 var(--space-3);
+            padding-left: 20px;
+        }
+
+        li + li {
+            margin-top: 2px;
+        }
+
+        hr {
+            margin: var(--space-4) 0;
+        }
+
+        > .alert {
+            margin: 0 0 var(--space-3);
+        }
+
+        // Generic "label above input" fields used by the theme templates
+        .field {
+            min-width: 0;
+            margin: 0;
+
+            > label {
+                display: block;
+                margin-bottom: 5px;
+                font-size: 12px;
+                color: color-mix(in srgb, var(--color-text) 70%, transparent);
+            }
+        }
+    }
+
+    // ---- Actions ---------------------------------------------------------
+    // Right-aligned: secondary actions, Cancel, then the primary action.
+    > .window_bottom {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+        gap: var(--space-2);
+        padding: var(--space-2) var(--space-4) var(--space-4);
+        background: transparent;
+        border: 0;
+
+        &:empty {
+            display: none;
+        }
+
+        > .se-btn {
+            margin: 0;
+        }
+
+        // "Set defaults" / "Reset" sit on the left
+        > .btn-set-defaults {
+            order: -1;
+            margin-right: auto;
+        }
+
+        > .btn-cancel {
+            order: 1;
+        }
+
+        > .btn-accept {
+            order: 2;
+        }
+
+        // The main action is always the solid button (accent fill + marks),
+        // even when a dialog builds it with a status class (UpgradeWindowMenu
+        // uses btn-success, MissingDependenciesWindowMenu none). Destructive
+        // confirmations (AlertWindowMenu: btn-danger) use the danger fill.
+        > .se-btn.btn-accept:not(.btn-primary):not(.btn-cancel):not(.btn-danger) {
+            @include solid-action(var(--color-accent), var(--color-accent-600), var(--color-accent-700));
+        }
+
+        > .se-btn.btn-accept.btn-danger {
+            @include solid-action(
+                var(--color-danger),
+                color-mix(in srgb, var(--color-danger) 85%, var(--color-text)),
+                color-mix(in srgb, var(--color-danger) 72%, var(--color-text))
+            );
+        }
+
+        // Several dialogs build Cancel as a primary button (AlertWindowMenu,
+        // MissingDependenciesWindowMenu...). The design keeps the primary
+        // look for the main action only, so Cancel is always secondary.
+        > .se-btn.btn-cancel:not(.btn-accept) {
+            color: var(--color-text);
+            background: transparent;
+            border-color: var(--color-divider);
+            box-shadow: none;
+
+            &::before,
+            &::after {
+                content: none;
+            }
+
+            &:hover {
+                background: var(--color-hover);
+            }
+
+            &:active {
+                background: var(--color-pressed);
+            }
+        }
+    }
+}
+
+// =============================================================================
+// Message, alert and confirm dialogs (MessageWindowMenu, AlertWindowMenu)
+// =============================================================================
+
+.window_menu .msg {
+    font-size: 14px;
+    line-height: 1.55;
+    color: color-mix(in srgb, var(--color-text) 85%, transparent);
+    overflow-wrap: anywhere;
+
+    > :last-child {
+        margin-bottom: 0;
+    }
+
+    ul {
+        margin: var(--space-2) 0 0;
+    }
+
+    b, strong {
+        color: var(--color-text);
+        font-weight: 500;
+    }
+}
+
+// Confirmations: warning icon before the title
+.window_menu.wc-alert-modal > .window_top > h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    @include icon("triangle-alert", before, 18px);
+
+    &::before {
+        color: var(--color-danger);
+    }
+}
+
+// Messages without a title (MessageWindowMenu with a custom type)
+.window_menu.message > .window_top > h3:empty {
+    visibility: hidden;
+}
+
+// Loading state of HTMLWindowMenu (resource documentation...)
+.window_menu > .window_content.disabled {
+    min-height: 120px;
+    opacity: 0.45;
+}
+
+.window_menu.wc-html-window-menu > .window_content {
+    font-size: 14px;
+    line-height: 1.6;
+
+    img {
+        max-width: 100%;
+    }
+}
+
+// =============================================================================
+// Form dialogs (FormWindowMenu, Widget/Operator preferences, user forms...).
+// StyledElements.Form renders a two-column table; inside dialogs the fields
+// are stacked like the design system `.field` (label above the input).
+// =============================================================================
+
+.window_menu .styled_form {
+    display: block;
+    width: 100%;
+
+    table {
+        display: block;
+        width: 100%;
+        border: 0;
+        border-collapse: separate;
+    }
+
+    tbody {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+    }
+
+    tr {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        min-width: 0;
+    }
+
+    // Column layouts (several input cells in the same row)
+    tr:has(> td:not(.label-cell) + td:not(.label-cell)) {
+        flex-direction: row;
+        align-items: flex-start;
+        gap: var(--space-4);
+
+        > td {
+            flex: 1 1 0;
+        }
+    }
+
+    td {
+        display: block;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        text-align: left;
+        line-height: 1.4;
+        background: transparent;
+    }
+
+    td.label-cell {
+        width: auto;
+        line-height: 1.4;
+
+        > label {
+            display: inline;
+            margin: 0;
+            font-size: 12px;
+            font-weight: 400;
+            color: color-mix(in srgb, var(--color-text) 70%, transparent);
+        }
+
+        // Labels with a description tooltip
+        > label[aria-describedby] {
+            cursor: help;
+            text-decoration: underline dotted color-mix(in srgb, var(--color-text) 40%, transparent);
+            text-underline-offset: 3px;
+        }
+
+        > .required_mark {
+            margin-left: 3px;
+            color: var(--color-danger);
+        }
+    }
+
+    // "label" fields: section titles inside the form
+    td.label-row {
+        padding-top: var(--space-2);
+
+        > label,
+        > a {
+            @include overline;
+            font-weight: 500;
+            color: var(--color-text-muted);
+        }
+    }
+
+    td > hr {
+        margin: var(--space-1) 0;
+    }
+
+    td > .se-text-field,
+    td > .se-text-area,
+    td > .se-code-area,
+    td > .se-numeric-field,
+    td > .se-password-field,
+    td > .se-file-field,
+    td > .se-layout-field,
+    td > .se-mac-field,
+    td > .se-select {
+        box-sizing: border-box;
+        width: 100%;
+        margin: 0;
+    }
+
+    td > .se-text-area {
+        min-height: 90px;
+        resize: vertical;
+    }
+
+    // Boolean fields
+    td > input.checkbox {
+        margin: 2px 0;
+        accent-color: var(--color-accent);
+    }
+
+    // Field groups are rendered in a notebook: tab contents are absolutely
+    // positioned, so the notebook needs a height.
+    .se-notebook {
+        height: 400px;
+    }
+
+    .se-notebook-tab-content {
+        padding: var(--space-4) 2px;
+    }
+
+    // Validation messages
+    > div > .alert,
+    > .alert {
+        margin: var(--space-4) 0 0;
+
+        p:last-child {
+            margin-bottom: 0;
+        }
+    }
+}
+
+// =============================================================================
+// MAC field (`mac` input type: workspace templates, parametrization...)
+// .se-mac-field.se-input-group > clear button, .se-add-on preview, search btn
+// =============================================================================
+
+.window_menu .se-mac-field,
+.styled_form .se-mac-field {
+    display: flex;
+    align-items: stretch;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 36px;
+    margin: 0;
+    overflow: visible;
+    border-radius: 0;
+    cursor: pointer;
+
+    > .se-add-on {
+        display: flex;
+        flex: 1 1 auto;
+        align-items: center;
+        min-width: 0;
+        width: auto;
+        padding: 0 10px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        @include text-truncate;
+        color: var(--color-text);
+        background: var(--color-surface);
+        border: 1px solid var(--color-divider);
+        border-left-width: 0;
+        border-right-width: 0;
+    }
+
+    > .se-btn {
+        flex: none;
+        margin: 0;
+    }
+
+    &:hover > .se-add-on {
+        border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+    }
+
+    &.focus {
+        outline: 2px solid var(--color-accent);
+        outline-offset: 2px;
+
+        > .se-add-on {
+            border-color: var(--color-accent);
+        }
+    }
+}
+
+// =============================================================================
+// MAC selection dialog (MACSelectionWindowMenu). The search list itself is
+// styled in catalogue/macsearch.scss.
+// =============================================================================
+
+.window_menu.mac_selection_dialog {
+    > .window_content {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .macsearch {
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    .wc-macsearch-list {
+        height: 363px;
+        max-height: calc(100vh - 220px);
+    }
+}
+
+// =============================================================================
+// Width variants
+// =============================================================================
+
+.window_menu {
+    &.wc-alert-modal,
+    &.message {
+        --wc-dialog-width: 440px;
+    }
+
+    &.wc-embed-code-modal,
+    &.wc-upload-mac-modal,
+    &.wc-platform-preferences-modal,
+    &.wc-component-preferences-modal,
+    &.publish_resource,
+    &.wc-add-user {
+        --wc-dialog-width: 560px;
+    }
+
+    &.wc-upgrade-component-modal,
+    &.wc-upload-workspace-modal,
+    &.wc-new-workspace-modal {
+        --wc-dialog-width: 600px;
+    }
+
+    &.logwindowmenu,
+    &.mac_selection_dialog,
+    &.wc-html-window-menu,
+    &.wc-admin-panel {
+        --wc-dialog-width: 760px;
+    }
+
+    // The screen sizes field needs room for five inputs per row
+    &.wc-workspace-preferences-modal,
+    &.wc-tab-preferences-modal,
+    &.wc-layout-settings {
+        --wc-dialog-width: 800px;
+    }
+
+    &.wc-edit-user,
+    &.wc-edit-group,
+    &.wc-add-group,
+    &.wc-add-org {
+        --wc-dialog-width: 820px;
+    }
+
+    &.wc-org-hierarchy {
+        --wc-dialog-width: 1000px;
+    }
+
+    &.wc-user-management {
+        --wc-dialog-width: 1100px;
+    }
+}
+
+// =============================================================================
+// Narrow screens: the dialog takes the full width minus a 16px gutter (see
+// the `min()` above); actions may wrap and the inner paddings shrink.
+// =============================================================================
+
+@media (max-width: 600px) {
+    .window_menu {
+        > .window_top {
+            padding: var(--space-3) var(--space-3) 0;
+        }
+
+        > .window_content {
+            padding: var(--space-3);
+        }
+
+        > .window_bottom {
+            padding: var(--space-2) var(--space-3) var(--space-3);
+        }
+
+        .styled_form tr:has(> td:not(.label-cell) + td:not(.label-cell)) {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
+}

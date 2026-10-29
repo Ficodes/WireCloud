@@ -204,6 +204,13 @@ const setup = () => {
             super(opts);
             this.active = false;
         }
+        click() {
+            if (this.enabled) {
+                this.active = !this.active;
+                this._dispatch('click', this);
+            }
+            return this;
+        }
     }
     StyledElements.ToggleButton = SEMockToggleButton;
     StyledElements.Button = SEMockButton;
@@ -1824,4 +1831,112 @@ test('fullscreen button click toggles fullscreen mode', () => {
     view.notebook.exitFullscreen = () => { exitedFullscreen = true; };
     view.fullscreenButton._dispatch('click');
     assert.ok(exitedFullscreen);
+});
+
+// ===========================================================================
+// Theme extension points
+// ===========================================================================
+
+test('getToolbarButtons uses the WorkspaceToolbar registered by the theme', () => {
+    Wirecloud.contextManager._data.username = { value: 'testuser' };
+    const button = { id: 'custom' };
+    Wirecloud.ui.registry = {
+        get: (name, defaultValue) => name === 'WorkspaceToolbar' ? class { getButtons() { return [button]; } } : defaultValue,
+    };
+    const view = new Wirecloud.ui.WorkspaceView(0, {});
+    assert.deepEqual(view.getToolbarButtons(), [button]);
+});
+
+test('getModes describes the view, edit and wiring modes', () => {
+    Wirecloud.contextManager._data.username = { value: 'testuser' };
+    const changes = [];
+    Wirecloud.UserInterfaceManager = Object.assign(Wirecloud.UserInterfaceManager || {}, {
+        changeCurrentView: (name) => changes.push(name),
+    });
+    const view = new Wirecloud.ui.WorkspaceView(0, {});
+    view.loadWorkspace(createModelMock({ tabs: [{ id: 'tab-1', name: 'tab1', title: 'Tab', initial: true, widgets: [] }] }), {});
+
+    let modes = view.getModes();
+    assert.deepEqual(modes.map((mode) => mode.id), ['view', 'edit', 'wiring']);
+    assert.deepEqual(modes.map((mode) => mode.active), [true, false, false]);
+    assert.ok(modes.every((mode) => mode.enabled));
+
+    modes[1].activate();
+    assert.equal(view.editing, true);
+    modes = view.getModes();
+    assert.deepEqual(modes.map((mode) => mode.active), [false, true, false]);
+
+    modes[0].activate();
+    assert.equal(view.editing, false);
+    modes[2].activate();
+    assert.deepEqual(changes, ['wiring']);
+});
+
+test('getModes disables edition for anonymous users and read-only workspaces', () => {
+    Wirecloud.contextManager._data.username = { value: 'testuser' };
+    const view = new Wirecloud.ui.WorkspaceView(0, {});
+    view.loadWorkspace(createModelMock({ isAllowed: () => false, tabs: [{ id: 'tab-1', name: 'tab1', title: 'Tab', initial: true, widgets: [] }] }), {});
+    assert.deepEqual(view.getModes().map((mode) => mode.enabled), [true, false, false]);
+    assert.equal(view.getPrimaryAction(), null);
+
+    Wirecloud.contextManager._data.username = { value: 'anonymous' };
+    assert.deepEqual(view.getSecondaryActions(), []);
+});
+
+test('getPrimaryAction enters edit mode and opens the component sidebar', () => {
+    Wirecloud.contextManager._data.username = { value: 'testuser' };
+    const view = new Wirecloud.ui.WorkspaceView(0, {});
+    view.loadWorkspace(createModelMock({ tabs: [{ id: 'tab-1', name: 'tab1', title: 'Tab', initial: true, widgets: [] }] }), {});
+    view.showcase = { searchComponents: { refresh: () => {} } };
+
+    const action = view.getPrimaryAction();
+    assert.equal(action.id, 'add-widget');
+    action.run();
+    assert.equal(view.editing, true);
+    assert.equal(view.walletButton.active, true);
+
+    assert.equal(view.cancel(), true);
+    assert.equal(view.walletButton.active, false);
+    assert.equal(view.cancel(), false);
+
+    const share = view.getSecondaryActions();
+    assert.deepEqual(share.map((entry) => entry.id), ['share']);
+});
+
+test('selectWidget only selects widgets while editing and deleteSelection removes them', () => {
+    Wirecloud.contextManager._data.username = { value: 'testuser' };
+    const view = new Wirecloud.ui.WorkspaceView(0, {});
+    view.loadWorkspace(createModelMock({ tabs: [{ id: 'tab-1', name: 'tab1', title: 'Tab', initial: true, widgets: [] }] }), {});
+
+    let removed = 0;
+    const widget = {
+        wrapperElement: document.createElement('div'),
+        model: { isAllowed: () => true },
+        remove: () => { removed += 1; },
+    };
+    const events = [];
+    view.addEventListener('selectionchange', (v, selected) => events.push(selected));
+
+    view.selectWidget(widget);
+    assert.equal(view.selectedWidget, null);
+    assert.equal(view.deleteSelection(), false);
+
+    view.setEditing(true);
+    view.selectWidget(widget);
+    assert.equal(view.selectedWidget, widget);
+    assert.ok(widget.wrapperElement.classList.contains('wc-widget-selected'));
+
+    assert.equal(view.deleteSelection(), true);
+    assert.equal(removed, 1);
+    assert.equal(view.selectedWidget, null);
+    assert.ok(!widget.wrapperElement.classList.contains('wc-widget-selected'));
+
+    view.selectWidget(widget);
+    assert.equal(view.cancel(), true);
+    assert.equal(view.selectedWidget, null);
+
+    // Leaving edit mode clears the selection
+    view.selectWidget(widget);
+    view.setEditing(false);
+    assert.equal(view.selectedWidget, null);
 });

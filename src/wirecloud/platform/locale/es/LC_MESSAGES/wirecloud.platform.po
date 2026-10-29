@@ -822,3 +822,28 @@ msgstr "Catálogo de WireCloud no compatible: %(catalogue)s"
 #: core/plugins.py:403
 msgid "Widget margin"
 msgstr "Margen de los widgets"
+
+#: ../../../core/plugins.py:362
+msgid "Color scheme"
+msgstr "Esquema de color"
+
+#: ../../../core/plugins.py:364
+msgid ""
+"Color scheme used by themes that support more than one. \"System\" follows "
+"the setting of your operating system."
+msgstr ""
+"Esquema de color usado por los temas que admiten más de uno. \"Sistema\" "
+"sigue la configuración de tu sistema operativo."
+
+#: ../../../core/plugins.py:368
+msgid "Dark"
+msgstr "Oscuro"
+
+#: ../../../core/plugins.py:367
+msgid "Light"
+msgstr "Claro"
+
+#: ../../../core/plugins.py:366
+msgid "System"
+msgstr "Sistema"
+

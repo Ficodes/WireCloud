@@ -1,0 +1,8 @@
+{% extends 'wirecloud/views/base_plain.html' %}
+{% block path %}{{ trans("Error") }} 403{% endblock %}
+{% block content %}
+    <div class="wc-error-code mono" aria-hidden="true">403</div>
+    <h1>{% block title %}{{ trans("Error 403 - Forbidden") }}{% endblock %}</h1>
+    <p>{{ trans("You don't have permission to access the requested URL \"%(request_path)s\".", request_path=request_path|e) }}</p>
+    <a class="se-btn btn-primary wc-error-home" href="{{ url("wirecloud.root") }}">{{ trans("Go to WireCloud") }}</a>
+{% endblock %}
