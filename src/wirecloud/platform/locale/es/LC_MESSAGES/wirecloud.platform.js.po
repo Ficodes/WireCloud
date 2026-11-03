@@ -3691,3 +3691,46 @@ msgid "Your session has expired. Sign in again to manage app connections."
 msgstr ""
 "Tu sesión ha caducado. Vuelve a iniciar sesión para gestionar las conexiones "
 "de aplicaciones."
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:200
+msgid "Access revoked."
+msgstr "Acceso revocado."
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:94
+msgid ""
+"Applications you authorize will appear here. You can change their "
+"permissions or revoke their access at any time."
+msgstr ""
+"Las aplicaciones que autorices aparecerán aquí. Puedes cambiar sus "
+"permisos o revocar su acceso en cualquier momento."
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:125
+msgid ""
+"Changes apply immediately to this connection. Select at least one "
+"permission, or revoke access."
+msgstr ""
+"Los cambios se aplican inmediatamente a esta conexión. Selecciona al "
+"menos un permiso o revoca el acceso."
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:157
+msgid "Permissions for"
+msgstr "Permisos de"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:199
+msgid "Permissions updated."
+msgstr "Permisos actualizados."
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:146
+msgid "Save permissions"
+msgstr "Guardar permisos"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:147
+msgid "Save permissions for"
+msgstr "Guardar los permisos de"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:203
+msgid "Unable to update app connections. Please try again."
+msgstr ""
+"No se han podido actualizar las conexiones de aplicaciones. Inténtalo de "
+"nuevo."
+
