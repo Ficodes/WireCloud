@@ -29,6 +29,16 @@ class DBPlatformPreference(BaseModel):
     value: str = ""
 
 
+class DBLoginAttempt(BaseModel, populate_by_name=True):
+    id: str = Field(alias="_id")
+    state: str
+    nonce: str
+    code_verifier: str
+    return_to: str
+    browser: str
+    expires_at: datetime
+
+
 class Group(BaseModel, populate_by_name=True):
     id: Id = Field(alias="_id")
     name: str

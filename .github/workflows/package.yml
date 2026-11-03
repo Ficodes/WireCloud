@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build_wheel:
-    name: Build wheel
+    name: Build regular and MCP wheels
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -25,7 +25,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.9"
+          python-version: "3.11"
           cache: "pip"
 
       - name: Set up Node.js
@@ -38,25 +38,36 @@ jobs:
         run: npm ci
 
       - name: Install package builder
-        run: python -m pip install --upgrade build
+        run: python -m pip install --upgrade build packaging
 
       - name: Build wheel
         run: python -m build --wheel
 
-      - name: Verify wheel installation
-        run: |
-          python -m pip install --no-deps --target /tmp/wirecloud-wheel-check dist/*.whl
-          PYTHONPATH=/tmp/wirecloud-wheel-check python -c "import wirecloud"
+      - name: Build MCP wheel
+        run: python scripts/build-mcp-wheel.py dist/*.whl
 
-      - name: Store wheel
+      - name: Verify both wheel installations
+        run: |
+          for wheel in dist/*.whl; do
+            check_dir=$(mktemp -d)
+            python -m venv "$check_dir"
+            "$check_dir/bin/python" -m pip install "$wheel"
+            "$check_dir/bin/python" -m pip check
+            "$check_dir/bin/python" -c "import wirecloud"
+            case "$wheel" in
+              *+mcp-*) "$check_dir/bin/python" -c "from mcp.server import MCPServer; import wirecloud.mcp" ;;
+            esac
+          done
+
+      - name: Store both wheels
         uses: actions/upload-artifact@v7
         with:
-          name: wirecloud-wheel
+          name: wirecloud-wheels
           path: dist/*.whl
           if-no-files-found: error
 
   attach_to_release:
-    name: Attach wheel to release
+    name: Attach regular and MCP wheels to release
     if: github.event_name == 'release'
     needs: build_wheel
     runs-on: ubuntu-latest
@@ -64,23 +75,33 @@ jobs:
       contents: write
 
     steps:
-      - name: Download built wheel
+      - name: Download built wheels
         uses: actions/download-artifact@v8
         with:
-          name: wirecloud-wheel
+          name: wirecloud-wheels
           path: dist
 
-      - name: Upload wheel to GitHub release
+      - name: Upload both wheels to GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: gh release upload "$RELEASE_TAG" dist/*.whl --clobber --repo "$GITHUB_REPOSITORY"
 
   publish_docker_image:
-    name: Publish Docker image
+    name: Publish Docker image (${{ matrix.variant }})
     if: github.event_name == 'release'
     needs: build_wheel
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: regular
+            install_mcp: "false"
+            tag_suffix: ""
+          - variant: mcp
+            install_mcp: "true"
+            tag_suffix: "-mcp"
     permissions:
       contents: read
     env:
@@ -152,19 +173,21 @@ jobs:
           images: ${{ env.DOCKER_IMAGE }}
           flavor: latest=false
           tags: |
-            type=semver,pattern={{version}},value=${{ github.event.release.tag_name }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ github.event.release.tag_name }},enable=${{ !github.event.release.prerelease }}
-            type=semver,pattern={{major}},value=${{ github.event.release.tag_name }},enable=${{ !github.event.release.prerelease }}
-            type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
+            type=semver,pattern={{version}},value=${{ github.event.release.tag_name }},suffix=${{ matrix.tag_suffix }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ github.event.release.tag_name }},enable=${{ !github.event.release.prerelease }},suffix=${{ matrix.tag_suffix }}
+            type=semver,pattern={{major}},value=${{ github.event.release.tag_name }},enable=${{ !github.event.release.prerelease }},suffix=${{ matrix.tag_suffix }}
+            type=raw,value=latest,enable=${{ !github.event.release.prerelease }},suffix=${{ matrix.tag_suffix }}
 
       - name: Build and publish Docker image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/Dockerfile
+          build-args: |
+            WIRECLOUD_INSTALL_MCP=${{ matrix.install_mcp }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=wirecloud-${{ matrix.variant }}
+          cache-to: type=gha,mode=max,scope=wirecloud-${{ matrix.variant }}

@@ -24,9 +24,27 @@ from bson import ObjectId
 from wirecloud.commons.auth.schemas import User, UserWithPassword, Permission, UserAll, UserCreate, GroupCreate, \
     OrganizationCreate
 from wirecloud.commons.auth.models import DBUser as UserModel
+from wirecloud.commons.auth.models import DBLoginAttempt
 from wirecloud.commons.auth.models import Group as GroupModel, Group
 from wirecloud.commons.auth.models import DBPlatformPreference as PlatformPreferenceModel
 from wirecloud.database import DBSession, Id
+
+
+async def ensure_login_attempt_indexes(db: DBSession) -> None:
+    await db.client.login_attempts.create_index("expires_at", expireAfterSeconds=0)
+
+
+async def create_login_attempt(db: DBSession, attempt: DBLoginAttempt) -> None:
+    await db.client.login_attempts.insert_one(attempt.model_dump(by_alias=True))
+
+
+async def consume_login_attempt(
+    db: DBSession, attempt_id: str, browser: str, current_time: datetime
+) -> Optional[DBLoginAttempt]:
+    attempt = await db.client.login_attempts.find_one_and_delete(
+        {"_id": attempt_id, "browser": browser, "expires_at": {"$gt": current_time}}
+    )
+    return DBLoginAttempt.model_validate(attempt) if attempt is not None else None
 
 
 async def create_token(db: DBSession, expiration: datetime, user_id: Id, idm_session: Optional[str] = None) -> ObjectId:
@@ -61,6 +79,11 @@ async def is_token_valid(db: DBSession, token_id: ObjectId) -> bool:
 async def set_token_expiration(db: DBSession, token_id: ObjectId, expiration: datetime) -> None:
     query = {"_id": token_id}, {"$set": {"expiration": expiration}}
     await db.client.tokens.update_one(*query)
+
+
+async def get_token_expiration(db: DBSession, token_id: ObjectId) -> Optional[datetime]:
+    token = await db.client.tokens.find_one({"_id": token_id})
+    return token["expiration"] if token is not None else None
 
 
 async def invalidate_token(db: DBSession, token_id: ObjectId) -> None:

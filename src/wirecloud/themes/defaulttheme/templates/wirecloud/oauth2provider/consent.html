@@ -1,0 +1,32 @@
+{% extends "wirecloud/oauth2provider/base.html" %}
+{% block title %}{{ trans("Connect an application") }}{% endblock %}
+{% block content %}
+<section class="panel panel-default oauth-panel" aria-labelledby="consent-title" data-se-panel>
+    <div class="panel-heading"><h1 class="panel-title" id="consent-title" data-se-panel-title>{{ trans("Connect an application") }}</h1></div>
+    <div class="panel-body" data-se-panel-body>
+        <p><strong>{{ attempt.client_name }}</strong> {{ trans("wants to connect to") }} <strong>{{ resource.name }}</strong>.</p>
+        <p class="alert alert-info" data-se-alert="info">{{ trans("Signed in as") }} <strong>{{ user.username }}</strong></p>
+        <h2>{{ trans("This application will be able to") }}</h2>
+        <ul class="oauth-permissions">
+            {% for permission in permissions %}
+            <li>{{ trans(permission) }}</li>
+            {% endfor %}
+        </ul>
+        <p class="alert alert-info" data-se-alert="info">{{ trans("Access uses your current permissions and ends when this WireCloud session ends.") }}</p>
+        <details class="oauth-details">
+            <summary>{{ trans("Connection details") }}</summary>
+            <dl>
+                <dt>{{ trans("Application ID") }}</dt><dd>{{ attempt.client_id }}</dd>
+                <dt>{{ trans("Return address") }}</dt><dd>{{ attempt.redirect_uri }}</dd>
+            </dl>
+        </details>
+    </div>
+    <div class="panel-footer" data-se-panel-footer><form class="oauth-actions" method="post">
+        <input type="hidden" name="request_id" value="{{ request_id }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="se-btn btn-default" data-se-button="default" name="decision" value="deny">{{ trans("Deny") }}</button>
+        <button class="se-btn btn-primary" data-se-button="primary" name="decision" value="approve">{{ trans("Allow access") }}</button>
+    </form></div>
+</section>
+<p class="oauth-help">{{ trans("You can review and revoke connections from the connected applications page.") }}</p>
+{% endblock %}

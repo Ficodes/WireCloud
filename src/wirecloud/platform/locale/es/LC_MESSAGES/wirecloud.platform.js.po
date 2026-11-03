@@ -3502,3 +3502,87 @@ msgstr "Modo de visualización de la barra lateral"
 #: static/js/wirecloud/ui/WidgetViewMenuItems.js:194
 msgid "Top sidebar"
 msgstr "Barra lateral superior"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:47
+msgid "Access denied. Reopen App connections and try again."
+msgstr ""
+"Acceso denegado. Vuelve a abrir Conexiones de aplicaciones e inténtalo de "
+"nuevo."
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:28
+#: static/js/wirecloud/ui/WirecloudHeader.js:101
+msgid "App connections"
+msgstr "Conexiones de aplicaciones"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:99
+msgid "Application ID"
+msgstr "Identificador de la aplicación"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:83
+msgid ""
+"Applications you authorize will appear here. You can revoke their access at "
+"any time."
+msgstr ""
+"Las aplicaciones que autorices aparecerán aquí. Puedes revocar su acceso en "
+"cualquier momento."
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../mcp/tools.py:11
+msgid "Create and edit workspaces, tabs, components, layouts, preferences, and wiring"
+msgstr ""
+"Crear y editar entornos de trabajo, pestañas, componentes, distribuciones, "
+"preferencias y conexiones"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../mcp/tools.py:12
+msgid "Delete owned workspaces and remove permitted workspace contents"
+msgstr ""
+"Eliminar los entornos de trabajo que te pertenecen y los contenidos que "
+"tengas permiso para eliminar"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../mcp/tools.py:13
+msgid "Install finished component packages for your account"
+msgstr "Instalar paquetes de componentes terminados para tu cuenta"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:57
+msgid "Loading app connections…"
+msgstr "Cargando conexiones de aplicaciones…"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:82
+msgid "No connected applications"
+msgstr "No hay aplicaciones conectadas"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../mcp/tools.py:10
+msgid "Read accessible workspaces, components, and documentation; export workspaces"
+msgstr ""
+"Consultar los entornos de trabajo, componentes y documentación accesibles; "
+"exportar entornos de trabajo"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:33
+msgid "Retry"
+msgstr "Reintentar"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:87
+msgid "Revoke"
+msgstr "Revocar"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:88
+msgid "Revoke access for"
+msgstr "Revocar el acceso de"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:43
+msgid "Unable to load app connections. Please try again."
+msgstr "No se han podido cargar las conexiones de aplicaciones. Inténtalo de nuevo."
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../mcp/tools.py:14
+msgid "Uninstall components from your personal collection"
+msgstr "Desinstalar componentes de tu colección personal"
+
+#: static/js/wirecloud/ui/AppConnectionsWindowMenu.js:45
+msgid "Your session has expired. Sign in again to manage app connections."
+msgstr ""
+"Tu sesión ha caducado. Vuelve a iniciar sesión para gestionar las conexiones "
+"de aplicaciones."

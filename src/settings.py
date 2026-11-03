@@ -30,8 +30,19 @@ INSTALLED_APPS = (
     'wirecloud.catalogue',
     'wirecloud.proxy',
     'wirecloud.fiware',
-    'wirecloud.keycloak'
+    'wirecloud.keycloak',
+    'wirecloud.oauth2provider',
+    'wirecloud.mcp'
 )
+
+# Local MCP testing: use localhost consistently for the browser and MCP client.
+MCP_PUBLIC_URL = 'http://localhost:8000/mcp'
+AUTH_PUBLIC_URL = 'http://localhost:8000'
+OAUTH2_PUBLIC_URL = 'http://localhost:8000'
+OAUTH2_DYNAMIC_REGISTRATION = True
+OAUTH2_CLIENTS = []
+# Add exact origins here only when testing a browser client on another origin.
+MCP_ALLOWED_ORIGINS = []
 
 DATABASE = {
     'DRIVER': 'mongodb',

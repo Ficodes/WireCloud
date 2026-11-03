@@ -349,7 +349,11 @@ async def delete_resources(db: DBSession, user: UserAll, request: Request, vendo
         if affected:
             result.affectedVersions.append(resource.version)
 
-        await delete_resource_from_index(resource)
+        remaining = None if allusers else await get_catalogue_resource_by_id(db, resource.id)
+        if remaining is None:
+            await delete_resource_from_index(resource)
+        else:
+            await add_resource_to_index(db, remaining)
 
     if affected:
         return Response(orjson.dumps(result.model_dump()), media_type="application/json; charset=UTF-8", status_code=200)

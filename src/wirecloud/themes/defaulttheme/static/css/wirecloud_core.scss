@@ -129,4 +129,5 @@ body {
 }
 
 @include meta.load-css("admin_panel");
+@include meta.load-css("app_connections");
 @include meta.load-css("user_management");

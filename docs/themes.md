@@ -137,6 +137,7 @@ An available theme can be previewed without making it the default by adding `?th
 Test every view your users rely on:
 
 - anonymous landing and authenticated login pages;
+- [OAuth consent and connected-application pages](oauth2.md#theme-integration), when the OAuth module is enabled;
 - classic and mobile workspace views;
 - My Resources, resource details, and upload dialogs;
 - workspace editing, widget menus, and the wiring editor;

@@ -1053,6 +1053,7 @@ async def test_delete_resources_helper(db_session, monkeypatch):
     assert called["index_delete"] == 2
 
     called["uninstall"] = called["delete_if_unused"] = 0
+    monkeypatch.setattr(routes, "get_catalogue_resource_by_id", _none)
     monkeypatch.setattr(routes, "get_user_catalogue_resource", lambda *_args, **_kwargs: _resource(resources[0]))
 
     async def _resource(value):

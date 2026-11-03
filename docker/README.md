@@ -36,19 +36,33 @@ docker compose -f docker/docker-compose.yml exec wirecloud python -m manage crea
 
 ## Published images
 
-Release images for `linux/amd64` and `linux/arm64` are published to one
-configurable repository. The default is Docker Hub:
+Each published release builds regular and MCP variants for `linux/amd64` and
+`linux/arm64` in one configurable repository. The default is Docker Hub:
 
 ```bash
 docker pull fiware/wirecloud:2.0.0
+docker pull fiware/wirecloud:2.0.0-mcp
 ```
+
+The regular image installs the base application. The `-mcp` image also installs
+the MCP SDK and its tested dependency constraints using
+`WIRECLOUD_INSTALL_MCP=true`. Enable `wirecloud.oauth2provider` and `wirecloud.mcp`
+in the deployment's `WIRECLOUD_INSTALLED_APPS` and configure their public URLs as
+described in the [MCP guide](../docs/mcp.md#docker).
+
+Stable releases also update major/minor aliases and `latest` for the regular
+image, with matching `-mcp` aliases for the MCP image (for example, `2.0-mcp`,
+`2-mcp`, and `latest-mcp`). Prereleases publish only their full version tags,
+with and without `-mcp`; they do not replace stable aliases. CI keeps the two
+variants' build caches separate.
 
 Check the release notes for the canonical location when the repository's
 publishing configuration overrides this default.
 
 For a deployment based on a published image, remove the `build` block from the
 `wirecloud` service in `docker-compose.yml` and replace its image with a pinned
-release, for example `image: fiware/wirecloud:2.0.0`. Keep the supplied
+release, for example `image: fiware/wirecloud:2.0.0` or
+`image: fiware/wirecloud:2.0.0-mcp`. Keep the supplied
 environment, ports, dependencies, and volumes.
 
 ## Notes

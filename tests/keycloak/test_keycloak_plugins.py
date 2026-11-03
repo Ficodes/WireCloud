@@ -25,6 +25,43 @@ from wirecloud.commons.auth.schemas import UserAll
 from wirecloud.database import Id
 from bson import ObjectId
 from datetime import datetime, timezone
+from datetime import timedelta
+
+
+async def test_context_aware_oidc_validates_nonce_audience_and_userinfo_subject(monkeypatch):
+    import jwt
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    client_id, issuer = "wirecloud-test", "https://identity.example/realm"
+    monkeypatch.setattr(plugins.settings, "OID_CONNECT_CLIENT_ID", client_id)
+    monkeypatch.setattr(plugins.settings, "OID_CONNECT_DATA", {"token_endpoint": issuer + "/token", "userinfo_endpoint": issuer + "/userinfo",
+        "issuer": issuer, "keys": {"test-key": key.public_key()}, "scopes": ["openid"]}, raising=False)
+    nonce = "expected-nonce"
+    claims = {"sub": "external-subject", "iss": issuer, "aud": client_id, "nonce": nonce,
+              "iat": datetime.now(timezone.utc), "exp": datetime.now(timezone.utc) + timedelta(minutes=5)}
+    captured = []
+    async def provider_request(endpoint, data=None, **kwargs):
+        captured.append(data)
+        return {"scope": "openid", "access_token": "access", "refresh_token": "refresh",
+                "id_token": jwt.encode(claims, key, algorithm="RS256", headers={"kid": "test-key"})}
+    monkeypatch.setattr(plugins, "make_oidc_provider_request", provider_request)
+    plugin = plugins.WirecloudKeycloakPlugin(None)
+    exchange = plugin.get_idm_get_token_functions()["keycloak"]
+    context = {"nonce": nonce, "code_verifier": "pkce-verifier"}
+    tokens = await exchange("code", None, "https://wc/oidc/callback", login_context=context)
+    assert captured[0]["code_verifier"] == "pkce-verifier"
+    claims["nonce"] = "wrong"
+    with pytest.raises(ValueError, match="nonce"):
+        await exchange("code", None, "https://wc/oidc/callback", login_context=context)
+    claims["nonce"] = nonce
+    claims["aud"] = "different-client"
+    with pytest.raises(jwt.InvalidAudienceError):
+        await exchange("code", None, "https://wc/oidc/callback", login_context=context)
+    async def wrong_user(*args, **kwargs):
+        return {"preferred_username": "alice", "sub": "another-subject"}
+    monkeypatch.setattr(plugins, "make_oidc_provider_request", wrong_user)
+    with pytest.raises(ValueError, match="subject"):
+        await plugin.get_idm_get_user_functions()["keycloak"](tokens)
 
 
 @pytest.fixture(autouse=True)
