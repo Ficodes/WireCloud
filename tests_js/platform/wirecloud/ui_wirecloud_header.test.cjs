@@ -349,6 +349,25 @@ test('WirecloudHeader opens app connections in a modal', () => {
     assert.equal(Wirecloud.appConnectionsShown, true);
 });
 
+test('WirecloudHeader takes the app connections icon from the theme defaults', () => {
+    setup({ isanonymous: false, username: 'alice', avatar: '/avatar.png', realuser: null });
+    Wirecloud.URLs.OAUTH2_CONNECTIONS = '/wirecloud/oauth2/connections';
+    assert.equal(Wirecloud.ui.WirecloudHeader.defaults.userMenuIconClasses.appconnections, 'fas fa-plug');
+
+    class ThemedHeader extends Wirecloud.ui.WirecloudHeader {}
+    ThemedHeader.defaults = {
+        ...Wirecloud.ui.WirecloudHeader.defaults,
+        userMenuIconClasses: {...Wirecloud.ui.WirecloudHeader.defaults.userMenuIconClasses, appconnections: 'fas fa-link'}
+    };
+    const header = new ThemedHeader();
+    header._initUserMenu();
+    const items = header.user_button.getPopupMenu().items;
+    const index = items.findIndex((item) => item.label === 'App connections');
+    // Right after Settings, as in the default user menu
+    assert.equal(items[index - 1].label, 'Settings');
+    assert.deepEqual(items[index].icons, ['fas fa-link']);
+});
+
 test('WirecloudHeader omits app connections when OAuth is disabled or the user is impersonated', () => {
     for (const [enabled, realuser] of [[false, null], [true, 'admin']]) {
         setup({ isanonymous: false, username: 'alice', avatar: '/avatar.png', realuser });

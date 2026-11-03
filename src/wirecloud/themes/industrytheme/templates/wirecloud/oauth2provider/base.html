@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}" data-wc-theme="{{ THEME }}" data-wc-view="oauth2">
+<head>
+    {#- These pages are served with a strict CSP (wirecloud.oauth2provider.pages):
+        no inline scripts, styles or event handlers, so `_head.html` (which
+        applies the stored color scheme with an inline script) is not used. -#}
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>{% block title %}{{ trans("Application connections") }}{% endblock %} · WireCloud</title>
+    <link rel="icon" type="image/svg+xml" href="{{ static("images/favicon.svg") }}" />
+    <script src="{{ static("js/industry/ColorSchemeBoot.js") }}"></script>
+    {% block styles %}
+    <link rel="stylesheet" href="{{ static("css/cache.css?view=index") }}">
+    {% endblock %}
+    {% block scripts %}
+    <script defer src="{{ static("js/cache.js?view=oauth2") }}"></script>
+    {% endblock %}
+</head>
+
+<body class="wc-plain-page oauth-page">
+    <header class="wc-plain-header oauth-header" role="banner">
+        {% block branding %}
+        <a class="wc-plain-brand" href="{{ url("wirecloud.root") }}" aria-label="{{ trans("WireCloud home") }}"><span class="wc-brand-mark" aria-hidden="true">WC</span><span>WireCloud</span></a>
+        {% endblock %}
+        <span class="oauth-header-label">{{ trans("Application connections") }}</span>
+    </header>
+    <main class="oauth-main" id="main-content">
+        {% block content %}{% endblock %}
+    </main>
+    {% block footer %}{% endblock %}
+</body>
+</html>

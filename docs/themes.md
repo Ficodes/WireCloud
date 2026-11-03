@@ -37,7 +37,7 @@ parent = "defaulttheme"
 label = _("Acme")
 ```
 
-Set `parent = None` only for a complete root theme that supplies everything WireCloud needs. An inherited theme is safer because new parent templates and assets remain available after an upgrade.
+Set `parent = None` only for a complete root theme that supplies everything WireCloud needs. An inherited theme is safer because new parent templates and assets remain available after an upgrade. A root theme has no fallback for templates, static files or translations: when an optional module such as `wirecloud.oauth2provider` adds templates to the default theme, the root theme must add its own versions, and its catalogs must translate every string those templates pass to `trans()`.
 
 The module name, directory name, and configured theme name must match exactly. A missing `parent` attribute is a configuration error. A parent that cannot be imported ends the inheritance chain, usually causing missing templates or assets later, so validate the name carefully.
 
@@ -135,7 +135,7 @@ Wirecloud.ui.registry.register("WirecloudHeader", MyHeader);
 
 The platform builds these pieces through the registry: `WirecloudHeader`, `WorkspaceView`, `WorkspaceToolbar` (header buttons of the workspace view), `WidgetView` (override `getTemplateComponents()` to change the widget chrome), `WiringEditor`, `WiringEditor.Component`, `WiringEditor.ComponentDraggable`, `MarketplaceView`, `MyResourcesView`, `MyResourcesSearchView` (search view of My resources), `CatalogueSearchView`, `ResourcePainter` and `CommandPalette`. `Wirecloud.ui.registry.get(name)` falls back to `Wirecloud.ui.<name>`.
 
-`Wirecloud.ui.WirecloudHeader.defaults` holds the presentation defaults of the default header (button classes and icons) and `buildUserMenu(menu)` fills the user menu, so small changes do not require a new header.
+`Wirecloud.ui.WirecloudHeader.defaults` holds the presentation defaults of the default header (button classes and icons, including `userMenuIconClasses` for each user menu entry: `settings`, `appconnections`, `djangoadmin`, `switchuser`, `adminpanel`, `backtouser` and `signout`) and `buildUserMenu(menu)` fills the user menu, so small changes do not require a new header.
 
 ### Semantic view API
 

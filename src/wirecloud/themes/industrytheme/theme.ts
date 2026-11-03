@@ -78,7 +78,8 @@ const MODALS_CSS: string[] = [
     'css/modals/dialog.scss',
     'css/modals/share.scss',
     'css/modals/forms.scss',
-    'css/modals/admin.scss'
+    'css/modals/admin.scss',
+    'css/modals/app_connections.scss'
 ];
 
 const TUTORIAL_CSS: string[] = [
@@ -87,6 +88,11 @@ const TUTORIAL_CSS: string[] = [
 
 const PAGES_CSS: string[] = [
     'css/pages.scss'
+];
+
+// wirecloud.oauth2provider pages (templates/wirecloud/oauth2provider)
+const OAUTH_PAGES_CSS: string[] = [
+    'css/oauth2provider.scss'
 ];
 
 const SHELL_SCRIPTS: string[] = [
@@ -129,8 +135,8 @@ const get_css = (view: string): string[] => {
         // through the widget API)
         return [...common, 'css/gadget.scss'];
     } else {
-        // index: login and error pages
-        return [...common, ...PAGES_CSS];
+        // index: login, error and OAuth (consent, connected applications) pages
+        return [...common, ...PAGES_CSS, ...OAUTH_PAGES_CSS];
     }
 };
 
