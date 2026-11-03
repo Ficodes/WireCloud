@@ -26,17 +26,22 @@
 
         constructor() {
             super(utils.gettext('App connections'), 'wc-app-connections');
+
             this.buttons = [];
             this.permissionInputs = [];
+
             this.content = new se.Container();
             this.content.wrapperElement.setAttribute('aria-live', 'polite');
             this.content.insertInto(this.windowContent);
+
             this.retry = new se.Button({text: utils.gettext('Retry'), class: 'btn-default'});
             this.retry.addEventListener('click', () => this.load());
             this.retry.insertInto(this.windowBottom);
-            const close = new se.Button({text: utils.gettext('Close'), class: 'btn-default'});
-            close.addEventListener('click', () => this.hide());
-            close.insertInto(this.windowBottom);
+
+            const closeButton = new se.Button({text: utils.gettext('Close'), class: 'btn-default'});
+            closeButton.addEventListener('click', () => this.hide());
+            closeButton.insertInto(this.windowBottom);
+
             this.load();
         }
 
@@ -83,65 +88,95 @@
             if (notice) {
                 this.content.appendChild(new se.Alert({state: 'success', title: notice}));
             }
+
             if (connections.length === 0) {
                 const empty = new se.Alert({state: 'info', title: utils.gettext('No connected applications')});
                 empty.body.appendChild(utils.gettext('Applications you authorize will appear here. You can change their permissions or revoke their access at any time.'));
                 this.content.appendChild(empty);
             }
-            connections.forEach((connection) => {
-                const revoke = new se.Button({text: utils.gettext('Revoke'), class: 'btn-danger'});
-                revoke.wrapperElement.setAttribute('aria-label', utils.gettext('Revoke access for') + ' ' + connection.client_name);
-                revoke.addEventListener('click', () => this.revoke(connection.id));
-                this.buttons.push(revoke);
-                const panel = new se.Panel({title: connection.client_name, subtitle: connection.resource_name});
-                const permissions = new se.Container({tagname: 'ul', class: 'app-connection-permissions'});
-                let save;
-                if (connection.scope_options && connection.scope_options.length) {
-                    const controls = [];
-                    save = new se.Button({text: utils.gettext('Save permissions'), class: 'btn-primary'});
-                    save.wrapperElement.setAttribute('aria-label', utils.gettext('Save permissions for') + ' ' + connection.client_name);
-                    save.disable();
-                    permissions.wrapperElement.setAttribute('role', 'group');
-                    permissions.wrapperElement.setAttribute('aria-label', utils.gettext('Permissions for') + ' ' + connection.client_name);
-                    connection.scope_options.forEach((option) => {
-                        const checkbox = new se.CheckBox({initialValue: option.selected});
-                        const label = new se.Container({tagname: 'label', class: 'app-connection-permission'});
-                        label.appendChild(checkbox).appendChild(utils.gettext(option.description));
-                        permissions.appendChild(new se.Container({tagname: 'li'}).appendChild(label));
-                        controls.push({scope: option.scope, selected: option.selected, input: checkbox});
-                        this.permissionInputs.push(checkbox);
-                        checkbox.addEventListener('change', () => {
-                            const changed = controls.some((control) => control.input.getValue() !== control.selected);
-                            const selected = controls.some((control) => control.input.getValue());
-                            save.setDisabled(!changed || !selected);
-                        });
-                    });
-                    save.addEventListener('click', () => this.updatePermissions(connection.id,
-                        controls.filter((control) => control.input.getValue()).map((control) => control.scope)));
-                    this.buttons.push(save);
-                } else {
-                    connection.permissions.forEach((permission) => {
-                        permissions.appendChild(new se.Container({tagname: 'li'}).appendChild(utils.gettext(permission)));
-                    });
-                }
-                panel.body.appendChild(permissions);
-                if (save) {
-                    panel.body.appendChild(new se.Container({tagname: 'p', class: 'app-connection-help'})
-                        .appendChild(utils.gettext('Changes apply immediately to this connection. Select at least one permission, or revoke access.')));
-                }
-                const footer = new se.Container({class: 'panel-footer app-connection-footer'});
-                const details = new se.Container({tagname: 'details', class: 'app-connection-details'});
-                details.appendChild(new se.Container({tagname: 'summary'}).appendChild(utils.gettext('Application ID')));
-                details.appendChild(new se.Container({tagname: 'p'}).appendChild(connection.client_id));
-                footer.appendChild(details);
-                if (save) {
-                    footer.appendChild(save);
-                }
-                footer.appendChild(revoke);
-                footer.insertInto(panel.wrapperElement);
-                this.content.appendChild(panel);
-            });
+
+            connections.forEach((connection) => this.content.appendChild(this.createConnectionPanel(connection)));
             this.repaint();
+        }
+
+        createConnectionPanel(connection) {
+            const revokeButton = new se.Button({text: utils.gettext('Revoke'), class: 'btn-danger'});
+            revokeButton.wrapperElement.setAttribute('aria-label', utils.gettext('Revoke access for') + ' ' + connection.client_name);
+            revokeButton.addEventListener('click', () => this.revoke(connection.id));
+            this.buttons.push(revokeButton);
+
+            const panel = new se.Panel({title: connection.client_name, subtitle: connection.resource_name});
+            const permissions = new se.Container({tagname: 'ul', class: 'app-connection-permissions'});
+            let saveButton;
+
+            if (connection.scope_options && connection.scope_options.length) {
+                saveButton = this.createPermissionEditor(connection, permissions);
+            } else {
+                connection.permissions.forEach((permission) => {
+                    const item = new se.Container({tagname: 'li'});
+                    item.appendChild(utils.gettext(permission));
+                    permissions.appendChild(item);
+                });
+            }
+
+            panel.body.appendChild(permissions);
+            if (saveButton) {
+                const help = new se.Container({tagname: 'p', class: 'app-connection-help'});
+                help.appendChild(utils.gettext('Changes apply immediately to this connection. Select at least one permission, or revoke access.'));
+                panel.body.appendChild(help);
+            }
+
+            const details = new se.Container({tagname: 'details', class: 'app-connection-details'});
+            details.appendChild(new se.Container({tagname: 'summary'}).appendChild(utils.gettext('Application ID')));
+            details.appendChild(new se.Container({tagname: 'p'}).appendChild(connection.client_id));
+
+            const footer = new se.Container({class: 'panel-footer app-connection-footer'});
+            footer.appendChild(details);
+            if (saveButton) {
+                footer.appendChild(saveButton);
+            }
+            footer.appendChild(revokeButton);
+            footer.insertInto(panel.wrapperElement);
+
+            return panel;
+        }
+
+        createPermissionEditor(connection, permissions) {
+            const controls = [];
+            const saveButton = new se.Button({text: utils.gettext('Save permissions'), class: 'btn-primary'});
+            saveButton.wrapperElement.setAttribute('aria-label', utils.gettext('Save permissions for') + ' ' + connection.client_name);
+            saveButton.disable();
+
+            const updateSaveButton = () => {
+                const hasChanges = controls.some((control) => control.input.getValue() !== control.initialValue);
+                const hasSelection = controls.some((control) => control.input.getValue());
+                saveButton.setDisabled(!hasChanges || !hasSelection);
+            };
+
+            permissions.wrapperElement.setAttribute('role', 'group');
+            permissions.wrapperElement.setAttribute('aria-label', utils.gettext('Permissions for') + ' ' + connection.client_name);
+
+            connection.scope_options.forEach((option) => {
+                const checkbox = new se.CheckBox({initialValue: option.selected});
+                const label = new se.Container({tagname: 'label', class: 'app-connection-permission'});
+                label.appendChild(checkbox);
+                label.appendChild(utils.gettext(option.description));
+                permissions.appendChild(new se.Container({tagname: 'li'}).appendChild(label));
+
+                controls.push({scope: option.scope, initialValue: option.selected, input: checkbox});
+                this.permissionInputs.push(checkbox);
+                checkbox.addEventListener('change', updateSaveButton);
+            });
+
+            saveButton.addEventListener('click', () => {
+                const selectedScopes = controls
+                    .filter((control) => control.input.getValue())
+                    .map((control) => control.scope);
+                this.updatePermissions(connection.id, selectedScopes);
+            });
+            this.buttons.push(saveButton);
+
+            return saveButton;
         }
 
         revoke(grantId) {
@@ -159,8 +194,12 @@
                 method: 'POST',
                 requestHeaders: {'Accept': 'application/json'},
                 parameters: {csrf: this.csrf, ...parameters},
-                onSuccess: () => this.load(parameters.action === 'update_permissions'
-                    ? utils.gettext('Permissions updated.') : utils.gettext('Access revoked.')),
+                onSuccess: () => {
+                    const notice = parameters.action === 'update_permissions'
+                        ? utils.gettext('Permissions updated.')
+                        : utils.gettext('Access revoked.');
+                    this.load(notice);
+                },
                 onFailure: (response) => this.showError(response, utils.gettext('Unable to update app connections. Please try again.'))
             });
         }

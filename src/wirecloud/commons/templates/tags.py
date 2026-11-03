@@ -24,7 +24,7 @@ import gettext as gt
 from importlib import import_module
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
-from urllib.parse import urljoin, urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs
 
 from wirecloud.commons.utils.http import get_absolute_reverse_url
 from wirecloud.commons.utils.theme import get_theme_translation
@@ -51,7 +51,8 @@ def get_static_path(theme: str, view: str, request: Request, path: str) -> str:
     if "view" not in query_dict:
         query_dict["view"] = [view]
 
-    return urljoin(request.url.path, "/static/" + parsed_url.path) + "?" + "&".join(
+    root = request.scope.get("root_path", "").rstrip("/")
+    return root + "/static/" + parsed_url.path + "?" + "&".join(
         [f"{k}={v[0]}" for k, v in query_dict.items()])
 
 def get_url_from_view(request: Request, view: str, **kwargs) -> str:

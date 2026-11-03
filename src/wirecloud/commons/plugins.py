@@ -21,6 +21,7 @@ from typing import Any, Callable, Optional
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException
 
 from wirecloud.commons.auth.routes import router as auth_router
 from wirecloud.commons.auth.routes import base_router as auth_base_router
@@ -30,6 +31,7 @@ from wirecloud.commons.exceptions import ErrorResponse
 from wirecloud.commons.routes import router as commons_router
 from wirecloud.commons.routes import (
     error_response_handler,
+    http_exception_handler,
     permission_denied_handler,
     not_found_handler,
     validation_exception_handler,
@@ -54,6 +56,7 @@ class WirecloudCommonsPlugin(WirecloudPlugin):
 
         # Register exception handlers
         app.add_exception_handler(ErrorResponse, error_response_handler)
+        app.add_exception_handler(HTTPException, http_exception_handler)
         app.add_exception_handler(PermissionDenied, permission_denied_handler)
         app.add_exception_handler(NotFound, not_found_handler)
         app.add_exception_handler(RequestValidationError, validation_exception_handler)

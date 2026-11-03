@@ -42,7 +42,7 @@ from wirecloud import docs
 
 
 @asynccontextmanager
-async def lifespan(application: FastAPI):
+async def lifespan(_: FastAPI):
     await validate_settings()
     try:
         yield

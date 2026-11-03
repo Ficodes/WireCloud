@@ -87,8 +87,11 @@ The integration tests exercise all
 33 tools through the official SDK and run discovery, consent, token exchange,
 an authenticated SDK call, and revocation over real HTTP sockets with a deployment
 URL prefix. MongoDB and search remain mocked; these tests do not contact a live
-identity provider. See the [OAuth](oauth2.md#verification) and
-[MCP](mcp.md#maintenance-and-verification) pages for the boundaries covered.
+identity provider. MCP tests also cover package validation, upload ownership,
+scope enforcement, concurrent edits, redaction, workspace ownership, live
+permission changes, and strict tool argument validation. See
+[OAuth verification](oauth2.md#verification) for shared authorization coverage and
+[the MCP guide](mcp.md) for server setup and usage.
 
 ## Documentation
 

@@ -63,9 +63,13 @@ def get_html_basic_error_response(request: Optional[Request], mimetype: str, sta
     from wirecloud.platform.routes import render_wirecloud
 
     try:
-        return render_wirecloud(request, page=f"{status_code}", title="Error").body.decode("utf-8")
+        return render_wirecloud(
+            request, page=f"{status_code}", title="Error", extra_context=context, autoescape=True,
+        ).body.decode("utf-8")
     except NotFound:
-        return render_wirecloud(request, page=f"500", title="Error").body.decode("utf-8")
+        return render_wirecloud(
+            request, page="500", title="Error", extra_context=context, autoescape=True,
+        ).body.decode("utf-8")
 
 
 def get_xml_error_response(request: Optional[Request], mimetype: str, status_code: int, context: dict) -> str:

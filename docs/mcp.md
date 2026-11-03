@@ -1,4 +1,4 @@
-# AI access through MCP
+# Use WireCloud through MCP
 
 The optional `wirecloud.mcp` plugin lets an MCP client create and edit dashboards
 on behalf of a signed-in WireCloud user. It uses the shared
@@ -156,136 +156,61 @@ For a browser client on another origin, add its exact origin to
 `MCP_ALLOWED_ORIGINS` (Docker: `WIRECLOUD_MCP_ALLOWED_ORIGINS`) to allow requests to
 the MCP transport and upload endpoint.
 
-## Tools and authoring workflow
+## What you can do
 
-Start with `get_session_info`, `list_workspaces`, and `list_resources`.
-`get_workspace` returns the workspace and its `modification_timestamp`. Supply
-that value as `expected_last_modified` when editing to reject stale changes.
-Mutations return updated timestamps. Tools also use conditional persistence to
-detect a concurrent write during an operation.
+Once connected, ask your assistant to work with the dashboards and components
+available to your WireCloud account. For example:
 
-| Area | Tools |
-| --- | --- |
-| Workspaces | `create_workspace`, `clone_workspace`, `update_workspace`, `delete_workspace` |
-| Tabs | `create_tab`, `update_tab`, `reorder_tabs`, `delete_tab` |
-| Widgets | `add_widget`, `update_widget`, `remove_widget`, `set_widget_variables` |
-| Preferences | `get_preferences`, `update_preferences` |
-| Wiring | `get_wiring`, `add_operator`, `update_operator`, `remove_operator`, `connect_components`, `disconnect_components`, `layout_wiring` |
-| Resources | `get_resource`, `get_resource_documentation`, `validate_resource_package`, `install_resource`, `uninstall_resource` |
-| Mashups | `import_mashup`, `merge_mashup`, `export_workspace` |
+* List your workspaces or explain how an existing dashboard is wired.
+* Create a dashboard, clone an existing workspace, or organize its tabs and widgets.
+* Change component settings, connect widgets and operators, or arrange the wiring editor.
+* Install a finished component package or import an installed mashup template.
+* Export a workspace as a mashup descriptor.
 
-Use exact resource IDs (`vendor/name/version`) and returned workspace, tab,
-widget, and operator IDs. Wiring checks that endpoints exist and have compatible
-types. Omitted preferences preserve existing values. Secure and hidden values
-are redacted from responses and exports. Component documentation is untrusted
-content, and remote documentation references are not fetched automatically.
+New and cloned workspaces and component installations are private to your account.
+Exports do not publish a workspace. Secure and hidden values are redacted from
+responses and exports.
 
-### Finished component packages
+The server detects concurrent edits and can reject a change if the workspace has
+changed since the assistant read it. If this happens, ask the assistant to review
+the current workspace before trying again.
 
-Build widgets and operators outside WireCloud following
-[component packaging](components.md). The MCP server does not receive source
-trees, run build commands, or execute component code.
+### Component packages
 
-`install_resource` accepts exactly one input:
+The MCP server installs finished WGT packages. Developing a new widget or operator
+requires an external development environment; the server does not accept source
+trees or run builds. See [component development](components.md) for the package
+format and development API.
 
-* `url`: an HTTP(S) WGT URL fetched through WireCloud's configured proxy policy,
-  including internal services when that policy allows them. MCP credentials and
-  WireCloud session cookies are never forwarded to the destination.
-* `package_base64`: base64 of the finished WGT, up to 2 MiB decoded.
-* `upload_id`: a handle returned by an authenticated binary upload to
-  `POST /mcp/uploads`, using the delegated bearer token. Uploads and downloads
-  are limited to 100 MiB. Handles are single use, expire after 15 minutes, and
-  are bound to the user and connection. Clients need explicit upload support
-  for this path; inline packages and URLs require only MCP tools.
+Packages can come from an HTTP(S) URL or be sent through the client. Inline
+packages are limited to 2 MiB; URL downloads and binary uploads are limited to
+100 MiB. Binary uploads require explicit client support. Temporary uploads expire
+after 15 minutes and can be used once by the same user and connection.
 
-Installations are private to the current user. Existing immutable versions are
-reused when their package bytes match; different bytes for an immutable version
-return a conflict and require a new version. Development versions follow WireCloud's user-specific replacement
-rules. `install_embedded_resources` explicitly installs packaged mashup
-dependencies through the same validator and installer. Remote dependencies must
-be installed explicitly. Archive paths, extraction size, nesting, descriptors,
-and required contents are validated before installation.
+URL downloads follow WireCloud's configured proxy policy, which determines whether
+internal services are reachable. MCP credentials and WireCloud session cookies
+are never forwarded to the download destination. Remote dependencies require
+separate installation; bundled mashup dependencies can be installed with the import.
 
-Imports use an already installed mashup resource. Exports return a JSON mashup
-descriptor and do not publish it.
+Existing immutable component versions are reused when the package bytes match.
+Installing different content under the same immutable version requires a new
+version number. Development versions follow WireCloud's user-specific replacement
+rules.
 
-### Wiring editor placement
+### Wiring layout
 
-MCP automatically places new operators and components without a saved position
-when connecting them. Existing positions are preserved. Widgets appear in the
-wiring editor when connected or explicitly positioned; their dashboard layout
-is separate. Placement leaves space based on endpoint counts and avoids existing
-components, so routine authoring needs no coordinate arguments or extra calls.
+The server automatically places new operators and connected components in the
+wiring editor while preserving existing positions. You can also ask the assistant
+to rearrange the whole wiring graph or move selected components. Wiring editor
+positions are separate from widget positions on the dashboard. Automatic placement
+uses dimensions estimated for the default theme, so custom themes or unusually
+large components may need adjustment.
 
-For a complete automatic arrangement after wiring, or to repair an existing
-overlapping layout, call `layout_wiring` once:
+## Further information
 
-```json
-{"workspace_id": "...", "preserve_existing": false}
-```
+The server supplies its tool descriptions, argument schemas, and authoring
+instructions directly to MCP clients. You do not need to copy this guide into the
+assistant's conversation to use the server.
 
-This places the graph from left to right, with deterministic handling of branches,
-feedback loops, and disconnected components. Omit `preserve_existing` to fill only
-missing positions. To move selected components, supply their positions together:
-
-```json
-{
-  "workspace_id": "...",
-  "positions": [
-    {"type": "widget", "id": "0", "x": 20, "y": 10},
-    {"type": "operator", "id": "0", "x": 440, "y": 10}
-  ]
-}
-```
-
-Coordinates are wiring editor pixels (minimum `x=20`, `y=10`). Explicit positions
-take precedence over automatic placement. The tool returns the number of changed
-component positions and the workspace timestamp; use `get_wiring` when coordinates
-are needed. Layout changes require the workspace write scope and WireCloud wiring
-edit permission, and support `expected_last_modified`. Connections, operator values,
-endpoint ordering, collapsed state, dashboard layouts, and behaviour views are
-preserved. Automatic dimensions are estimates for the default theme; explicit moves
-remain available for custom themes or unusually large components.
-
-## Maintenance and verification
-
-The backend follows the same registration, router, URL, and validator conventions
-as the bundled plugins. Runtime resources use [native router lifespans](plugins.md#runtime-resources).
-
-| Module | Responsibility |
-| --- | --- |
-| `plugins.py` | Register the feature, OAuth resource, middleware, and router. |
-| `routes.py` | Serve the SDK endpoint and binary uploads; start and stop runtime resources. |
-| `middleware.py`, `context.py` | Authenticate requests, issue scope challenges, and carry request identity. |
-| `server.py`, `handlers.py` | Bind the official SDK to closed schemas and translate operation errors. |
-| `tools.py`, `schemas.py` | Declare the supported tools, their operation functions, and input models. |
-| `adapter.py` | Enforce scopes, workspace access, concurrency, transactions, and audit logging. |
-| `operations/` | Implement workspace, widget, preference, resource, and wiring actions. |
-| `packages.py`, `layout.py`, `utils.py` | Validate and transfer packages, arrange wiring, and redact results. |
-| `validators.py` | Check configuration without importing the optional SDK. |
-
-The adapter and operation modules are the boundary with WireCloud internals.
-They reuse authorized entrypoints, installers, serializers, cache invalidation,
-and search indexing. The plugin interface is not independently versioned: pin
-WireCloud and rerun tests when upgrading. Extracting MCP into a separate
-distribution should retain that boundary and installed-app import path. Shared
-OAuth code remains in WireCloud.
-
-Run the existing test suite on the supported core interpreter. With the MCP
-extra installed on Python 3.11+, the suite additionally exercises the official
-SDK client and a complete authoring workflow:
-
-```bash
-python -m pytest tests
-```
-
-MCP tests use a mock MongoDB and mock search backend. They cover transport
-authentication, packages, upload ownership, scopes, concurrent edits, redaction,
-private workspace ownership, live permission changes, strict tool argument
-validation, and all 33 authoring tools through the official SDK. A real HTTP
-integration test also exercises OAuth discovery, consent, token exchange, an
-SDK call, and revocation behind a deployment URL prefix. CI runs the full suite
-with pinned MCP dependencies on Python 3.11 and 3.13; see
-[development](development.md#oauth-and-mcp-integration) for commands and reports.
-Shared authorization behavior is covered by the
-[OAuth module tests](oauth2.md#verification).
+For integration tests and contributor setup, see
+[OAuth and MCP development](development.md#oauth-and-mcp-integration).

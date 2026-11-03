@@ -36,7 +36,8 @@ from wirecloud.commons.auth.schemas import UserAll
 from wirecloud.commons.auth.utils import Token, get_token_contents, get_user
 from wirecloud.database import DBDep, DBSession, Id, commit, get_session
 from wirecloud.oauth2provider import crud, docs, service as auth
-from wirecloud.oauth2provider.pages import render_page
+from wirecloud.oauth2provider.pages import page_headers
+from wirecloud.platform.routes import render_wirecloud
 
 
 @asynccontextmanager
@@ -390,10 +391,11 @@ async def consent(
     if not bound:
         auth.oauth_error(description="Sign-in session changed; start authorization again")
     await commit(db)
-    return render_page(
+    return render_wirecloud(
         request,
-        "consent",
-        {
+        view="classic",
+        page="wirecloud/oauth2provider/consent",
+        extra_context={
             "user": user,
             "resource": resource,
             "attempt": attempt,
@@ -401,7 +403,8 @@ async def consent(
             "request_id": request_id,
             "csrf": csrf,
         },
-        form_redirect_uri=attempt["redirect_uri"],
+        autoescape=True,
+        headers=page_headers(attempt["redirect_uri"]),
     )
 
 
@@ -656,7 +659,11 @@ async def connections(request: Request, db: DBDep) -> Response:
     if "application/json" in request.headers.get("accept", ""):
         response = JSONResponse({"connections": rows, "csrf": csrf}, headers={"Cache-Control": "no-store"})
     else:
-        response = render_page(request, "connections", {"user": user, "connections": rows, "csrf": csrf})
+        response = render_wirecloud(
+            request, view="classic", page="wirecloud/oauth2provider/connections",
+            extra_context={"user": user, "connections": rows, "csrf": csrf},
+            autoescape=True, headers=page_headers(),
+        )
     response.headers["Vary"] = "Accept"
     response.set_cookie(
         "wc_oauth_browser",

@@ -7,8 +7,7 @@ without depending on MCP or its SDK.
 
 WireCloud core continues to own user login, sessions, and identity-provider hooks.
 OAuth clients sign in through WireCloud, including Keycloak or another configured
-provider. Existing widget authentication and APIs use their existing mechanisms.
-Enabling OAuth does not add bearer authentication to all WireCloud routes.
+provider.
 
 ## Enable the module
 

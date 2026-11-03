@@ -123,7 +123,9 @@ async def test_consent_escapes_client_content_and_uses_theme_assets(oauth_client
     assert scripts and all(script.get("src", "").startswith("/static/js/") and not script.text for script in scripts)
     assert all("defer" in script.attrib for script in scripts)
     assert len(scripts) == 1
-    assert scripts[0].get("src") == "/static/js/cache.js?themeactive=defaulttheme&view=oauth2"
+    script_url = urlsplit(scripts[0].get("src"))
+    assert script_url.path == "/static/js/cache.js"
+    assert parse_qs(script_url.query) == {"themeactive": ["defaulttheme"], "view": ["oauth2"]}
     assert "unsafe-inline" not in response.headers["content-security-policy"]
     assert response.headers["cache-control"] == "no-store"
 
@@ -142,6 +144,40 @@ async def test_child_theme_inherits_oauth_pages(oauth_client, db_session, monkey
     assert 'themeactive=fiwaretheme' in response.text
     assert 'No connected applications' in response.text
     from lxml import html
-    assert html.fromstring(response.text).xpath("//script/@src") == [
-        "/static/js/cache.js?themeactive=fiwaretheme&view=oauth2"]
+    scripts = html.fromstring(response.text).xpath("//script/@src")
+    assert len(scripts) == 1
+    script_url = urlsplit(scripts[0])
+    assert script_url.path == "/static/js/cache.js"
+    assert parse_qs(script_url.query) == {"themeactive": ["fiwaretheme"], "view": ["oauth2"]}
     assert theme.get_theme_static_path("fiwaretheme", "css/oauth2provider.css").endswith("defaulttheme/static/css/oauth2provider.css")
+
+
+async def test_connections_escape_client_content_and_preserve_prefixed_links(oauth_app, oauth_client, db_session):
+    from httpx import ASGITransport, AsyncClient
+    from lxml import html
+    from oauth2provider.test_oauth import authorize_client
+
+    await login_user(db_session, oauth_client)
+    await authorize_client(oauth_client)
+    await db_session.client.oauth_grants.update_many({}, {"$set": {"client_name": '<img src=x onerror="alert(1)">'}})
+
+    async with AsyncClient(transport=ASGITransport(app=oauth_app, root_path="/platform"),
+            base_url="http://localhost", cookies=oauth_client.cookies) as client:
+        response = await client.get("/platform/oauth2/connections?view=smartphone")
+
+    assert response.status_code == 200
+    assert '&lt;img src=x onerror=' in response.text
+    assert '<img src=x' not in response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert "form-action 'self';" in response.headers["content-security-policy"]
+
+    document = html.fromstring(response.text)
+    assert document.xpath("//a[@class='oauth-brand']/@href") == ["http://localhost/platform/"]
+    assets = document.xpath("//script/@src | //link/@href | //img/@src")
+    assert assets and all(url.startswith("/platform/static/") for url in assets)
+    script = urlsplit(document.xpath("//script/@src")[0])
+    assert parse_qs(script.query)["view"] == ["oauth2"]
+    css = urlsplit(document.xpath("//link[@rel='stylesheet']/@href")[0])
+    assert parse_qs(css.query)["view"] == ["classic"]
