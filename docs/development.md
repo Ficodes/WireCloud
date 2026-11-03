@@ -72,6 +72,10 @@ python -m pip install -c constraints-mcp.txt -r requirements.txt -r requirements
 python -m pytest tests
 ```
 
+The PR coverage comparison uses Python 3.11 with these same MCP dependencies for
+both base and head, so the report includes the optional plugin's tests. A separate
+Python 3.9 job checks core compatibility without installing MCP.
+
 The `oauth-mcp-python-*` CI artifacts contain JUnit results and branch coverage
 for OAuth, MCP, and the authentication module. Both matrix jobs require 100% line
 and branch coverage for these modules. To run the same coverage gate locally:
