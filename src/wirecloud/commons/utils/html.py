@@ -28,6 +28,22 @@ from wirecloud.commons.utils.version import Version
 
 VERSION_HEADER_RE = re.compile(r"[\s(]")
 
+# Elements that cannot have content in HTML
+HTML_VOID_ELEMENTS = frozenset((
+    "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr",
+))
+
+
+def _serialize_children(doc) -> str:
+    # The result is inserted into the page using the HTML parser, where only
+    # void elements can be self-closing: an empty element serialized as
+    # `<i class="fas fa-crosshairs"/>` would wrap all the following content
+    for element in doc.iter(etree.Element):
+        if element.text is None and len(element) == 0 and etree.QName(element).localname not in HTML_VOID_ELEMENTS:
+            element.text = ""
+
+    return (doc.text or '') + ''.join([etree.tostring(child, method='xml').decode('utf-8') for child in doc.iterchildren()])
+
 
 def clean_html(code: str, base_url: Optional[str] = None) -> str:
     parser = XHTMLParser()
@@ -68,7 +84,7 @@ def clean_html(code: str, base_url: Optional[str] = None) -> str:
         # Add target="_blank" to general links
         link_element.attrib['target'] = '_blank'
 
-    return (doc.text or '') + ''.join([etree.tostring(child, method='xml').decode('utf-8') for child in doc.iterchildren()])
+    return _serialize_children(doc)
 
 
 def filter_changelog(code: str, from_version: Version) -> str:
@@ -105,4 +121,4 @@ def filter_changelog(code: str, from_version: Version) -> str:
                 header.drop_tree()
                 break
 
-    return (doc.text or '') + ''.join([etree.tostring(child, method='xml').decode('utf-8') for child in doc.iterchildren()])
+    return _serialize_children(doc)

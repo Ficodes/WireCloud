@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from types import SimpleNamespace
+from contextlib import asynccontextmanager
 
 import pytest
+from fastapi import APIRouter, FastAPI
 
 from wirecloud import main
 
@@ -18,12 +19,77 @@ async def test_wirecloud_main_lifespan_calls_validate_and_close(monkeypatch):
 
     monkeypatch.setattr(main, "validate_settings", _validate)
     monkeypatch.setattr(main, "close", _close)
+    events = []
+    @asynccontextmanager
+    async def plugin_lifespan(app):
+        events.append("start")
+        try:
+            yield
+        finally:
+            events.append("stop")
+    application = FastAPI(lifespan=main.lifespan)
+    application.include_router(APIRouter(lifespan=plugin_lifespan))
 
-    async with main.lifespan(main.app):
+    async with application.router.lifespan_context(application):
         assert calls["validate"] == 1
         assert calls["close"] == 0
+        assert events == ["start"]
 
     assert calls["close"] == 1
+    assert events == ["start", "stop"]
+
+
+@pytest.mark.parametrize("failure", [None, "startup", "shutdown"])
+async def test_native_router_lifespans_unwind_before_database_close(monkeypatch, failure):
+    events = []
+
+    async def validate():
+        events.append("validate")
+
+    async def close():
+        events.append("database-close")
+
+    @asynccontextmanager
+    async def first_router(app):
+        events.append("first-start")
+        try:
+            yield
+        finally:
+            events.append("first-stop")
+
+    @asynccontextmanager
+    async def second_router(app):
+        events.append("second-start")
+        if failure == "startup":
+            raise RuntimeError("startup")
+        try:
+            yield
+        finally:
+            events.append("second-stop")
+            if failure == "shutdown":
+                raise RuntimeError("shutdown")
+
+    monkeypatch.setattr(main, "validate_settings", validate)
+    monkeypatch.setattr(main, "close", close)
+    application = FastAPI(lifespan=main.lifespan)
+    application.include_router(APIRouter(lifespan=first_router))
+    application.include_router(APIRouter(lifespan=second_router))
+
+    async def serve():
+        async with application.router.lifespan_context(application):
+            events.append("serve")
+
+    if failure:
+        with pytest.raises(RuntimeError, match=failure):
+            await serve()
+    else:
+        await serve()
+
+    expected = ["validate", "first-start", "second-start"]
+    if failure != "startup":
+        expected.extend(["serve", "second-stop"])
+    expected.extend(["first-stop", "database-close"])
+    assert events == expected
 
 
 def test_wirecloud_main_custom_openapi(monkeypatch):

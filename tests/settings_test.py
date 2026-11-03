@@ -24,6 +24,7 @@ INSTALLED_APPS = (
     'wirecloud.proxy',
     'wirecloud.fiware',
     'wirecloud.keycloak',
+    'wirecloud.oauth2provider',
 )
 
 DATABASE = {
@@ -89,4 +90,3 @@ PROXY_WHITELIST_ENABLED = False
 PROXY_WHITELIST = []
 PROXY_BLACKLIST_ENABLED = False
 PROXY_BLACKLIST = []
-

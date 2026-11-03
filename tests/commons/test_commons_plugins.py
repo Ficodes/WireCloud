@@ -21,6 +21,7 @@ def test_wirecloud_commons_plugin_registers_routes_and_handlers():
     assert "/api/search" in route_paths
 
     assert plugins.ErrorResponse in app.exception_handlers
+    assert app.exception_handlers[plugins.HTTPException] is plugins.http_exception_handler
     assert plugins.PermissionDenied in app.exception_handlers
     assert plugins.NotFound in app.exception_handlers
     assert plugins.RequestValidationError in app.exception_handlers

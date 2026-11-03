@@ -78,16 +78,15 @@ async def test_render_workspace_view_login_redirects_and_errors(monkeypatch, db_
 
     redirected = await routes.render_workspace_view(db_session, request, None, "wirecloud", "home")
     assert isinstance(redirected, RedirectResponse)
-    assert "next=" in redirected.headers["location"]
+    assert "return_to=" in redirected.headers["location"]
 
     monkeypatch.setattr(routes.settings, "OID_CONNECT_ENABLED", True)
     redirected_oidc = await routes.render_workspace_view(db_session, request, None, "wirecloud", "home")
-    assert "redirect_uri=" in redirected_oidc.headers["location"]
-    assert "state=" in redirected_oidc.headers["location"]
+    assert "return_to=" in redirected_oidc.headers["location"]
 
     monkeypatch.setattr(routes, "get_absolute_reverse_url", lambda *_args, **_kwargs: "https://wc/login?x=1")
     redirected_oidc_with_query = await routes.render_workspace_view(db_session, request, None, "wirecloud", "home")
-    assert "&redirect_uri=" in redirected_oidc_with_query.headers["location"]
+    assert "&return_to=" in redirected_oidc_with_query.headers["location"]
 
     monkeypatch.setattr(routes.settings, "ALLOW_ANONYMOUS_ACCESS", True)
 
@@ -181,7 +180,7 @@ def test_serve_static_cache_and_default(monkeypatch):
 
 def test_render_wirecloud_context_and_fallback(monkeypatch):
     class _Templates:
-        def TemplateResponse(self, request, name, context):
+        def TemplateResponse(self, request, name, context, headers=None):
             if name == "wirecloud/views/classic.html":
                 raise jinja2.exceptions.TemplateNotFound(name)
             return {"name": name, "context": context}
@@ -213,7 +212,7 @@ def test_render_wirecloud_context_and_fallback(monkeypatch):
 
 def test_render_wirecloud_page_not_found(monkeypatch):
     class _Templates:
-        def TemplateResponse(self, request, name, context):
+        def TemplateResponse(self, request, name, context, headers=None):
             raise jinja2.exceptions.TemplateNotFound(name)
 
     request = _request(path="/workspace/wirecloud/home", query="a=1")
@@ -234,7 +233,7 @@ def test_render_wirecloud_page_not_found(monkeypatch):
 
 def test_render_wirecloud_with_explicit_view(monkeypatch):
     class _Templates:
-        def TemplateResponse(self, request, name, context):
+        def TemplateResponse(self, request, name, context, headers=None):
             return {"name": name, "context": context}
 
     request = _request(path="/workspace/wirecloud/home", query="a=1")
@@ -251,3 +250,26 @@ def test_render_wirecloud_with_explicit_view(monkeypatch):
     rendered = routes.render_wirecloud(request, view="smartphone")
     assert rendered["name"] == "wirecloud/views/smartphone.html"
     assert rendered["context"]["VIEW_MODE"] == "smartphone"
+
+
+def test_render_wirecloud_escapes_per_response_and_preserves_context_processors(monkeypatch):
+    from fastapi.templating import Jinja2Templates
+
+    environment = jinja2.Environment(loader=jinja2.DictLoader({
+        "base.html": "<main>{% block content %}{% endblock %}</main>",
+        "test.html": '{% extends "base.html" %}{% block content %}{{ value }} {{ processed }}{% endblock %}',
+    }), autoescape=False)
+    templates = Jinja2Templates(env=environment, context_processors=[lambda request: {"processed": "context"}])
+    monkeypatch.setattr(routes, "get_jinja2_templates", lambda _theme: templates)
+    monkeypatch.setattr(routes, "get_template_context", lambda _request: {})
+    request = _request()
+    arguments = {"view": "classic", "page": "test", "extra_context": {"value": '<img src="x">'}}
+
+    escaped = routes.render_wirecloud(request, **arguments, autoescape=True, headers={"Cache-Control": "no-store"})
+    assert escaped.body.decode() == "<main>&lt;img src=&#34;x&#34;&gt; context</main>"
+    assert escaped.headers["cache-control"] == "no-store"
+
+    regular = routes.render_wirecloud(request, **arguments)
+    assert regular.body.decode() == '<main><img src="x"> context</main>'
+    assert "cache-control" not in regular.headers
+    assert environment.autoescape is False

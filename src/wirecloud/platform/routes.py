@@ -18,6 +18,7 @@
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, FileResponse, Response, RedirectResponse
+from fastapi.templating import Jinja2Templates
 from typing import Optional
 from urllib.parse import quote_plus
 import os
@@ -42,15 +43,7 @@ router = APIRouter()
 
 async def render_workspace_view(db: DBSession, request: Request, user: Optional[UserAll], owner: str, workspace: str) -> Response:
     login_url = get_absolute_reverse_url("login", request)
-    if getattr(settings, 'OID_CONNECT_ENABLED', False):
-        if '?' in login_url:
-            login_url += '&'
-        else:
-            login_url += '?'
-        login_url += f"redirect_uri={quote_plus(get_absolute_reverse_url('oidc_login_callback', request))}"
-        login_url += f"&state={quote_plus(request.url.path + '?' + request.url.query)}"
-    else:
-        login_url += f"?next={quote_plus(request.url.path + '?' + request.url.query)}"
+    login_url += ('&' if '?' in login_url else '?') + f"return_to={quote_plus(request.url.path + '?' + request.url.query)}"
 
     if settings.ALLOW_ANONYMOUS_ACCESS is False and user is None:
         return RedirectResponse(login_url)
@@ -150,10 +143,21 @@ def serve_static(path: str, themeactive: str = settings.THEME_ACTIVE, view: str 
     return FileResponse(get_theme_static_path(themeactive, path))
 
 
-def render_wirecloud(request: Request, view: Optional[str] = None, page: Optional[str] = None, title: str = "", description: str = "", extra_context: dict = None):
+def render_wirecloud(
+    request: Request, view: Optional[str] = None, page: Optional[str] = None, title: str = "",
+    description: str = "", extra_context: dict = None, *, autoescape: bool = False,
+    headers: Optional[dict[str, str]] = None,
+):
     from wirecloud.platform.core.plugins import get_version_hash
 
-    templates = get_jinja2_templates(get_current_theme(request))
+    theme = get_current_theme(request)
+    lang = getattr(request.state, "lang", settings.DEFAULT_LANGUAGE)
+    templates = get_jinja2_templates(theme)
+    if autoescape:
+        # Keep escaping local to this response; legacy theme templates share the environment.
+        templates = Jinja2Templates(
+            env=templates.env.overlay(autoescape=True), context_processors=templates.context_processors,
+        )
     if view is None:
         view = get_current_view(request)
 
@@ -163,22 +167,22 @@ def render_wirecloud(request: Request, view: Optional[str] = None, page: Optiona
         "title": title,
         "description": description,
         "uri": request.url.scheme + "://" + request.url.netloc + request.url.path + "?" + request.url.query,
-        "LANGUAGE_CODE": request.state.lang,
+        "LANGUAGE_CODE": lang,
         'WIRECLOUD_VERSION_HASH': get_version_hash(),
-        "THEME": get_current_theme(request),
+        "THEME": theme,
         "VIEW_MODE": view,
-        "LANG": request.state.lang,
+        "LANG": lang,
         'environ': os.environ,
         'request': request,
         'request_path': request.url.path,
 
-        "trans": lambda text, **kwargs: get_translation(get_current_theme(request), request.state.lang, text, **kwargs),
-        "static": lambda path: get_static_path(get_current_theme(request), view, request, path),
+        "trans": lambda text, **kwargs: get_translation(theme, lang, text, **kwargs),
+        "static": lambda path: get_static_path(theme, view, request, path),
         "url": lambda viewname, **kwargs: get_url_from_view(request, viewname, **kwargs)
     })
 
     context["wirecloud_bootstrap"] = lambda view_name, plain=False: get_wirecloud_bootstrap(context,
-                                                                                            get_available_themes(request.state.lang),
+                                                                                            get_available_themes(lang),
                                                                                             view_name, plain)
 
     if extra_context:
@@ -187,7 +191,7 @@ def render_wirecloud(request: Request, view: Optional[str] = None, page: Optiona
     try:
         path = f"wirecloud/views/{view}.html" if page is None else f"{page}.html"
         return templates.TemplateResponse(
-            request=request, name=path, context=context,
+            request=request, name=path, context=context, headers=headers,
         )
     except jinja2.exceptions.TemplateNotFound:
         if page is not None:
@@ -197,5 +201,5 @@ def render_wirecloud(request: Request, view: Optional[str] = None, page: Optiona
         context["VIEW_MODE"] = view
 
         return templates.TemplateResponse(
-            request=request, name=f"wirecloud/views/{view}.html", context=context,
+            request=request, name=f"wirecloud/views/{view}.html", context=context, headers=headers,
         )

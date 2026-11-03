@@ -403,6 +403,16 @@ async def test_populate_variables_values_cache(monkeypatch, db_session):
     assert "1" in values["ioperator"]
     assert saved["key"] == "cache-key"
 
+    # Valid imported mashups omit preferences/properties that use defaults,
+    # including secret preferences deliberately excluded from an export.
+    ws.wiring_status.operators["1"].preferences = {}
+    ws.wiring_status.operators["1"].properties = {}
+    default_values = await utils._populate_variables_values_cache(
+        db_session, ws, req, SimpleNamespace(id="u1"), "cache-defaults",
+        forced_values=utils.WorkspaceForcedValues())
+    assert default_values["ioperator"]["1"]["op_pref"].value == "d"
+    assert default_values["ioperator"]["1"]["op_prop"].value == 1
+
     iwidget.resource = None
     ws.wiring_status.operators = {"1": SimpleNamespace(name="acme/op/1.0.0", preferences={}, properties={})}
     monkeypatch.setattr(utils, "get_context_values", lambda *_args, **_kwargs: _ctx())

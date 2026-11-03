@@ -19,22 +19,47 @@
 import aiohttp
 import jwt
 import secrets
+import inspect
 from urllib.parse import urlencode
 from bson import ObjectId
-from typing import Union, Optional
+from typing import Any, Callable, Union, Optional
 from secrets import compare_digest
 from hashlib import pbkdf2_hmac
 from base64 import b64decode, b64encode
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordBearer
 from typing import Annotated
 from wirecloud import settings
-from wirecloud.database import DBDep, Id
+from wirecloud.database import DBDep, DBSession, Id, commit
+from wirecloud.commons.auth import crud, tokens
 from wirecloud.commons.auth.schemas import Session, UserAll
 from wirecloud.commons.auth.crud import is_token_valid, get_user_with_all_info
 from wirecloud.translation import gettext as _
 
 SUPPORTED_HASHES = ['pbkdf2_sha256']
+
+
+def accepts_context(function: Callable[..., Any]) -> bool:
+    parameters = inspect.signature(function).parameters
+    return "login_context" in parameters or any(p.kind == p.VAR_KEYWORD for p in parameters.values())
+
+
+def validate_login_return_to(target: str) -> str:
+    if not target.startswith("/") or target.startswith("//") or "\\" in target or any(ord(c) < 32 for c in target):
+        raise HTTPException(400, "Invalid login return destination")
+    return target
+
+
+async def consume_login_attempt(request: Request, db: DBSession) -> dict[str, Any]:
+    attempt = await crud.consume_login_attempt(
+        db, tokens.digest(request.query_params.get("state", "")),
+        tokens.digest(request.cookies.get("wc_login_browser", "")), tokens.now(),
+    )
+    if attempt is None:
+        raise HTTPException(400, "Invalid or expired login state")
+    await commit(db)
+    request.state.login_return_to = validate_login_return_to(attempt.return_to)
+    return attempt.model_dump(exclude={"id"})
 
 
 login_scheme = OAuth2PasswordBearer(scheme_name="User authentication", tokenUrl="api/auth/login/", auto_error=False)

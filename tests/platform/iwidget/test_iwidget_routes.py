@@ -390,16 +390,16 @@ async def test_snap_to_grid_persists_after_reload(app_client, db_session, monkey
     )
     await workspace_crud.insert_workspace(db_session, workspace)
 
-    async def _skip_search_index(*_args, **_kwargs):
-        return None
-
-    monkeypatch.setattr(workspace_crud, "update_workspace_in_index", _skip_search_index)
-    url = f"/api/workspace/{workspace.id}/tab/tab-0/widget_instances/"
-    layout = {
-        "x": 5, "y": 0, "w": 7, "h": 13, "minimized": False,
-        "titlevisible": True, "fulldragboard": False, "visible": True, "dock": None,
-    }
     try:
+        async def _skip_search_index(*_args, **_kwargs):
+            return None
+
+        monkeypatch.setattr(workspace_crud, "update_workspace_in_index", _skip_search_index)
+        url = f"/api/workspace/{workspace.id}/tab/tab-0/widget_instances/"
+        layout = {
+            "x": 5, "y": 0, "w": 7, "h": 13, "minimized": False,
+            "titlevisible": True, "fulldragboard": False, "visible": True, "dock": None,
+        }
         if collection:
             response = await app_client.put(url, json=[{"id": "w1", "layouts": {"2": layout}}])
         else:

@@ -119,7 +119,7 @@ class WirecloudKeycloakPlugin(WirecloudPlugin):
 
     def get_idm_get_token_functions(self) -> dict[str, Callable]:
         async def get_oidc_token(code: Optional[str], refresh_token: Optional[str],
-                                 redirect_uri: Optional[str]) -> dict[str, Union[str, int]]:
+                                 redirect_uri: Optional[str], login_context: Optional[dict] = None) -> dict[str, Union[str, int]]:
             if not code and not refresh_token:
                 raise ValueError("Either code or refresh_token must be provided")
 
@@ -130,6 +130,8 @@ class WirecloudKeycloakPlugin(WirecloudPlugin):
                     "grant_type": "authorization_code",
                     "client_id": getattr(settings, "OID_CONNECT_CLIENT_ID"),
                 }
+                if login_context:
+                    token_data_to_send["code_verifier"] = login_context["code_verifier"]
 
                 if getattr(settings, "OID_CONNECT_CLIENT_SECRET", None) is not None:
                     token_data_to_send["client_secret"] = getattr(settings, "OID_CONNECT_CLIENT_SECRET")
@@ -148,6 +150,23 @@ class WirecloudKeycloakPlugin(WirecloudPlugin):
 
                 if "access_token" not in token_data or "refresh_token" not in token_data:
                     raise ValueError(_("OIDC provider has not returned a valid response: missing access_token or refresh_token"))
+
+                if login_context:
+                    import jwt
+                    from secrets import compare_digest
+                    id_token = token_data.get("id_token", "")
+                    header = jwt.get_unverified_header(id_token)
+                    if header.get("alg") not in ("RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "EdDSA"):
+                        raise ValueError("Unsupported ID token algorithm")
+                    claims = jwt.decode(id_token, key=getattr(settings, "OID_CONNECT_DATA")["keys"][header["kid"]],
+                        algorithms=[header["alg"]], audience=getattr(settings, "OID_CONNECT_CLIENT_ID"),
+                        issuer=getattr(settings, "OID_CONNECT_DATA")["issuer"],
+                        options={"require": ["exp", "iat", "sub", "iss", "aud", "nonce"]})
+                    if not compare_digest(claims["nonce"], login_context["nonce"]):
+                        raise ValueError("Invalid ID token nonce")
+                    if (claims.get("azp") is not None or isinstance(claims["aud"], list) and len(claims["aud"]) > 1) and claims.get("azp") != getattr(settings, "OID_CONNECT_CLIENT_ID"):
+                        raise ValueError("Invalid ID token authorized party")
+                    token_data["_wirecloud_subject"] = claims["sub"]
 
                 return token_data
             else:
@@ -188,6 +207,8 @@ class WirecloudKeycloakPlugin(WirecloudPlugin):
 
             if "preferred_username" not in user_data:
                 raise ValueError(_("OIDC provider has not returned a valid response: missing preferred_username"))
+            if token_data.get("_wirecloud_subject") is not None and user_data.get("sub") != token_data["_wirecloud_subject"]:
+                raise ValueError("User-info subject does not match the authenticated identity")
 
             return user_data
 

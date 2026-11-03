@@ -5,4 +5,4 @@ pytest-cov
 mongomock-motor
 httpx
 asgi-lifespan
-
+setuptools>=69

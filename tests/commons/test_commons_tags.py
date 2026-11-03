@@ -2,6 +2,8 @@
 
 from types import SimpleNamespace
 
+import pytest
+
 from wirecloud.commons.templates import tags
 
 
@@ -43,7 +45,7 @@ def test_get_translation_and_paths(monkeypatch):
     monkeypatch.setattr(tags, "_trans", lambda text, **_kwargs: f"{text} %(name)s")
     assert tags.get_translation("theme", "es", "Hello", name="Alice") == "Hello Alice"
 
-    request = SimpleNamespace(url=SimpleNamespace(path="/workspace/alice/main"))
+    request = SimpleNamespace(scope={})
     path = tags.get_static_path("default", "classic", request, "js/app.js?v=1")
     assert path.startswith("/static/js/app.js?")
     assert "themeactive=default" in path
@@ -55,6 +57,13 @@ def test_get_translation_and_paths(monkeypatch):
 
     monkeypatch.setattr(tags, "get_absolute_reverse_url", lambda view, _request, **kwargs: f"/{view}/{kwargs['x']}")
     assert tags.get_url_from_view(request, "wirecloud.view", x="1") == "/wirecloud.view/1"
+
+
+@pytest.mark.parametrize("prefix", ["/wirecloud", "/wirecloud/"])
+def test_static_paths_preserve_deployment_prefix_and_explicit_view(prefix):
+    request = SimpleNamespace(scope={"root_path": prefix})
+    path = tags.get_static_path("defaulttheme", "classic", request, "js/cache.js?view=oauth2")
+    assert path == "/wirecloud/static/js/cache.js?view=oauth2&themeactive=defaulttheme"
 
 
 def test_get_wirecloud_bootstrap(monkeypatch):

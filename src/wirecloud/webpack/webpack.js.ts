@@ -23,6 +23,8 @@ import { getOrderedScriptsEntries, getScriptAliases } from './entries';
 import { IgnorePlugin } from "webpack";
 
 const config = merge(baseConfig, {
+    // OAuth pages forbid eval; keep development source maps in external files.
+    devtool: process.env.NODE_ENV === 'production' ? false : 'source-map',
     entry: getOrderedScriptsEntries(),
 
     resolve: {

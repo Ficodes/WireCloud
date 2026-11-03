@@ -181,6 +181,11 @@ const setup = (context = {}) => {
                 }
             },
             TutorialSubMenu: class TutorialSubMenu {},
+            AppConnectionsWindowMenu: class AppConnectionsWindowMenu {
+                show() {
+                    Wirecloud.appConnectionsShown = true;
+                }
+            },
             FormWindowMenu: class FormWindowMenu {
                 constructor(fields, title, className) {
                     this.fields = fields;
@@ -330,4 +335,26 @@ test('WirecloudHeader skips missing user menu wrapper and optional staff entries
     header._initUserMenu();
     const items = header.user_button.getPopupMenu().items;
     assert.equal(items.length, 4);
+});
+
+test('WirecloudHeader opens app connections in a modal', () => {
+    setup({ isanonymous: false, username: 'alice', avatar: '/avatar.png', realuser: null });
+    Wirecloud.URLs.OAUTH2_CONNECTIONS = '/wirecloud/oauth2/connections';
+    const header = new Wirecloud.ui.WirecloudHeader();
+    header._initUserMenu();
+    const item = header.user_button.getPopupMenu().items.find((item) => item.label === 'App connections');
+    assert.ok(item);
+    assert.ok(item.icons.includes('fas fa-plug'));
+    item.run();
+    assert.equal(Wirecloud.appConnectionsShown, true);
+});
+
+test('WirecloudHeader omits app connections when OAuth is disabled or the user is impersonated', () => {
+    for (const [enabled, realuser] of [[false, null], [true, 'admin']]) {
+        setup({ isanonymous: false, username: 'alice', avatar: '/avatar.png', realuser });
+        if (enabled) Wirecloud.URLs.OAUTH2_CONNECTIONS = '/oauth2/connections';
+        const header = new Wirecloud.ui.WirecloudHeader();
+        header._initUserMenu();
+        assert.ok(!header.user_button.getPopupMenu().items.some((item) => item.label === 'App connections'));
+    }
 });

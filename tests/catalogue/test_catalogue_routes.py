@@ -3,11 +3,17 @@
 import sys
 import types
 import errno
+import inspect
+import io
+import zipfile
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import Response
 from httpx import ASGITransport, AsyncClient
+from starlette.datastructures import FormData, UploadFile
+from starlette.requests import Request
 
 if "elasticsearch._async.helpers" not in sys.modules:
     _helpers = types.ModuleType("elasticsearch._async.helpers")
@@ -264,6 +270,89 @@ def _user_with_perms(*perms):
             return any(p.codename == codename for p in self.permissions)
 
     return _User()
+
+
+def _package_upload_request(mimetype, public="true", contents=None, with_file=True):
+    if contents is None:
+        package = io.BytesIO()
+        with zipfile.ZipFile(package, "w") as archive:
+            archive.writestr("config.xml", "<widget/>")
+        contents = package.getvalue()
+
+    async def receive():
+        return {"type": "http.request", "body": contents}
+
+    request = Request({"type": "http", "method": "POST", "path": "/catalogue/resources",
+        "query_string": f"public={public}".encode(), "headers": [(b"accept", b"application/json")]}, receive)
+    request.state.mimetype = mimetype
+    form = {"public": public}
+    if with_file:
+        form["file"] = UploadFile(io.BytesIO(contents), filename="widget.wgt")
+    request.form = AsyncMock(return_value=FormData(form))
+    return request
+
+
+@pytest.mark.parametrize("mimetype", ["multipart/form-data", "application/octet-stream"])
+@pytest.mark.parametrize("public", ["true", "false"])
+async def test_catalogue_upload_forwards_package_visibility_and_owner(monkeypatch, mimetype, public):
+    user = _user_with_perms("COMPONENT.INSTALL")
+    resource = SimpleNamespace(get_template_url=lambda: "/catalogue/media/acme/widget/1.0.0/widget.wgt")
+    installer = AsyncMock(return_value=(True, resource))
+    indexer = AsyncMock()
+    monkeypatch.setattr(routes, "install_component", installer)
+    monkeypatch.setattr(routes, "add_resource_to_index", indexer)
+
+    result = await inspect.unwrap(routes.create_resource)("database", _package_upload_request(mimetype, public), user)
+    assert result.status_code == 201
+    assert result.headers["location"] == resource.get_template_url()
+    args, kwargs = installer.await_args
+    assert args[0] == "database"
+    assert args[1].read("config.xml") == b"<widget/>"
+    assert kwargs == {"executor_user": user, "public": public == "true", "users": [user], "restricted": True}
+    indexer.assert_awaited_once_with("database", resource)
+
+
+@pytest.mark.parametrize("make_request, expected", [
+    (lambda: _package_upload_request("multipart/form-data", with_file=False), "Missing component file"),
+    (lambda: _package_upload_request("application/octet-stream", contents=b"not a zip"), "not a zip file"),
+])
+async def test_catalogue_rejects_invalid_uploads_before_installing(monkeypatch, make_request, expected):
+    installer = AsyncMock()
+    monkeypatch.setattr(routes, "install_component", installer)
+    response = await inspect.unwrap(routes.create_resource)("database", make_request(), _user_with_perms("COMPONENT.INSTALL"))
+    assert response.status_code == 400
+    assert expected in response.body.decode()
+    installer.assert_not_awaited()
+
+
+@pytest.mark.parametrize("error, status, message", [
+    (OSError(errno.EACCES, "denied"), 500, "Error writing the resource"),
+    (TemplateParseException("broken manifest"), 400, "broken manifest"),
+    (InvalidContents("missing entry point"), 400, "missing entry point"),
+])
+async def test_catalogue_installer_errors_keep_diagnostics_and_skip_indexing(monkeypatch, error, status, message):
+    indexer = AsyncMock()
+    monkeypatch.setattr(routes, "install_component", AsyncMock(side_effect=error))
+    monkeypatch.setattr(routes, "add_resource_to_index", indexer)
+    response = await inspect.unwrap(routes.create_resource)(
+        "database", _package_upload_request("application/octet-stream"), _user_with_perms("COMPONENT.INSTALL"),
+    )
+    assert response.status_code == status
+    assert message in response.body.decode()
+    indexer.assert_not_awaited()
+
+
+async def test_catalogue_conflicts_and_unexpected_filesystem_errors(monkeypatch):
+    user = _user_with_perms("COMPONENT.INSTALL")
+    monkeypatch.setattr(routes, "install_component", AsyncMock(return_value=(False, None)))
+    conflict = await inspect.unwrap(routes.create_resource)("database", _package_upload_request("application/octet-stream"), user)
+    assert conflict.status_code == 409
+    assert "Resource already exists" in conflict.body.decode()
+
+    monkeypatch.setattr(routes, "install_component", AsyncMock(side_effect=OSError(errno.EIO, "disk error")))
+    with pytest.raises(OSError) as error:
+        await inspect.unwrap(routes.create_resource)("database", _package_upload_request("application/octet-stream"), user)
+    assert error.value.errno == errno.EIO
 
 
 async def test_create_and_delete_with_authenticated_user_overrides(app_http_client, monkeypatch):

@@ -725,8 +725,13 @@ async def test_generator_process_widget_instance_additional_param_sources(monkey
             ),
         }
     }
-    with pytest.raises(Exception):
-        await generator.process_widget_instance(None, None, iwidget, generator.MACDMashupWiring(), parametrization, False, _Cache())
+    data = await generator.process_widget_instance(
+        None, None, iwidget, generator.MACDMashupWiring(), parametrization, False, _Cache()
+    )
+    assert "pref_default" not in data.preferences
+    assert data.preferences["pref_current"].model_dump() == {"readonly": True, "hidden": True, "value": "cv"}
+    assert data.preferences["pref_custom"].model_dump() == {"readonly": True, "hidden": False, "value": "8"}
+    assert data.properties["prop_current"].model_dump() == {"readonly": False, "value": "pv"}
 
 
 async def test_generator_process_widget_instance_property_and_default_paths(monkeypatch):
@@ -791,8 +796,17 @@ async def test_generator_process_widget_instance_property_and_default_paths(monk
             ),
         }
     }
-    with pytest.raises(Exception):
-        await generator.process_widget_instance(None, None, iwidget, generator.MACDMashupWiring(), parametrization, False, _Cache())
+    data = await generator.process_widget_instance(
+        None, None, iwidget, generator.MACDMashupWiring(), parametrization, False, _Cache()
+    )
+    assert data.preferences == {}
+    assert "prop_default_skip" not in data.properties
+    assert {name: prop.model_dump() for name, prop in data.properties.items()} == {
+        "prop_hidden_default": {"readonly": True, "value": None},
+        "prop_custom": {"readonly": True, "value": "custom"},
+        "prop_current": {"readonly": False, "value": "cached:prop_current"},
+        "prop_plain": {"readonly": False, "value": "cached:prop_plain"},
+    }
 
 
 async def test_generator_build_json_and_xml(monkeypatch):

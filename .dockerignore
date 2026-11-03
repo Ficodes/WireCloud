@@ -1,0 +1,9 @@
+# Build the image from source, rather than copying host build/interpreter caches.
+.git
+/build
+**/*.egg-info
+/venv
+/venv-mcp
+/.venv
+/node_modules
+**/__pycache__

@@ -21,6 +21,8 @@ from typing import Optional
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import Response
 from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import http_exception_handler as default_http_exception_handler
+from starlette.exceptions import HTTPException
 
 import settings as settings
 from wirecloud.commons.auth.utils import UserDepNoCSRF
@@ -28,7 +30,8 @@ from wirecloud.commons.search import get_search_engine, is_available_search_engi
 from wirecloud.commons.templates.tags import get_javascript_catalogue
 from wirecloud.commons import docs
 from wirecloud import docs as root_docs
-from wirecloud.commons.utils.http import produces, build_error_response, PermissionDenied, NotFound
+from wirecloud.commons.utils import mimeparser
+from wirecloud.commons.utils.http import produces, build_error_response, PermissionDenied, NotFound, ERROR_FORMATTERS
 from wirecloud.commons.exceptions import ErrorResponse
 from wirecloud.database import DBDep
 from wirecloud.translation import gettext as _
@@ -43,6 +46,21 @@ class JSResponse(Response):
 # Exception handlers
 async def error_response_handler(request: Request, exc: ErrorResponse):
     return exc.response
+
+
+async def http_exception_handler(request: Request, exc: HTTPException):
+    accept = request.headers.get("Accept", "")
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    if exc.status_code >= 400 and not is_ajax and ("text/html" in accept or "application/xhtml+xml" in accept):
+        try:
+            content_type = mimeparser.best_match([mimetype for mimetype in ERROR_FORMATTERS if mimetype], accept)
+        except ValueError:
+            content_type = ""
+        if content_type in ("text/html; charset=utf-8", "application/xhtml+xml; charset=utf-8"):
+            return build_error_response(request, exc.status_code, str(exc.detail), headers=exc.headers)
+
+    # Keep FastAPI's JSON error shape and bodyless responses for existing API clients.
+    return await default_http_exception_handler(request, exc)
 
 
 async def permission_denied_handler(request: Request, exc: PermissionDenied):

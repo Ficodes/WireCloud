@@ -74,6 +74,7 @@
         toolbarIconClasses: ['fa-fw'],
         userMenuIconClasses: {
             settings: 'fas fa-cog',
+            appconnections: 'fas fa-plug',
             djangoadmin: 'fas fa-tasks',
             switchuser: 'fas fa-exchange-alt',
             adminpanel: 'fas fa-cogs',
@@ -139,6 +140,14 @@
         });
         item.addIconClass(icons.settings);
         user_menu.append(item);
+
+        if ('OAUTH2_CONNECTIONS' in Wirecloud.URLs && Wirecloud.contextManager.get('realuser') == null) {
+            item = new StyledElements.MenuItem(utils.gettext('App connections'), function () {
+                const dialog = new Wirecloud.ui.AppConnectionsWindowMenu();
+                dialog.show();
+            });
+            user_menu.append(item.addIconClass(icons.appconnections));
+        }
 
         if (Wirecloud.contextManager.get('isstaff') === true && 'DJANGO_ADMIN' in Wirecloud.URLs) {
             item = new StyledElements.MenuItem(utils.gettext('Django Admin panel'), function () {

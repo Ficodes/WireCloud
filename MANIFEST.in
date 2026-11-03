@@ -3,6 +3,8 @@ include src/settings.py
 include src/manage.py
 include src/generate_webpack_settings.py
 include README.md
+include constraints-mcp.txt
+include scripts/build-mcp-wheel.py
 
 global-exclude __pycache__/*
 global-exclude *.py[cod]

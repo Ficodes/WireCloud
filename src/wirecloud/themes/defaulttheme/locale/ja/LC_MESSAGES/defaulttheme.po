@@ -434,3 +434,112 @@ msgstr "error400"
 #: ../../../../templates/401.html:2
 msgid "error401"
 msgstr "error401"
+
+#: templates/wirecloud/oauth2provider/consent.html:15
+msgid ""
+"Access uses your current permissions and ends when this WireCloud session "
+"ends."
+msgstr "アクセスには現在の権限が使用され、この WireCloud セッションの終了時にアクセスも終了します。"
+
+#: templates/wirecloud/oauth2provider/consent.html:28
+msgid "Allow access"
+msgstr "アクセスを許可"
+
+#: templates/wirecloud/oauth2provider/connections.html:22
+#: templates/wirecloud/oauth2provider/consent.html:19
+msgid "Application ID"
+msgstr "アプリケーション ID"
+
+#: templates/wirecloud/oauth2provider/base.html:6
+#: templates/wirecloud/oauth2provider/base.html:24
+msgid "Application connections"
+msgstr "アプリケーションの接続"
+
+#: templates/wirecloud/oauth2provider/connections.html:27
+msgid ""
+"Applications you authorize will appear here. You can revoke their access at "
+"any time."
+msgstr "承認したアプリケーションがここに表示されます。アクセス権はいつでも取り消せます。"
+
+#: templates/wirecloud/oauth2provider/consent.html:2
+#: templates/wirecloud/oauth2provider/consent.html:5
+msgid "Connect an application"
+msgstr "アプリケーションを接続"
+
+#: templates/wirecloud/oauth2provider/connections.html:2
+#: templates/wirecloud/oauth2provider/connections.html:5
+msgid "Connected applications"
+msgstr "接続されたアプリケーション"
+
+#: templates/wirecloud/oauth2provider/consent.html:17
+msgid "Connection details"
+msgstr "接続の詳細"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../../mcp/tools.py:11
+msgid "Create and edit workspaces, tabs, components, layouts, preferences, and wiring"
+msgstr "ワークスペース、タブ、コンポーネント、レイアウト、設定、ワイヤリングの作成と編集"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../../mcp/tools.py:12
+msgid "Delete owned workspaces and remove permitted workspace contents"
+msgstr "所有するワークスペースの削除と、削除権限のあるワークスペース内のコンテンツの削除"
+
+#: templates/wirecloud/oauth2provider/consent.html:27
+msgid "Deny"
+msgstr "拒否"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../../mcp/tools.py:13
+msgid "Install finished component packages for your account"
+msgstr "自分のアカウントへの完成済みコンポーネントパッケージのインストール"
+
+#: templates/wirecloud/oauth2provider/connections.html:27
+msgid "No connected applications"
+msgstr "接続されたアプリケーションはありません"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../../mcp/tools.py:10
+msgid "Read accessible workspaces, components, and documentation; export workspaces"
+msgstr "アクセス可能なワークスペース、コンポーネント、ドキュメントの閲覧と、ワークスペースのエクスポート"
+
+#: templates/wirecloud/oauth2provider/consent.html:20
+msgid "Return address"
+msgstr "戻り先のアドレス"
+
+#: templates/wirecloud/oauth2provider/connections.html:7
+msgid "Review applications connected as"
+msgstr "次のユーザーとして接続されたアプリケーションを確認:"
+
+#: templates/wirecloud/oauth2provider/connections.html:16
+msgid "Revoke"
+msgstr "取り消す"
+
+#: templates/wirecloud/oauth2provider/connections.html:16
+msgid "Revoke access for"
+msgstr "アクセス権を取り消す対象:"
+
+#: templates/wirecloud/oauth2provider/consent.html:8
+msgid "Signed in as"
+msgstr "サインイン中のユーザー:"
+
+#: templates/wirecloud/oauth2provider/consent.html:9
+msgid "This application will be able to"
+msgstr "このアプリケーションには次の操作が許可されます"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../../mcp/tools.py:14
+msgid "Uninstall components from your personal collection"
+msgstr "自分のコレクションからのコンポーネントのアンインストール"
+
+#: templates/wirecloud/oauth2provider/base.html:19
+msgid "WireCloud home"
+msgstr "WireCloud ホーム"
+
+#: templates/wirecloud/oauth2provider/consent.html:31
+msgid "You can review and revoke connections from the connected applications page."
+msgstr "接続されたアプリケーションのページで、接続を確認したり取り消したりできます。"
+
+#: templates/wirecloud/oauth2provider/consent.html:7
+msgid "wants to connect to"
+msgstr "が接続を要求しています。接続先:"

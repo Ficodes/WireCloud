@@ -451,3 +451,124 @@ msgstr "error400"
 #: ../../../../templates/401.html:2
 msgid "error401"
 msgstr "error401"
+
+#: templates/wirecloud/oauth2provider/consent.html:15
+msgid ""
+"Access uses your current permissions and ends when this WireCloud session "
+"ends."
+msgstr ""
+"El acceso utiliza tus permisos actuales y termina cuando finaliza esta sesión"
+" de WireCloud."
+
+#: templates/wirecloud/oauth2provider/consent.html:28
+msgid "Allow access"
+msgstr "Permitir el acceso"
+
+#: templates/wirecloud/oauth2provider/connections.html:22
+#: templates/wirecloud/oauth2provider/consent.html:19
+msgid "Application ID"
+msgstr "Identificador de la aplicación"
+
+#: templates/wirecloud/oauth2provider/base.html:6
+#: templates/wirecloud/oauth2provider/base.html:24
+msgid "Application connections"
+msgstr "Conexiones de aplicaciones"
+
+#: templates/wirecloud/oauth2provider/connections.html:27
+msgid ""
+"Applications you authorize will appear here. You can revoke their access at "
+"any time."
+msgstr ""
+"Las aplicaciones que autorices aparecerán aquí. Puedes revocar su acceso en "
+"cualquier momento."
+
+#: templates/wirecloud/oauth2provider/consent.html:2
+#: templates/wirecloud/oauth2provider/consent.html:5
+msgid "Connect an application"
+msgstr "Conectar una aplicación"
+
+#: templates/wirecloud/oauth2provider/connections.html:2
+#: templates/wirecloud/oauth2provider/connections.html:5
+msgid "Connected applications"
+msgstr "Aplicaciones conectadas"
+
+#: templates/wirecloud/oauth2provider/consent.html:17
+msgid "Connection details"
+msgstr "Detalles de la conexión"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../../mcp/tools.py:11
+msgid "Create and edit workspaces, tabs, components, layouts, preferences, and wiring"
+msgstr ""
+"Crear y editar entornos de trabajo, pestañas, componentes, distribuciones, "
+"preferencias y conexiones"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../../mcp/tools.py:12
+msgid "Delete owned workspaces and remove permitted workspace contents"
+msgstr ""
+"Eliminar los entornos de trabajo que te pertenecen y los contenidos que "
+"tengas permiso para eliminar"
+
+#: templates/wirecloud/oauth2provider/consent.html:27
+msgid "Deny"
+msgstr "Denegar"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../../mcp/tools.py:13
+msgid "Install finished component packages for your account"
+msgstr "Instalar paquetes de componentes terminados para tu cuenta"
+
+#: templates/wirecloud/oauth2provider/connections.html:27
+msgid "No connected applications"
+msgstr "No hay aplicaciones conectadas"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../../mcp/tools.py:10
+msgid "Read accessible workspaces, components, and documentation; export workspaces"
+msgstr ""
+"Consultar los entornos de trabajo, componentes y documentación accesibles; "
+"exportar entornos de trabajo"
+
+#: templates/wirecloud/oauth2provider/consent.html:20
+msgid "Return address"
+msgstr "Dirección de retorno"
+
+#: templates/wirecloud/oauth2provider/connections.html:7
+msgid "Review applications connected as"
+msgstr "Revisa las aplicaciones conectadas como"
+
+#: templates/wirecloud/oauth2provider/connections.html:16
+msgid "Revoke"
+msgstr "Revocar"
+
+#: templates/wirecloud/oauth2provider/connections.html:16
+msgid "Revoke access for"
+msgstr "Revocar el acceso de"
+
+#: templates/wirecloud/oauth2provider/consent.html:8
+msgid "Signed in as"
+msgstr "Sesión iniciada como"
+
+#: templates/wirecloud/oauth2provider/consent.html:9
+msgid "This application will be able to"
+msgstr "Esta aplicación podrá"
+
+#. OAuth scope description supplied dynamically to the browser and consent page.
+#: ../../mcp/tools.py:14
+msgid "Uninstall components from your personal collection"
+msgstr "Desinstalar componentes de tu colección personal"
+
+#: templates/wirecloud/oauth2provider/base.html:19
+msgid "WireCloud home"
+msgstr "Inicio de WireCloud"
+
+#: templates/wirecloud/oauth2provider/consent.html:31
+msgid "You can review and revoke connections from the connected applications page."
+msgstr ""
+"Puedes revisar y revocar las conexiones desde la página de aplicaciones "
+"conectadas."
+
+#: templates/wirecloud/oauth2provider/consent.html:7
+msgid "wants to connect to"
+msgstr "quiere conectarse a"

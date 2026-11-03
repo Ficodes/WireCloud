@@ -100,6 +100,11 @@ def _set_auth_user(user):
 def _common_patches(monkeypatch):
     monkeypatch.setattr(routes, "_", lambda text: text)
     monkeypatch.setattr(routes, "build_error_response", lambda _r, status, _msg: Response(status_code=status))
+    # These tests exercise identity provisioning after the browser state check.
+    # Real state validation and replay rejection are covered in oauth2provider/test_oauth.py.
+    async def _validated_login(*_args):
+        return {}
+    monkeypatch.setattr(routes, "consume_login_attempt", _validated_login)
 
 
 @pytest.fixture()

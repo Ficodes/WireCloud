@@ -1,0 +1,180 @@
+# Japanese translations for WireCloud.
+# Copyright (C) 2026 Future Internet Consulting and Development Solutions S.L.
+# This file is distributed under the same license as the WireCloud project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: WireCloud VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-08-07 13:12+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:151
+msgid "Add more files"
+msgstr "ファイルを追加"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:226
+msgid "Add to workspace"
+msgstr "ワークスペースに追加"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:176
+msgid "Cancel"
+msgstr "キャンセル"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/ResourceDetailsView.js:101
+msgid "Change Log"
+msgstr "変更ログ"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/ResourceDetailsView.js:111
+msgid "Component changelog"
+msgstr "コンポーネント変更ログ"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/ResourceDetailsView.js:89
+msgid "Component documentation"
+msgstr "コンポーネントのドキュメント"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:266
+msgid "Delete"
+msgstr "削除"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:275
+msgid "Delete all versions"
+msgstr "すべてのバージョンを削除"
+
+#: ../../../static/js/wirecloud/WirecloudCatalogue.js:275
+#, python-format
+msgid "Deleting %(title)s (%(uri)s)"
+msgstr "%(title)s (%(uri)s) を削除"
+
+#: ../../../static/js/wirecloud/WirecloudCatalogue.js:268
+#, python-format
+msgid "Deleting all versions of %(title)s (%(group_id)s)"
+msgstr "%(title)s (%(group_id)s) のすべてのバージョンを削除"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/ResourceDetailsView.js:78
+msgid "Documentation"
+msgstr "ドキュメンテーション"
+
+#: ../../../static/js/wirecloud/WirecloudCatalogue.js:144
+msgid "Doing catalogue search"
+msgstr "カタログ検索中"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:217
+msgid "Download"
+msgstr "ダウンロード"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:55
+msgid "Error uploading the following components:"
+msgstr "次のコンポーネントをアップロード中にエラーが発生しました:"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:318
+#, python-format
+msgid "Filter by tag: %(tag)s"
+msgstr "タグでフィルター: %(tag)s"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:122
+msgid "Home page"
+msgstr "ホーム・ページ"
+
+#: ../../../static/js/wirecloud/WirecloudCatalogue.js:219
+#, python-format
+msgid "Installing component from %(url)s"
+msgstr "%(url)s からのコンポーネントのインストール"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:138
+msgid "Issue tracker"
+msgstr "イシュー・トラッカー"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:155
+msgid "License details"
+msgstr "ライセンスの詳細"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/ResourceDetailsView.js:74
+msgid "Main Info"
+msgstr "メイン情報"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:348
+msgid "N/A"
+msgstr "N/A"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:129
+msgid "Name"
+msgstr "名前"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:27
+msgid "No image available"
+msgstr "使用可能なイメージはありません"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:238
+msgid "Publish"
+msgstr "公開"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:377
+#, python-format
+msgid "Rating: %(rating)s out of 5 stars"
+msgstr "評価: %(rating)s (5 つ星中)"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:143
+msgid "Remove this file"
+msgstr "このファイルを削除"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:99
+#, python-format
+msgid "Resource type: %(type)s"
+msgstr "リソースタイプ: %(type)s"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:114
+msgid "Select files from your computer"
+msgstr "コンピュータからファイルを選択"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:134
+msgid "Size"
+msgstr "サイズ"
+
+#: ../../../static/js/wirecloud/WirecloudCatalogue.js:129
+#: ../../../static/js/wirecloud/WirecloudCatalogue.js:242
+msgid "Unexpected response from server"
+msgstr "サーバーからの予期しない応答"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:248
+msgid "Uninstall"
+msgstr "アンインストール"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:257
+msgid "Uninstall all versions"
+msgstr "すべてのバージョンをアンインストール"
+
+#: ../../../static/js/wirecloud/ui/ResourcePainter.js:291
+msgid "Update all resource versions"
+msgstr "すべてのリソースのバージョンを更新する"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:161
+msgid "Upload"
+msgstr "アップロード"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:57
+msgid "Upload errors"
+msgstr "アップロードエラー"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:106
+msgid "Upload mashable application components"
+msgstr "マッシュアップ・コンポーネントをアップロード"
+
+#: ../../../static/js/wirecloud/WirecloudCatalogue.js:199
+#, python-format
+msgid "Uploading packaged component %(filename)s"
+msgstr "パッケージ化されたコンポーネント %(filename)s のアップロード"
+
+#: ../../../static/js/wirecloud/ui/WirecloudCatalogue/UploadWindowMenu.js:41
+msgid "Uploading packaged components"
+msgstr "パッケージ化されたコンポーネントのアップロード"
