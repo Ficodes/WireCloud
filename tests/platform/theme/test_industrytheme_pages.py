@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from babel.messages.pofile import read_po
+from jinja2 import Environment, nodes
 from lxml import html
 
 from commons.test_http_exception_pages import error_client
@@ -21,7 +22,7 @@ from wirecloud.mcp import docs as mcp_docs
 from wirecloud.oauth2provider import service
 
 THEME_PATH = Path(theme_utils.themes.__file__).parent / "industrytheme"
-OAUTH_TEMPLATES = sorted((THEME_PATH / "templates" / "wirecloud" / "oauth2provider").glob("*.html"))
+TEMPLATES = sorted((THEME_PATH / "templates").rglob("*.html"))
 XSS = '<img src=x onerror="alert(1)">'
 
 
@@ -119,19 +120,22 @@ async def test_industrytheme_connections_page(oauth_client, db_session, industry
     assert buttons == [("action", "update_permissions", "primary"), ("action", "revoke", "danger")]
 
 
-def test_industrytheme_translates_the_oauth_pages():
-    # Industry is a root theme: its catalog has no fallback to the default theme
+def test_industrytheme_translates_its_templates():
+    # Industry is a root theme: its catalog has no fallback to the default
+    # theme, and editing a string in a template invalidates its translation
     with (THEME_PATH / "locale" / "es" / "LC_MESSAGES" / "industrytheme.po").open("rb") as f:
         catalog = read_po(f, locale="es")
 
     strings = set()
-    for template in OAUTH_TEMPLATES:
-        strings.update(re.findall(r"""trans\((["'])(.+?)\1\)""", template.read_text()))
-    strings = {text for _quote, text in strings}
+    env = Environment()
+    for template in TEMPLATES:
+        for call in env.parse(template.read_text()).find_all(nodes.Call):
+            if isinstance(call.node, nodes.Name) and call.node.name == "trans" and isinstance(call.args[0], nodes.Const):
+                strings.add(call.args[0].value)
     # Scope descriptions of the MCP resource are translated with trans() too
     strings.update(value for name, value in vars(mcp_docs).items() if re.fullmatch(r"scope_\w+_description", name))
 
-    assert len(strings) > 20
+    assert len(strings) > 100
     assert {s for s in strings if catalog.get(s) is None or not catalog.get(s).string} == set()
 
 
