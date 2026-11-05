@@ -36,19 +36,6 @@
         workspaceviews: {}
     };
 
-    /**
-     * Returns the UI class registered for the given name (see
-     * {Wirecloud.ui.registry}), falling back to the platform one.
-     *
-     * @private
-     */
-    const resolve_ui_class = function resolve_ui_class(name, defaultValue) {
-        if (Wirecloud.ui.registry != null) {
-            return Wirecloud.ui.registry.get(name, defaultValue);
-        }
-        return defaultValue;
-    };
-
     const get_view_mode = function get_view_mode(view) {
         if (view == null) {
             return null;
@@ -205,7 +192,7 @@
         // General keydown handler
         document.addEventListener('keydown', on_keydown, false);
 
-        const HeaderClass = resolve_ui_class('WirecloudHeader', Wirecloud.ui.WirecloudHeader);
+        const HeaderClass = Wirecloud.ui.registry.get('WirecloudHeader');
 
         // TODO refactor
         if (document.querySelector('.plain_content') != null) {
@@ -233,9 +220,9 @@
 
         this.views = {
             'initial': alternatives.createAlternative(),
-            'workspace': alternatives.createAlternative({'alternative_constructor': resolve_ui_class('WorkspaceView', Wirecloud.ui.WorkspaceView)}),
-            'wiring': alternatives.createAlternative({'alternative_constructor': resolve_ui_class('WiringEditor', Wirecloud.ui.WiringEditor)}),
-            'marketplace': alternatives.createAlternative({'alternative_constructor': resolve_ui_class('MarketplaceView', Wirecloud.ui.MarketplaceView)})
+            'workspace': alternatives.createAlternative({'alternative_constructor': Wirecloud.ui.registry.get('WorkspaceView')}),
+            'wiring': alternatives.createAlternative({'alternative_constructor': Wirecloud.ui.registry.get('WiringEditor')}),
+            'marketplace': alternatives.createAlternative({'alternative_constructor': Wirecloud.ui.registry.get('MarketplaceView')})
         };
 
         if (typeof this.views.workspace.addEventListener === 'function') {
@@ -245,7 +232,7 @@
         }
 
         Wirecloud.addEventListener('contextloaded', () => {
-            this.views.myresources = alternatives.createAlternative({alternative_constructor: resolve_ui_class('MyResourcesView', Wirecloud.ui.MyResourcesView)});
+            this.views.myresources = alternatives.createAlternative({alternative_constructor: Wirecloud.ui.registry.get('MyResourcesView')});
         });
 
         // Handle Workspace changes

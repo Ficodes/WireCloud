@@ -23,13 +23,6 @@
 
     "use strict";
 
-    const resolve_ui_class = function resolve_ui_class(name, defaultValue) {
-        if (ns.registry != null) {
-            return ns.registry.get(name, defaultValue);
-        }
-        return defaultValue;
-    };
-
     ns.WorkspaceViewMenuItems = class WorkspaceViewMenuItems extends se.DynamicMenuItems {
 
         constructor(workspace) {
@@ -67,7 +60,7 @@
             items.push(item);
 
             item = new se.MenuItem(utils.gettext("Share"), function () {
-                const SharingWindowMenu = resolve_ui_class('SharingWindowMenu', Wirecloud.ui.SharingWindowMenu);
+                const SharingWindowMenu = ns.registry.get('SharingWindowMenu');
                 (new SharingWindowMenu(this)).show();
             }.bind(this.workspace));
             item.addIconClass("fas fa-share");
@@ -88,7 +81,7 @@
             items.push(item);
 
             item = new se.MenuItem(utils.gettext("Embed"), function () {
-                const EmbedCodeWindowMenu = resolve_ui_class('EmbedCodeWindowMenu', Wirecloud.ui.EmbedCodeWindowMenu);
+                const EmbedCodeWindowMenu = ns.registry.get('EmbedCodeWindowMenu');
                 (new EmbedCodeWindowMenu(utils.gettext("Embed Code"), this)).show();
             }.bind(this.workspace));
             item.addIconClass("fas fa-code");

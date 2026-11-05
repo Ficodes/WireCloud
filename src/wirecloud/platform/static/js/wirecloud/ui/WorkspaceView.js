@@ -23,13 +23,6 @@
 
     "use strict";
 
-    const resolve_ui_class = function resolve_ui_class(name, defaultValue) {
-        if (ns.registry != null) {
-            return ns.registry.get(name, defaultValue);
-        }
-        return defaultValue;
-    };
-
     const is_anonymous = function is_anonymous() {
         return Wirecloud.contextManager == null || Wirecloud.contextManager.get('username') === 'anonymous';
     };
@@ -768,7 +761,7 @@
 
         getToolbarButtons() {
             if (this.toolbar == null) {
-                const Toolbar = resolve_ui_class('WorkspaceToolbar', ns.WorkspaceToolbar);
+                const Toolbar = ns.registry.get('WorkspaceToolbar');
                 this.toolbar = new Toolbar(this);
             }
 

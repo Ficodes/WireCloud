@@ -662,6 +662,7 @@ test('ComponentSidebar — loads without errors', () => {
         }
     };
 
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/ComponentSidebar.js');
 
     const sidebar = new Wirecloud.ui.ComponentSidebar();
@@ -974,6 +975,7 @@ test('WorkspaceViewMenuItems — loads without errors', () => {
         setHandler(fn) { fn && fn(); return this; }
     };
 
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const workspace = {
@@ -1162,6 +1164,7 @@ test('CatalogueView — constructor, getLabel, isAllow, goUp, wait_ready, change
     };
     Wirecloud.ui.ResourcePainter = class ResourcePainter {};
 
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/CatalogueView.js');
 
     const view = new Wirecloud.ui.CatalogueView('cat-view', {
@@ -1856,6 +1859,7 @@ test('CatalogueView — onHistoryChange with search subview', () => {
     Wirecloud.UserInterfaceManager.views.myresources = { createUserCommand: () => () => {} };
     Wirecloud.ui.ResourcePainter = class ResourcePainter {};
 
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/CatalogueView.js');
 
     const view = new Wirecloud.ui.CatalogueView('cat-view', {
@@ -1919,6 +1923,7 @@ test('CatalogueView — onHistoryChange with resource subview', () => {
     Wirecloud.UserInterfaceManager.views.myresources = { createUserCommand: () => () => {} };
     Wirecloud.ui.ResourcePainter = class ResourcePainter {};
 
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/CatalogueView.js');
 
     const view = new Wirecloud.ui.CatalogueView('cat-view', {
@@ -1983,6 +1988,7 @@ test('CatalogueView — search method proxies to catalogue', () => {
     Wirecloud.UserInterfaceManager.views.myresources = { createUserCommand: () => () => {} };
     Wirecloud.ui.ResourcePainter = class ResourcePainter {};
 
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/CatalogueView.js');
 
     const view = new Wirecloud.ui.CatalogueView('cat-view', {
@@ -2045,6 +2051,7 @@ test('CatalogueView — getPublishEndpoints returns null', () => {
     Wirecloud.UserInterfaceManager.views.myresources = { createUserCommand: () => () => {} };
     Wirecloud.ui.ResourcePainter = class ResourcePainter {};
 
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/CatalogueView.js');
 
     const view = new Wirecloud.ui.CatalogueView('cat-view', {
@@ -2106,6 +2113,7 @@ test('CatalogueView — wait_ready throws for non-function callback', () => {
     Wirecloud.UserInterfaceManager.views.myresources = { createUserCommand: () => () => {} };
     Wirecloud.ui.ResourcePainter = class ResourcePainter {};
 
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/CatalogueView.js');
 
     const view = new Wirecloud.ui.CatalogueView('cat-view', {
@@ -2170,6 +2178,7 @@ test('CatalogueView — changeCurrentView throws for invalid view_name', () => {
     Wirecloud.UserInterfaceManager.views.myresources = { createUserCommand: () => () => {} };
     Wirecloud.ui.ResourcePainter = class ResourcePainter {};
 
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/CatalogueView.js');
 
     const view = new Wirecloud.ui.CatalogueView('cat-view', {
@@ -2220,6 +2229,7 @@ test('CatalogueView — showDetails with replace history (lines 190-191)', async
     Wirecloud.UserInterfaceManager.views.myresources = { createUserCommand: () => () => {} };
     Wirecloud.ui.ResourcePainter = class ResourcePainter {};
 
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/CatalogueView.js');
 
     const view = new Wirecloud.ui.CatalogueView('cat-view', {
@@ -2270,6 +2280,7 @@ test('CatalogueView — showDetails with ResourceDetails instance (lines 199-200
     Wirecloud.UserInterfaceManager.views.myresources = { createUserCommand: () => () => {} };
     Wirecloud.ui.ResourcePainter = class ResourcePainter {};
 
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/CatalogueView.js');
 
     const view = new Wirecloud.ui.CatalogueView('cat-view', {
@@ -2369,6 +2380,7 @@ test('CatalogueView — constructor wiring, main buttons, current details and re
     Wirecloud.HistoryManager.replaceState = () => {};
     Wirecloud.ui.ResourcePainter = class ResourcePainter {};
 
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/CatalogueView.js');
 
     const view = new Wirecloud.ui.CatalogueView('cat-view', {

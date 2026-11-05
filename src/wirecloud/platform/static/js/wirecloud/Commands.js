@@ -340,8 +340,7 @@
          * @returns {Boolean} `true` if a command palette is available
          */
         openPalette(options) {
-            const registry = Wirecloud.ui.registry;
-            const Palette = registry != null ? registry.get("CommandPalette") : Wirecloud.ui.CommandPalette;
+            const Palette = Wirecloud.ui.registry.get("CommandPalette");
 
             if (typeof Palette !== "function") {
                 return false;

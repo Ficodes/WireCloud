@@ -94,6 +94,7 @@ const setupComponentSidebar = () => {
     ]);
 
     loadLegacyScripts([
+        'src/wirecloud/platform/static/js/wirecloud/ui/Registry.js',
         'src/wirecloud/platform/static/js/wirecloud/ui/ComponentSidebar.js',
     ]);
 };

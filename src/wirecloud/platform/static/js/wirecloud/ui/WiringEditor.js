@@ -1071,7 +1071,7 @@ Wirecloud.ui = Wirecloud.ui || {};
         createComponent(wiringComponent, options) {
             options = utils.merge({ commit: true, removecascade_allowed: this.behaviourEngine.enabled }, options);
 
-            const ComponentDraggable = (ns.registry != null) ? ns.registry.get('WiringEditor.ComponentDraggable', ns.WiringEditor.ComponentDraggable) : ns.WiringEditor.ComponentDraggable;
+            const ComponentDraggable = ns.registry.get('WiringEditor.ComponentDraggable');
             const component = new ComponentDraggable(wiringComponent, options);
             component
                 .addEventListener('endpointadded', component_onendpointadded.bind(this))

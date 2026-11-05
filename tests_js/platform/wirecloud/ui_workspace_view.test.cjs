@@ -462,6 +462,7 @@ const setup = () => {
     };
 
     // -- Load the source file -------------------------------------------------
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceView.js');
 
     return {

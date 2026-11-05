@@ -103,7 +103,7 @@
                 this.components[type][group_id] = {};
             }
 
-            var Component = (ns.registry != null) ? ns.registry.get('WiringEditor.Component', ns.WiringEditor.Component) : ns.WiringEditor.Component;
+            var Component = ns.registry.get('WiringEditor.Component');
             var component = new Component(wiringComponent);
 
             component.addEventListener('click', function () {
