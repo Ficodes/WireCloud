@@ -313,13 +313,6 @@ templates, the `branding`, `styles`, `footer`, or `content` blocks, or
 `static/css/oauth2provider.css`. Logo and favicon paths are resolved through the
 theme's static-file inheritance. Strings use the existing translation system.
 
-Root themes (`parent = None`) do not inherit them and must provide all three
-templates, including translations for their strings and for the scope
-descriptions passed to `trans()`. The Industry theme does: its pages load the
-`index` stylesheet bundle, which includes `css/oauth2provider.scss`, and apply
-the stored color scheme with `js/industry/ColorSchemeBoot.js` because the CSP
-blocks inline scripts.
-
 Pages use StyledElements `Panel`, `Button`, `Alert`, and `Container` components.
 Their appearance comes from the active theme's existing StyledElements styles;
 OAuth-specific CSS controls page layout and spacing. The module's `plugin.ts`
