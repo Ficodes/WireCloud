@@ -431,6 +431,7 @@ const makeWorkspace = (overrides = {}) => {
 
 test('WorkspaceViewMenuItems build returns correct number of items', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const workspace = makeWorkspace();
@@ -442,6 +443,7 @@ test('WorkspaceViewMenuItems build returns correct number of items', () => {
 
 test('WorkspaceViewMenuItems item labels are correct', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const workspace = makeWorkspace();
@@ -460,6 +462,7 @@ test('WorkspaceViewMenuItems item labels are correct', () => {
 
 test('WorkspaceViewMenuItems item icons are correct', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const workspace = makeWorkspace();
@@ -478,6 +481,7 @@ test('WorkspaceViewMenuItems item icons are correct', () => {
 
 test('WorkspaceViewMenuItems "Rename" disabled when not editing', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const workspace = makeWorkspace({ editing: false });
@@ -489,6 +493,7 @@ test('WorkspaceViewMenuItems "Rename" disabled when not editing', () => {
 
 test('WorkspaceViewMenuItems "Rename" disabled when not allowed', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const workspace = makeWorkspace({
@@ -502,6 +507,7 @@ test('WorkspaceViewMenuItems "Rename" disabled when not allowed', () => {
 
 test('WorkspaceViewMenuItems "Rename" enabled when editing and allowed', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const workspace = makeWorkspace({ editing: true });
@@ -513,6 +519,7 @@ test('WorkspaceViewMenuItems "Rename" enabled when editing and allowed', () => {
 
 test('WorkspaceViewMenuItems "Settings" disabled when not editing', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const workspace = makeWorkspace({ editing: false });
@@ -524,6 +531,7 @@ test('WorkspaceViewMenuItems "Settings" disabled when not editing', () => {
 
 test('WorkspaceViewMenuItems "Settings" disabled when update_preferences not allowed', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const workspace = makeWorkspace({
@@ -537,6 +545,7 @@ test('WorkspaceViewMenuItems "Settings" disabled when update_preferences not all
 
 test('WorkspaceViewMenuItems "Remove" disabled when not allowed', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const workspace = makeWorkspace({
@@ -550,6 +559,7 @@ test('WorkspaceViewMenuItems "Remove" disabled when not allowed', () => {
 
 test('WorkspaceViewMenuItems "New workspace" handler opens NewWorkspaceWindowMenu', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const createdInstances = [];
@@ -570,6 +580,7 @@ test('WorkspaceViewMenuItems "New workspace" handler opens NewWorkspaceWindowMen
 
 test('WorkspaceViewMenuItems "Rename" handler opens RenameWindowMenu with model', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const createdInstances = [];
@@ -592,6 +603,7 @@ test('WorkspaceViewMenuItems "Rename" handler opens RenameWindowMenu with model'
 
 test('WorkspaceViewMenuItems "Share" handler opens SharingWindowMenu with workspace', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const createdInstances = [];
@@ -613,6 +625,7 @@ test('WorkspaceViewMenuItems "Share" handler opens SharingWindowMenu with worksp
 
 test('WorkspaceViewMenuItems "Upload to my resources" handler opens PublishWorkspaceWindowMenu', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const createdInstances = [];
@@ -634,6 +647,7 @@ test('WorkspaceViewMenuItems "Upload to my resources" handler opens PublishWorks
 
 test('WorkspaceViewMenuItems "Embed" handler opens EmbedCodeWindowMenu', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const createdInstances = [];
@@ -656,6 +670,7 @@ test('WorkspaceViewMenuItems "Embed" handler opens EmbedCodeWindowMenu', () => {
 
 test('WorkspaceViewMenuItems "Settings" handler calls showSettings', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     let called = false;
@@ -669,6 +684,7 @@ test('WorkspaceViewMenuItems "Settings" handler calls showSettings', () => {
 
 test('WorkspaceViewMenuItems "Duplicate" handler opens NewWorkspaceWindowMenu with workspace copy options', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const createdInstances = [];
@@ -691,6 +707,7 @@ test('WorkspaceViewMenuItems "Duplicate" handler opens NewWorkspaceWindowMenu wi
 
 test('WorkspaceViewMenuItems "Remove" handler shows confirmation dialog and removes on confirm', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     let alertMessage = '';
@@ -726,6 +743,7 @@ test('WorkspaceViewMenuItems "Remove" handler shows confirmation dialog and remo
 
 test('WorkspaceViewMenuItems inherits from DynamicMenuItems', () => {
     setupView();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceViewMenuItems.js');
 
     const workspace = makeWorkspace();

@@ -1,0 +1,313 @@
+// OAuth consent and connected applications pages (wirecloud.oauth2provider),
+// part of the `index` bundle (see theme.ts).
+//
+// DOM (templates/wirecloud/oauth2provider/*.html):
+//   body.wc-plain-page.oauth-page
+//     header.wc-plain-header.oauth-header > brand + .oauth-header-label
+//     main.oauth-main
+//       section.panel.oauth-panel > .panel-heading / .panel-body / .panel-footer
+//       p.oauth-help
+//
+// oauth2provider/pages.js replaces the panel, alerts and buttons with their
+// StyledElements versions: the panel keeps only the `oauth-panel` class and
+// its title ends up as `div.panel-title > h1.panel-title`. Rules below only
+// use classes present before and after that enhancement, so the pages look the
+// same when JavaScript is unavailable.
+@use "mixins" as *;
+
+.oauth-header-label {
+    margin-left: auto;
+    @include overline;
+    color: var(--color-text-muted);
+}
+
+.oauth-main {
+    box-sizing: border-box;
+    width: min(100% - 32px, 640px);
+    margin: var(--space-8) auto;
+}
+
+// =============================================================================
+// Panel: a blueprint card on --color-bg
+// =============================================================================
+
+.oauth-panel {
+    margin: 0;
+    background: var(--color-bg);
+    @include blueprint-marks;
+
+    > .panel-heading {
+        padding: var(--space-6) var(--space-6) 0;
+
+        .panel-title {
+            @include heading(26px);
+        }
+    }
+
+    > .panel-body {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+        padding: var(--space-4) var(--space-6) var(--space-6);
+        overflow-wrap: anywhere;
+
+        // The gap spaces the blocks (alerts and paragraphs included)
+        > * {
+            margin: 0;
+        }
+
+        > .oauth-section-title {
+            margin-top: var(--space-2);
+        }
+    }
+
+    > .panel-footer {
+        padding: var(--space-4) var(--space-6);
+    }
+
+    strong {
+        font-weight: 600;
+    }
+
+    // Alerts with a heading (no connected applications)
+    .alert h2 {
+        margin: 0 0 4px;
+        @include heading(17px);
+    }
+
+    .alert p {
+        margin: 0;
+    }
+}
+
+.oauth-lead {
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.oauth-identity {
+    font-size: 13px;
+    color: var(--color-text-muted);
+}
+
+.oauth-user {
+    display: inline-block;
+    padding: 1px 6px;
+    color: var(--color-text);
+    border: 1px solid var(--color-divider);
+    @include mono(12px);
+}
+
+.oauth-section-title {
+    @include overline;
+    font-family: var(--font-body);
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--color-text-muted);
+}
+
+// Read-only permission list: one check mark per permission
+.oauth-permissions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    > li {
+        display: flex;
+        align-items: baseline;
+        gap: var(--space-2);
+        margin: 0;
+        line-height: 1.5;
+        @include icon(check);
+
+        &::before {
+            color: var(--color-accent-text);
+            transform: translateY(2px);
+        }
+    }
+}
+
+// "Connection details" / "Application ID" disclosure
+.oauth-details {
+    font-size: 13px;
+
+    > summary {
+        width: fit-content;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        @include focus-visible;
+
+        &:hover {
+            color: var(--color-text);
+        }
+    }
+
+    dl {
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr);
+        align-items: baseline;
+        gap: var(--space-2) var(--space-4);
+        margin: var(--space-3) 0 0;
+    }
+
+    dt {
+        color: var(--color-text-muted);
+    }
+
+    dd,
+    > p {
+        margin: 0;
+        overflow-wrap: anywhere;
+        @include mono(12px);
+    }
+
+    > p {
+        margin-top: var(--space-2);
+    }
+}
+
+// Form actions: secondary first, the main action last (on the right)
+.oauth-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    margin: 0;
+
+    .se-btn {
+        margin: 0;
+    }
+}
+
+.oauth-help {
+    margin: var(--space-6) 0 0;
+    font-size: 13px;
+    text-align: center;
+    color: var(--color-text-muted);
+}
+
+// =============================================================================
+// Connected applications
+// =============================================================================
+
+.oauth-connections {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    > li {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        margin: 0;
+        padding: var(--space-4) 0;
+        border-top: 1px solid var(--color-divider);
+
+        &:last-child {
+            padding-bottom: 0;
+        }
+    }
+}
+
+.oauth-connection-heading {
+    h2 {
+        margin: 0;
+        @include heading(18px);
+    }
+
+    p {
+        margin: 2px 0 0;
+        font-size: 12px;
+        color: var(--color-text-muted);
+    }
+}
+
+.oauth-connection-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin: 0;
+}
+
+.oauth-permission-options {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+
+    > legend {
+        margin: 0 0 var(--space-2);
+        padding: 0;
+        @include overline;
+        font-family: var(--font-body);
+        font-weight: 500;
+        color: var(--color-text-muted);
+    }
+
+    > label {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--space-2);
+        margin: var(--space-2) 0 0;
+        font-weight: 400;
+        line-height: 1.5;
+        cursor: pointer;
+
+        // Centered on the first line of text (14px × 1.5); `.checkbox`
+        // beats the margin of the Industry checkboxes (components/forms.scss)
+        > input.checkbox {
+            margin: 2.5px 0 0;
+        }
+    }
+}
+
+.oauth-hint {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-text-muted);
+}
+
+// =============================================================================
+// Narrow screens
+// =============================================================================
+
+@media (max-width: 520px) {
+    .oauth-header-label {
+        display: none;
+    }
+
+    .oauth-main {
+        margin-top: var(--space-6);
+    }
+
+    .oauth-panel {
+        > .panel-heading {
+            padding: var(--space-4) var(--space-4) 0;
+        }
+
+        > .panel-body {
+            padding: var(--space-3) var(--space-4) var(--space-4);
+        }
+
+        > .panel-footer {
+            padding: var(--space-3) var(--space-4);
+        }
+    }
+
+    .oauth-actions .se-btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .oauth-details dl {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2px;
+
+        dd + dt {
+            margin-top: var(--space-2);
+        }
+    }
+}

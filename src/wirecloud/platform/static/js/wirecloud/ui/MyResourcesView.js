@@ -49,13 +49,13 @@
 
             const search_options = {
                 catalogue: this,
-                resource_painter: Wirecloud.ui.ResourcePainter,
+                resource_painter: ns.registry.get('ResourcePainter'),
                 resource_extra_context: resource_extra_context,
                 emptyTitle: utils.gettext('Empty resource list'),
                 emptyMessage: utils.gettext('Currently, you do not have access to any component. You can get components using the Marketplace view or by uploading components manually using the Upload button.')
             };
             this.viewsByName = {
-                'search': this.alternatives.createAlternative({alternative_constructor: ns.CatalogueSearchView, containerOptions: search_options}),
+                'search': this.alternatives.createAlternative({alternative_constructor: ns.registry.get('MyResourcesSearchView', ns.registry.get('CatalogueSearchView')), containerOptions: search_options}),
                 'details': this.alternatives.createAlternative({alternative_constructor: ns.WirecloudCatalogue.ResourceDetailsView, containerOptions: {catalogue: this}})
             };
             this.viewsByName.search.init();

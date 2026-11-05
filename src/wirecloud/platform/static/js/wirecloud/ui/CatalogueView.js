@@ -71,7 +71,7 @@
             };
 
             this.viewsByName = {
-                'search': this.alternatives.createAlternative({alternative_constructor: ns.CatalogueSearchView, containerOptions: {catalogue: this, resource_painter: Wirecloud.ui.ResourcePainter, resource_extra_context: resource_extra_context}}),
+                'search': this.alternatives.createAlternative({alternative_constructor: ns.CatalogueSearchView, containerOptions: {catalogue: this, resource_painter: ns.registry.get('ResourcePainter'), resource_extra_context: resource_extra_context}}),
                 'details': this.alternatives.createAlternative({alternative_constructor: Wirecloud.ui.WirecloudCatalogue.ResourceDetailsView, containerOptions: {catalogue: this}})
             };
             this.viewsByName.search.init();

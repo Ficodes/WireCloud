@@ -1,0 +1,140 @@
+// Dragboard (GridStack based)
+@use "mixins" as *;
+
+.wc-workspace-tab-content {
+    // Also used by the docked widgets (see docks.scss)
+    --wc-tab-padding-x: 20px;
+    --wc-tab-padding-y: 16px;
+    padding: var(--wc-tab-padding-y) var(--wc-tab-padding-x);
+    overflow-x: hidden;
+    overflow-y: auto;
+    // Opening a top push dock changes the grid's top margin; scroll anchoring
+    // would otherwise make tall widgets appear to grow upwards
+    overflow-anchor: none;
+    @include scrollbars;
+
+    &.dragging {
+        cursor: grabbing;
+    }
+
+    // Forced screen size (phone/tablet layouts) are centered
+    &.wc-editing-screen-size {
+        right: 0;
+        left: 0;
+        margin: 0 auto;
+        outline: 1px dashed var(--color-accent-400);
+        outline-offset: -1px;
+    }
+}
+
+.wc-workspace-tab .disabled {
+    display: none;
+}
+
+.wc-dragboard {
+    min-height: 100% !important;
+    margin: 0;
+    transition: margin 0.3s cubic-bezier(0.2, 0, 0, 1) !important;
+
+    &.wc-dragboard-interacting {
+        transition: none !important;
+    }
+
+    // Fixed row layouts get their exact height from GridStack
+    &.wc-dragboard-fixed-rows {
+        min-height: 0 !important;
+    }
+}
+
+.wc-workspace-tab-content.wc-dock-interacting .wc-dragboard {
+    transition: none !important;
+}
+
+// Edit mode: visible grid (columns and rows of the active screen size)
+.wc-workspace-editing .wc-dragboard {
+    background-image:
+        linear-gradient(to right, color-mix(in srgb, var(--color-accent) 22%, transparent) 1px, transparent 1px),
+        linear-gradient(to bottom, color-mix(in srgb, var(--color-accent) 12%, transparent) 1px, transparent 1px);
+    background-size: var(--gs-column-width, 8.3333%) var(--gs-cell-height, 40px);
+    background-position: 0 0;
+}
+
+// Drop placeholder
+.grid-stack-placeholder > .placeholder-content {
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent) !important;
+    border: 1px dashed var(--color-accent);
+    border-radius: 0;
+}
+
+// Pointer events must not reach the widget iframes while dragging/resizing
+.wc-dragboard-interacting .wc-widget-body,
+.wc-dock-interacting .wc-widget-body,
+.wc-dragboard-interacting iframe,
+.wc-dock-interacting iframe {
+    pointer-events: none !important;
+}
+
+// Empty tab
+.wc-empty-tab {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    pointer-events: none;
+
+    &.hidden, &[hidden] {
+        display: none !important;
+    }
+}
+
+.wc-empty-tab-card.blueprint {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    max-width: 420px;
+    padding: 32px 40px;
+    text-align: center;
+    background: var(--color-bg);
+    pointer-events: auto;
+}
+
+.wc-empty-tab-icon {
+    font-size: 28px;
+}
+
+.wc-empty-tab-title {
+    margin: 0;
+    font: 600 24px/1.1 var(--font-heading);
+}
+
+.wc-empty-tab-hint {
+    margin: 0;
+    font-size: 14px;
+    color: color-mix(in srgb, var(--color-text) 65%, transparent);
+}
+
+.wc-empty-tab-action {
+    margin-top: 6px;
+}
+
+.wc-empty-tab-tutorials {
+    font-size: 13px;
+    color: var(--color-text-muted);
+
+    &:empty {
+        display: none;
+    }
+
+    p {
+        margin: 0 0 4px;
+    }
+
+    ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+}

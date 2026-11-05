@@ -1,0 +1,11 @@
+<s:styledgui xmlns:s="http://wirecloud.conwet.fi.upm.es/StyledElements" xmlns:t="http://wirecloud.conwet.fi.upm.es/Template" xmlns="http://www.w3.org/1999/xhtml">
+<s:horizontallayout>
+    <s:options>{"class": "wiring-footer"}</s:options>
+    <s:centercontainer><t:title/></s:centercontainer>
+    <s:eastcontainer>
+        <span class="wiring-footer-count wiring-footer-widgets"><t:widgets/> {{ trans("widgets") }}</span>
+        <span class="wiring-footer-count wiring-footer-operators"><t:operators/> {{ trans("operators") }}</span>
+        <span class="wiring-footer-count wiring-footer-connections"><t:connections/> {{ trans("connections") }}</span>
+    </s:eastcontainer>
+</s:horizontallayout>
+</s:styledgui>

@@ -1,0 +1,183 @@
+// Industry mixins. Load them with `@use "mixins" as *;` (static/css is in
+// the Sass load path).
+
+@use "sass:math";
+
+// "+" registration marks drawn around a box with a single pseudo element
+// (`::before` by default). Used for generated markup where the `.blueprint`
+// + `.corner` children of the design system cannot be added.
+@mixin blueprint-marks($pseudo: before, $color: var(--color-mark), $offset: 6px, $size: 11px) {
+    $half: math.floor($size * 0.5);
+    $line: linear-gradient($color, $color);
+
+    position: relative;
+
+    &::#{$pseudo} {
+        content: "";
+        position: absolute;
+        inset: -$offset;
+        pointer-events: none;
+        z-index: 1;
+        background:
+            $line left #{$half} top 0 / 1px #{$size} no-repeat,
+            $line left 0 top #{$half} / #{$size} 1px no-repeat,
+            $line right #{$half} top 0 / 1px #{$size} no-repeat,
+            $line right 0 top #{$half} / #{$size} 1px no-repeat,
+            $line left #{$half} bottom 0 / 1px #{$size} no-repeat,
+            $line left 0 bottom #{$half} / #{$size} 1px no-repeat,
+            $line right #{$half} bottom 0 / 1px #{$size} no-repeat,
+            $line right 0 bottom #{$half} / #{$size} 1px no-repeat;
+    }
+}
+
+// Hairline line-drawing frame (cards, figures, dialogs)
+@mixin blueprint-frame {
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+}
+
+@mixin focus-ring($offset: 2px) {
+    outline: 2px solid var(--color-accent);
+    outline-offset: $offset;
+}
+
+// Focus ring only for keyboard focus
+@mixin focus-visible($offset: 2px) {
+    &:focus {
+        outline: none;
+    }
+
+    &:focus-visible {
+        @include focus-ring($offset);
+    }
+}
+
+// Hover/pressed text tints
+@mixin interactive-tint {
+    &:hover {
+        background-color: var(--color-hover);
+    }
+
+    &:active {
+        background-color: var(--color-pressed);
+    }
+}
+
+@mixin heading($size: null) {
+    font-family: var(--font-heading);
+    font-weight: var(--font-heading-weight);
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+
+    @if $size {
+        font-size: $size;
+    }
+}
+
+// Small uppercase label (table headers, group labels, kickers)
+@mixin overline($size: 11px, $tracking: 0.08em) {
+    font-size: $size;
+    letter-spacing: $tracking;
+    text-transform: uppercase;
+}
+
+@mixin mono($size: 12px) {
+    font-family: var(--font-mono);
+    font-size: $size;
+}
+
+@mixin text-truncate {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+// Visually hidden but available to assistive technologies
+@mixin visually-hidden {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@mixin disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+// Field look shared by text fields, selects, text areas...
+@mixin input-base {
+    box-sizing: border-box;
+    min-height: 36px;
+    padding: 6px 10px;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--color-text);
+    caret-color: var(--color-accent);
+    background: var(--color-surface);
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+    box-shadow: none;
+
+    &:hover {
+        border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+    }
+
+    &:focus,
+    &:focus-within {
+        outline: none;
+        border-color: var(--color-accent);
+    }
+
+    &::placeholder {
+        color: var(--color-text-subtle);
+    }
+}
+
+// Popup surfaces (menus, popovers, drawers)
+@mixin surface-panel($shadow: var(--shadow-lg)) {
+    background: var(--color-surface);
+    color: var(--color-text);
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+    box-shadow: $shadow;
+}
+
+// Mono keyboard hint chip ("⌘K", "esc")
+@mixin key-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 5px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 16px;
+    border: 1px solid var(--color-divider);
+    color: inherit;
+}
+
+// Draws a Lucide icon (see base/_icon-map.scss) with a mask on a pseudo
+// element, using the current text color.
+@mixin icon($name, $pseudo: before, $size: 1em) {
+    &::#{$pseudo} {
+        content: "";
+        display: inline-block;
+        flex: none;
+        width: $size;
+        height: $size;
+        vertical-align: -0.125em;
+        background-color: currentColor;
+        -webkit-mask: url("../icons/#{$name}.svg") center / contain no-repeat;
+        mask: url("../icons/#{$name}.svg") center / contain no-repeat;
+    }
+}
+
+@mixin scrollbars {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-text) 25%, transparent) transparent;
+}

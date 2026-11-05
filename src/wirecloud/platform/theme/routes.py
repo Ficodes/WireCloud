@@ -40,7 +40,7 @@ from fastapi import APIRouter, Request, Response, Path, Query
 from wirecloud.commons.templates.tags import get_translation, get_static_path, get_url_from_view
 from wirecloud.platform.plugins import get_templates
 from wirecloud.commons.utils.http import NotFound
-from wirecloud.commons.utils.theme import get_available_themes, get_jinja2_templates
+from wirecloud.commons.utils.theme import get_available_themes, get_jinja2_templates, get_theme_config
 from wirecloud.platform.theme import docs
 import wirecloud.docs as root_docs
 from wirecloud.platform.theme.schemas import ThemeInfo
@@ -79,7 +79,8 @@ def get_theme_info(request: Request, response: Response,
     info = ThemeInfo(
         name=theme_metadata["value"],
         label=theme_metadata["label"],
-        templates={}
+        templates={},
+        config=get_theme_config(theme)
     )
 
     templates = get_jinja2_templates(theme)

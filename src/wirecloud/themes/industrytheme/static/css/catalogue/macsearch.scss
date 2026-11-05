@@ -1,0 +1,199 @@
+// MACSearch with the default templates (wirecloud/macsearch/base +
+// wirecloud/macsearch/component), used by MACSelectionWindowMenu:
+//
+//   .macsearch
+//     .wc-macsearch-header > input.se-text-field.se-field-search
+//     .wc-macsearch-list.wc-resource-results(.loading)
+//       .alert (info / errors) | .resource.panel × N
+//         .se-thumbnail.wc-resource-img-container > img.wc-resource-img
+//         .panel-heading > h2.resource_name > .title-tooltip, .vendor, .description
+//         .se-btn.mainbutton.btn-primary (select)
+//
+// Scoped to `.macsearch`: the Add widget drawer and the wiring showcase use
+// MACSearch with their own template (wirecloud/component_sidebar).
+@use "mixins" as *;
+
+.macsearch {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    min-height: 0;
+}
+
+// Search field with a leading search icon
+.wc-macsearch-header {
+    position: relative;
+    flex: none;
+    @include icon("search", before, 16px);
+
+    &::before {
+        position: absolute;
+        top: 50%;
+        left: 10px;
+        z-index: 1;
+        color: var(--color-accent);
+        transform: translateY(-50%);
+        pointer-events: none;
+    }
+
+    > .se-text-field {
+        box-sizing: border-box;
+        width: 100%;
+        margin: 0;
+        padding-left: 34px;
+    }
+}
+
+.macsearch > .wc-macsearch-list {
+    position: relative;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    border-top: 1px solid var(--color-divider);
+    @include scrollbars;
+
+    > .alert {
+        flex: none;
+        margin: var(--space-3) 0 0;
+    }
+}
+
+// Result rows
+.macsearch > .wc-macsearch-list > .resource {
+    position: relative;
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    box-sizing: border-box;
+    width: auto;
+    height: auto;
+    min-height: 58px;
+    margin: 0;
+    padding: 8px var(--space-2);
+    color: var(--color-text);
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--color-rule);
+    border-radius: 0;
+    box-shadow: none;
+    transition: background-color 0.12s linear;
+
+    &:hover {
+        background: color-mix(in srgb, var(--color-text) 4%, transparent);
+    }
+
+    // 40px thumbnail (striped when missing)
+    > .wc-resource-img-container {
+        position: static;
+        display: grid;
+        place-items: center;
+        box-sizing: border-box;
+        width: 40px;
+        height: 40px;
+        margin: 0;
+        padding: 3px;
+        overflow: hidden;
+        background: transparent;
+        border: 1px solid var(--color-divider);
+        border-radius: 0;
+
+        > .wc-resource-img {
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        &.se-thumbnail-missing {
+            background: repeating-linear-gradient(135deg, var(--color-hover) 0 1px, transparent 1px 6px);
+
+            > .wc-resource-img {
+                display: none;
+            }
+        }
+    }
+
+    > .panel-heading {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        min-width: 0;
+        padding: 0;
+        color: inherit;
+        background: transparent;
+        border: 0;
+
+        // No clearfix inside the flex column
+        &::after {
+            content: none;
+        }
+
+        > .resource_name {
+            margin: 0;
+            font-family: var(--font-body);
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.3;
+            letter-spacing: 0;
+            color: var(--color-text);
+            @include text-truncate;
+        }
+
+        > .vendor {
+            font-size: 12px;
+            color: var(--color-text-muted);
+            @include text-truncate;
+        }
+
+        > .description {
+            font-size: 12px;
+            line-height: 1.4;
+            color: color-mix(in srgb, var(--color-text) 70%, transparent);
+            @include text-truncate;
+
+            &:empty {
+                display: none;
+            }
+        }
+    }
+
+    // Select button: a secondary icon button (the list has many of them,
+    // the primary look is reserved for the dialog action)
+    > .mainbutton {
+        position: static;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        color: var(--color-accent);
+        background: transparent;
+        border: 1px solid var(--color-divider);
+        border-radius: 0;
+        box-shadow: none;
+
+        &::before,
+        &::after {
+            content: none;
+        }
+
+        &:hover {
+            color: var(--color-accent-800);
+            background: var(--color-accent-100);
+            border-color: var(--color-accent);
+        }
+
+        &:active {
+            background: var(--color-accent-pressed);
+        }
+    }
+}

@@ -2065,3 +2065,95 @@ test('full lifecycle: same component returns INVALID and dispatches cancel', () 
 
     assert.ok(cancelFired);
 });
+
+// =========================================================================
+// click to connect (opt-in)
+// =========================================================================
+
+const startClickDraft = () => {
+    const { engine } = createEngine();
+    const component1 = makeComponent({ id: 'comp-click-1' });
+    const component2 = makeComponent({ id: 'comp-click-2' });
+    const sourceEp = makeEndpoint({ type: 'source', component: component1 });
+    const targetEp = makeEndpoint({ type: 'target', component: component2 });
+    // Endpoint elements (the click is detected through the document mouseup)
+    const anchor = { id: 'anchor' };
+    sourceEp.get = () => ({ contains: (node) => node === anchor });
+    engine.endpoints.source.push(sourceEp);
+    engine.endpoints.target.push(targetEp);
+    ensureDocListeners();
+    document.listeners = {};
+    engine.enabled = true;
+    engine.clickToConnect = true;
+
+    engine.endpoint_ondragstart(sourceEp);
+    engine.temporalConnection.createAndBind = function () { return Promise.resolve(this); };
+    const release = (target) => engine._ondragend({ preventDefault() {}, stopPropagation() {}, target });
+    return { engine, sourceEp, targetEp, anchor, release };
+};
+
+test('click on an endpoint is a normal (cancelled) drag when clickToConnect is disabled', () => {
+    const { engine, anchor, release } = startClickDraft();
+    engine.clickToConnect = false;
+    let cancelled = false;
+    engine.addEventListener('cancel', () => { cancelled = true; });
+
+    release(anchor);
+
+    assert.ok(cancelled);
+    assert.equal(engine.temporalConnection, undefined);
+});
+
+test('click on an endpoint starts a draft connection when clickToConnect is enabled', () => {
+    const { engine, targetEp, anchor, release } = startClickDraft();
+    let drafts = 0;
+    let established = false;
+    engine.addEventListener('draftstart', () => { drafts += 1; });
+    engine.addEventListener('establish', () => { established = true; });
+
+    release(anchor);
+    assert.equal(drafts, 1);
+    assert.ok(engine.temporalConnection != null, 'the draft connection is kept');
+    assert.ok(!document.listeners.mouseup.includes(engine._ondragend));
+    assert.ok(document.listeners.mousedown.includes(engine._ondraftmousedown));
+
+    // Releasing the pointer elsewhere keeps the draft
+    release({ id: 'canvas' });
+    assert.ok(engine.temporalConnection != null);
+
+    // Clicking an input completes the connection
+    engine.endpoint_ondragstart(targetEp);
+    assert.ok(established);
+    assert.equal(engine.temporalConnection, undefined);
+    assert.ok(!document.listeners.mousedown.includes(engine._ondraftmousedown));
+});
+
+test('dragging from an endpoint and releasing elsewhere cancels the connection', () => {
+    const { engine, release } = startClickDraft();
+    let cancelled = false;
+    engine.addEventListener('cancel', () => { cancelled = true; });
+
+    release({ id: 'canvas' });
+
+    assert.ok(cancelled);
+    assert.equal(engine.temporalConnection, undefined);
+});
+
+test('draft connections are cancelled by clicking outside the endpoints or programmatically', () => {
+    let { engine, anchor, release } = startClickDraft();
+    let cancelled = 0;
+    engine.addEventListener('cancel', () => { cancelled += 1; });
+
+    release(anchor);
+    engine._ondraftmousedown({ target: { closest: () => ({}) } });
+    assert.ok(engine.temporalConnection != null, 'mousedown on an endpoint is handled by the endpoint');
+    engine._ondraftmousedown({ target: { closest: () => null } });
+    assert.equal(cancelled, 1);
+    assert.equal(engine.temporalConnection, undefined);
+
+    ({ engine, anchor, release } = startClickDraft());
+    release(anchor);
+    assert.equal(engine.cancelTemporalConnection(), true);
+    assert.equal(engine.temporalConnection, undefined);
+    assert.equal(engine.cancelTemporalConnection(), false);
+});

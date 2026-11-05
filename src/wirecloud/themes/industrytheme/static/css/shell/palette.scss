@@ -1,0 +1,143 @@
+// Command palette (⌘K)
+@use "mixins" as *;
+
+.wc-palette-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 102000;
+    background: var(--color-backdrop);
+}
+
+.wc-palette.blueprint {
+    position: fixed;
+    top: 90px;
+    left: 50%;
+    z-index: 102001;
+    display: flex;
+    flex-direction: column;
+    width: min(640px, calc(100vw - 40px));
+    transform: translateX(-50%);
+    color: var(--color-text);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-lg);
+}
+
+.wc-palette-input-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 54px;
+    padding: 0 18px;
+    border-bottom: 1px solid var(--color-divider);
+}
+
+.wc-palette-search-icon {
+    font-size: 18px;
+    color: var(--color-accent);
+}
+
+.wc-palette-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0;
+    font: inherit;
+    font-size: 17px;
+    color: inherit;
+    caret-color: var(--color-accent);
+    background: transparent;
+    border: 0;
+    outline: none;
+
+    &:focus, &:focus-visible {
+        outline: none;
+    }
+
+    &::placeholder {
+        color: var(--color-text-subtle);
+    }
+}
+
+.wc-palette-esc {
+    @include key-chip;
+    background: none;
+    opacity: 0.7;
+}
+
+.wc-palette-list {
+    max-height: min(460px, 60vh);
+    padding: 6px 0;
+    overflow: auto;
+    @include scrollbars;
+}
+
+.wc-palette-group-label {
+    padding: 10px 18px 4px;
+    @include overline;
+    color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.wc-palette-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 18px;
+    cursor: pointer;
+
+    &.highlighted {
+        background: var(--color-accent-100);
+        color: var(--color-accent-800);
+    }
+
+    &.danger {
+        color: var(--color-danger);
+    }
+}
+
+.wc-palette-item-icon {
+    flex: none;
+    font-size: 16px;
+}
+
+.wc-palette-item-text {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.wc-palette-item-label {
+    font-size: 14px;
+}
+
+.wc-palette-item-description {
+    @include text-truncate;
+    font-size: 12px;
+    opacity: 0.65;
+}
+
+.wc-palette-item-hint {
+    flex: none;
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.wc-palette-item-shortcut {
+    @include key-chip;
+    background: none;
+    opacity: 0.7;
+}
+
+.wc-palette-empty {
+    padding: 18px;
+    font-size: 14px;
+    opacity: 0.6;
+}
+
+.wc-palette-footer {
+    display: flex;
+    gap: 16px;
+    padding: 9px 18px;
+    font-size: 12px;
+    border-top: 1px solid var(--color-divider);
+    opacity: 0.6;
+}

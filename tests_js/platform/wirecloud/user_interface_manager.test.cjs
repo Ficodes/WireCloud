@@ -184,6 +184,7 @@ test.beforeEach(() => {
     resetLegacyRuntime();
     bootstrapStyledElementsBase();
     setupUserInterfaceManager();
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/UserInterfaceManager.js');
 });
 
@@ -949,6 +950,7 @@ test('UIM.init transition listeners notify header and fullscreen callback falls 
         _notifyViewChange(view) { notifiedArgs.push(view); }
         refresh() {}
     };
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/UserInterfaceManager.js');
 
     const uim = Wirecloud.UserInterfaceManager;

@@ -1,0 +1,200 @@
+// StyledElements popovers and tooltips.
+//
+// Both are appended to <body> (or the fullscreen element), positioned by the
+// JS with top/left and a placement class, and shown/hidden with the `.fade` +
+// `.in` classes of base/reset.scss: the JS removes them on `transitionend`,
+// so they must keep an opacity transition.
+@use "mixins" as *;
+
+// =============================================================================
+// Popover (StyledElements.Popover)
+// =============================================================================
+
+.popover {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1010;
+    display: block;
+    box-sizing: border-box;
+    max-width: 320px;
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    text-align: left;
+    white-space: normal;
+    background-clip: padding-box;
+    @include surface-panel(var(--shadow-md));
+
+    // Gap between the popover and its reference element (room for the arrow)
+    &.top {
+        margin-top: -10px;
+    }
+
+    &.right {
+        margin-left: 10px;
+    }
+
+    &.bottom {
+        margin-top: 10px;
+    }
+
+    &.left {
+        margin-left: -10px;
+    }
+
+    // Arrow: a rotated square with the two outer hairlines
+    > .arrow {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background: var(--color-surface);
+        border: 0 solid var(--color-divider);
+        transform: rotate(45deg);
+    }
+
+    &.top > .arrow {
+        bottom: -6px;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 0 1px 1px 0;
+    }
+
+    &.bottom > .arrow {
+        top: -6px;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 1px 0 0 1px;
+    }
+
+    &.left > .arrow {
+        top: 50%;
+        right: -6px;
+        margin-top: -5px;
+        border-width: 1px 1px 0 0;
+    }
+
+    &.right > .arrow {
+        top: 50%;
+        left: -6px;
+        margin-top: -5px;
+        border-width: 0 0 1px 1px;
+    }
+}
+
+.popover-title {
+    margin: 0;
+    padding: 10px 14px 8px;
+    @include heading(17px);
+    border-bottom: 1px solid var(--color-divider);
+
+    &:empty {
+        display: none;
+    }
+}
+
+.popover-content {
+    padding: 10px 14px;
+    overflow-wrap: break-word;
+
+    > :last-child {
+        margin-bottom: 0;
+    }
+}
+
+// =============================================================================
+// Tooltip (StyledElements.Tooltip)
+// =============================================================================
+
+.se-tooltip {
+    position: absolute;
+    z-index: 121112;
+    display: block;
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.4;
+    letter-spacing: 0.01em;
+    visibility: visible;
+    opacity: 0;
+    pointer-events: none;
+
+    &.in {
+        opacity: 1;
+    }
+}
+
+.se-tooltip-inner {
+    max-width: 240px;
+    padding: 5px 9px;
+    color: var(--color-neutral-100);
+    text-align: center;
+    text-decoration: none;
+    overflow-wrap: break-word;
+    background-color: var(--color-accent-900);
+    border-radius: 0;
+    box-shadow: var(--shadow-sm);
+}
+
+.se-tooltip-arrow {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-color: transparent;
+    border-style: solid;
+}
+
+.se-tooltip-top {
+    margin-top: -3px;
+    padding: 5px 0;
+
+    > .se-tooltip-arrow {
+        bottom: 0;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px 5px 0;
+        border-top-color: var(--color-accent-900);
+    }
+}
+
+.se-tooltip-bottom {
+    margin-top: 3px;
+    padding: 5px 0;
+
+    > .se-tooltip-arrow {
+        top: 0;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 0 5px 5px;
+        border-bottom-color: var(--color-accent-900);
+    }
+}
+
+.se-tooltip-left {
+    margin-left: -3px;
+    padding: 0 5px;
+
+    > .se-tooltip-arrow {
+        top: 50%;
+        right: 0;
+        margin-top: -5px;
+        border-width: 5px 0 5px 5px;
+        border-left-color: var(--color-accent-900);
+    }
+}
+
+.se-tooltip-right {
+    margin-left: 3px;
+    padding: 0 5px;
+
+    > .se-tooltip-arrow {
+        top: 50%;
+        left: 0;
+        margin-top: -5px;
+        border-width: 5px 5px 5px 0;
+        border-right-color: var(--color-accent-900);
+    }
+}

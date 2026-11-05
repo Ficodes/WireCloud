@@ -37,6 +37,22 @@
         return Wirecloud.ui.InputInterfaceFactory.createInterface('inherit-' + preference.name, {'type': 'boolean'});
     };
 
+    /**
+     * Preferences can require a feature declared by the active theme (e.g.
+     * the color scheme preference requires the theme to support several
+     * color schemes)
+     */
+    const is_supported_by_theme = function is_supported_by_theme(preference) {
+        const required = preference.options != null ? preference.options.requiredThemeConfig : null;
+        if (required == null) {
+            return true;
+        }
+
+        const config = (Wirecloud.currentTheme != null && Wirecloud.currentTheme.config != null) ? Wirecloud.currentTheme.config : {};
+        const value = config[required];
+        return Array.isArray(value) ? value.length > 1 : !!value;
+    };
+
     const build_pref_input = function build_pref_input(preference) {
         return Wirecloud.ui.InputInterfaceFactory.createInterface(preference.name, preference.options);
     };
@@ -57,7 +73,7 @@
         for (let key in this.manager.meta.preferences) {
             const preference = this.manager.meta.preferences[key];
 
-            if (preference.hidden) {
+            if (preference.hidden || !is_supported_by_theme(preference)) {
                 continue;
             }
 
@@ -254,7 +270,8 @@
             }
 
             for (pref_name in this.manager.preferences) {
-                if (this.manager.preferences[pref_name].meta.hidden === true) {
+                // Hidden preferences (and those not supported by the theme) have no input
+                if (!(pref_name in this.interfaces)) {
                     continue;
                 }
                 this.interfaces[pref_name].base.setValue(this.manager.preferences[pref_name].value);

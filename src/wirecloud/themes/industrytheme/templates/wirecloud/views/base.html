@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}" translate="no" data-wc-theme="{{ THEME }}" data-wc-view="{{ VIEW_MODE }}">
+<head>
+    <title>{% block title %}{{ title }}{% endblock %}</title>
+    <meta property="og:title" content="{{ title|e }}"/>
+    <meta property="og:type" content="website"/>
+    <meta property="og:description" content="{{ description|e }}"/>
+    <meta property="og:url" content="{{ uri|e }}" />
+{% include "wirecloud/views/_head.html" %}
+    {% block css %}
+    <link rel="stylesheet" href="{{ static("css/cache.css") }}">
+    {% block extra_css %}{% endblock %}
+    {% endblock %}
+</head>
+<body>
+
+<!-- Loading indicator -->
+<div id="loading-window" class="fade in" role="status" aria-live="polite">
+    <div id="loading-background"></div>
+    <div id="loading-message" class="blueprint">
+        <i class="corner tl" aria-hidden="true"></i><i class="corner tr" aria-hidden="true"></i><i class="corner bl" aria-hidden="true"></i><i class="corner br" aria-hidden="true"></i>
+        <div class="wc-brand-mark" aria-hidden="true">WC</div>
+        <h3 id="loading-task-title" class="window_title">{{ trans("Loading WireCloud") }} 0%</h3>
+        <div id="loading-indicator" aria-hidden="true"><span></span></div>
+        <div id="loading-subtask-title" class="msg">{{ trans("Retrieving WireCloud code") }}: 0%</div>
+    </div>
+</div>
+
+<div id="unsupported-browser-msg" class="alert alert-error" role="alert" aria-hidden="true" style="display: none;">
+    <h4>{{ trans("Your browser seems to lack some required features") }}</h4>
+    <p>{{ trans("We recommend you to upgrade your browser to the newest version of either <a href=\"https://www.mozilla.org/firefox\">Firefox</a> or <a href=\"https://www.google.com/chrome\">Google Chrome</a> as these are the browsers currently supported by WireCloud.") }}</p>
+</div>
+
+<div class="wc-shell">
+    {% block rail %}
+    <nav id="wc-rail" class="wc-rail" aria-label="{{ trans("Main navigation") }}">
+        <div class="wc-rail-brand" aria-hidden="true">WC</div>
+        <div class="wc-rail-items" role="list"></div>
+        <div class="wc-rail-spacer"></div>
+        <div class="wc-rail-tools"></div>
+        <div id="wc-user-menu" role="navigation" aria-label="{{ trans("User menu") }}"></div>
+    </nav>
+    {% endblock %}
+
+    <div class="wc-shell-main">
+        {% block header %}
+        {% include "wirecloud/views/header.html" %}
+        {% endblock %}
+
+        <div class="wc-shell-body" id="wc-body" role="main">
+        </div>
+
+        {% block footer %}
+        {% include "wirecloud/views/footer.html" %}
+        {% endblock %}
+    </div>
+</div>
+
+{% block bootstrap %}
+{{ wirecloud_bootstrap(VIEW_MODE)|safe }}
+{% endblock %}
+
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

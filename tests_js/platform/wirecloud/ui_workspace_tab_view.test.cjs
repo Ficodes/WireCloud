@@ -405,6 +405,7 @@ const setup = () => {
     WorkspaceTabViewMenuItemsCalls.length = 0;
     PrefsWindowMenuCalls.length = 0;
 
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/WorkspaceTabView.js');
 
     // Set up a lightweight WorkspaceTabViewDragboard mock so WorkspaceTabView

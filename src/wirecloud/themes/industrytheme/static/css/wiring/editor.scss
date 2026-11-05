@@ -1,0 +1,434 @@
+// Wiring editor: view layout, dotted canvas, connections layer, empty state,
+// the sidebar drawer (components / behaviours panels) and the footer.
+//
+// DOM (see WiringEditor.js):
+//
+// .wc-workspace-wiring.se-vertical-layout
+//   .se-vl-center-container
+//     .se-offcanvas.left-sideway[.slipped]
+//       .se-offcanvas-sidebar.wiring-sidebar
+//         .we-panel-behaviours   (BehaviourEngine, panel 0)
+//         .we-panel-components   (ComponentShowcase, panel 1)
+//       .se-offcanvas-content.wiring-diagram
+//         .alert                 (initial message)
+//         svg.we-connections-layer[.dragging]
+//         div > .connection-options
+//         .component-draggable …
+//   .se-vl-south-container
+//     .wiring-footer
+@use "mixins" as *;
+
+$sidebar-width: 360px;
+$grid-step: 20px;
+
+// =============================================================================
+// View layout
+// =============================================================================
+
+.wc-workspace-wiring {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 0;
+    background: var(--color-bg);
+
+    // The editor is disabled while it is not loaded. Never fade it.
+    &.disabled {
+        opacity: 1;
+    }
+
+    > .se-vl-center-container {
+        // Containing block for the off-canvas layout and for the components
+        // dragged from the sidebar (they are appended here before being moved
+        // into the canvas).
+        position: relative;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    > .se-vl-south-container {
+        flex: none;
+    }
+
+    // The sidebar is a drawer that slides over the canvas from the right
+    // instead of pushing it.
+    .se-offcanvas.left-sideway,
+    .se-offcanvas.left-sideway.slipped {
+        --se-offcanvas-width: #{$sidebar-width};
+
+        position: absolute;
+        inset: 0;
+        display: block;
+        overflow: hidden;
+        transition: none;
+    }
+}
+
+// =============================================================================
+// Canvas
+// =============================================================================
+
+.wc-workspace-wiring .se-offcanvas > .wiring-diagram {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    overflow: auto;
+    // Endpoint anchor coordinates are computed by the platform assuming a
+    // 1px border on the canvas, keep it (transparent) so connections stick
+    // to the centre of the ports.
+    border: 1px solid transparent;
+    border-radius: 0;
+    background-color: var(--color-bg);
+    background-image: radial-gradient(color-mix(in srgb, var(--color-text) 16%, transparent) 1px, transparent 1px);
+    background-size: $grid-step $grid-step;
+    background-attachment: local;
+    user-select: none;
+    @include scrollbars;
+}
+
+// SVG layer with the connections. It is viewport sized: the platform moves
+// it on scroll and translates its contents.
+.we-connections-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    // Only the connection paths and handles react to the pointer
+    pointer-events: none;
+
+    &.dragging {
+        cursor: grabbing;
+    }
+}
+
+// =============================================================================
+// Empty state (initial message)
+// =============================================================================
+
+.wiring-diagram > .alert {
+    @include blueprint-marks;
+    position: absolute;
+    top: 72px;
+    right: auto;
+    left: 50%;
+    z-index: 0;
+    width: min(480px, calc(100% - 48px));
+    margin: 0;
+    padding: var(--space-6) var(--space-8);
+    transform: translateX(-50%);
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+    box-shadow: none;
+    text-align: center;
+    pointer-events: none;
+
+    .se-alert-heading {
+        @include heading(20px);
+        margin: 0 0 var(--space-2);
+        color: var(--color-text);
+    }
+
+    .se-alert-body {
+        font-size: 14px;
+        line-height: 1.55;
+        text-align: center;
+        color: var(--color-text-muted);
+    }
+
+    blockquote {
+        margin: var(--space-3) 0 0;
+        padding: 0;
+        border: 0;
+        font-size: 13px;
+        color: var(--color-text-muted);
+
+        em {
+            font-style: normal;
+            font-weight: 500;
+            color: var(--color-accent-text);
+        }
+    }
+}
+
+// =============================================================================
+// Draft connection hint (".we-draft-hint", added by the theme scripts to the
+// view while a connection is being created)
+// =============================================================================
+
+.wc-workspace-wiring .we-draft-hint {
+    position: absolute;
+    left: 50%;
+    bottom: 16px;
+    z-index: 30;
+    max-width: calc(100% - 40px);
+    padding: 8px 14px;
+    transform: translateX(-50%);
+    background: var(--color-accent-900);
+    color: var(--color-neutral-100);
+    font-size: 13px;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: var(--shadow-md);
+    pointer-events: none;
+
+    strong, b {
+        font-weight: 700;
+    }
+}
+
+// =============================================================================
+// Sidebar drawer
+// =============================================================================
+
+.wc-workspace-wiring .se-offcanvas > .wiring-sidebar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    width: $sidebar-width;
+    max-width: 100%;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: var(--color-surface);
+    color: var(--color-text);
+    border: 0;
+    border-left: 1px solid var(--color-divider);
+    box-shadow: var(--shadow-lg);
+    // Hidden: moved out of the view (including its shadow) and out of the
+    // focus order
+    visibility: hidden;
+    transform: translateX(calc(100% + 40px));
+    transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), visibility 0s linear 0.2s;
+
+    > * {
+        height: 100%;
+    }
+}
+
+.wc-workspace-wiring .se-offcanvas.slipped > .wiring-sidebar {
+    visibility: visible;
+    transform: none;
+    transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), visibility 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wc-workspace-wiring .se-offcanvas > .wiring-sidebar,
+    .wc-workspace-wiring .se-offcanvas.slipped > .wiring-sidebar {
+        transition-duration: 0.01s;
+    }
+}
+
+// =============================================================================
+// Components panel (search field + type filter + list). The same template
+// (wirecloud/component_sidebar) is used by the wiring sidebar and by the
+// workspace "Add widget" drawer.
+// =============================================================================
+
+.panel.we-panel-components {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--color-text);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+
+    > .panel-heading {
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px 16px 12px;
+        background: transparent;
+        color: inherit;
+        border: 0;
+        border-radius: 0;
+
+        // No clearfix in flex headings (it would add a gap)
+        &::after {
+            content: none;
+        }
+
+        > .panel-title {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            min-height: 36px;
+            margin: 0;
+            @include heading(20px);
+            color: inherit;
+
+            > strong {
+                flex: 1 1 auto;
+                min-width: 0;
+                font-weight: inherit;
+                @include text-truncate;
+            }
+        }
+
+        > .se-text-field {
+            display: block;
+            width: 100%;
+            max-width: none;
+            margin: 0;
+        }
+    }
+
+    > .panel-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        margin: 0;
+        padding: 0 8px 12px;
+        overflow: auto;
+        background: transparent;
+        border: 0;
+        @include scrollbars;
+    }
+
+    .wc-macsearch-list {
+        margin: 0;
+        padding: 0;
+    }
+
+    // "No results" / errors returned by the search
+    .wc-macsearch-list > .alert {
+        margin: var(--space-2) 8px;
+        font-size: 13px;
+    }
+}
+
+// Type filter: a segmented control (Widgets / Operators / Mashups)
+.we-panel-components .wc-component-type-filter,
+.we-panel-components > .panel-heading > .btn-group-justified {
+    display: flex;
+    width: 100%;
+    margin: 0;
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+
+    > .se-btn {
+        flex: 1 1 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-width: 0;
+        min-height: 0;
+        height: 30px;
+        margin: 0;
+        padding: 0 10px;
+        font-family: var(--font-body);
+        font-size: 13px;
+        font-weight: 400;
+        line-height: 1;
+        letter-spacing: 0;
+        color: var(--color-text);
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        cursor: pointer;
+        @include text-truncate;
+        @include focus-visible(-2px);
+
+        + .se-btn {
+            border-left: 1px solid var(--color-divider);
+        }
+
+        &:hover {
+            background: var(--color-hover);
+        }
+
+        &:active {
+            background: var(--color-pressed);
+        }
+
+        &.active,
+        &.active:hover {
+            background: var(--color-accent);
+            color: var(--color-bg);
+        }
+    }
+}
+
+// =============================================================================
+// Footer (mirrors the platform status bar)
+// =============================================================================
+
+.wiring-footer.se-horizontal-layout,
+.wiring-footer {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 30px;
+    min-height: 30px;
+    margin: 0;
+    padding: 0 20px;
+    overflow: hidden;
+    background: var(--color-bg);
+    border-top: 1px solid var(--color-divider);
+    font-size: 12px;
+    line-height: 1;
+    color: color-mix(in srgb, var(--color-text) 65%, transparent);
+    white-space: nowrap;
+    user-select: none;
+
+    > .se-hl-west-container:empty {
+        display: none;
+    }
+
+    > .se-hl-center-container {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+
+        strong {
+            font-weight: 500;
+            color: var(--color-text);
+        }
+    }
+
+    > .se-hl-east-container {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .wiring-footer-count {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 4px;
+
+        > span {
+            font-variant-numeric: tabular-nums;
+        }
+    }
+
+    // Labels used by other templates
+    .label {
+        padding: 0;
+        background: none;
+        border: 0;
+        color: inherit;
+        font-size: inherit;
+    }
+}

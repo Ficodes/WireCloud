@@ -20,6 +20,7 @@
 theme_info_name_description = "The name of the theme."
 theme_info_label_description = "The label of the theme in the specified language."
 theme_info_templates_description = "A collection of templates used to draw UI components."
+theme_info_config_description = "Optional client configuration declared by the theme (for example, the supported color schemes or the icon set). Empty when the theme does not declare one."
 
 # GET /{theme}
 get_theme_info_summary = "Get theme information"

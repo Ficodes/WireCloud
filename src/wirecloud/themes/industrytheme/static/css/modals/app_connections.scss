@@ -1,0 +1,149 @@
+// App connections dialog: Wirecloud.ui.AppConnectionsWindowMenu
+// (.wc-app-connections), opened from the user menu when wirecloud.oauth2provider
+// is enabled. The default theme styles live in defaulttheme app_connections.scss.
+//
+// DOM:
+//   .window_content > .se-container[aria-live]
+//     "Loading…" text | .alert (notice, error or empty state)
+//     .panel × N (one per connection)
+//       .panel-heading > .panel-title (client) + .panel-subtitle (resource)
+//       .panel-body
+//         ul.app-connection-permissions[role=group]
+//           li > label.app-connection-permission > input.checkbox + text
+//           (or li > text when the permissions cannot be edited)
+//         p.app-connection-help
+//       .panel-footer.app-connection-footer
+//         details.app-connection-details > summary + p (client id)
+//         .se-btn.btn-primary "Save permissions" + .se-btn.btn-danger "Revoke"
+//   .window_bottom > Retry + Close
+@use "mixins" as *;
+
+.window_menu.wc-app-connections {
+    --wc-dialog-width: 760px;
+}
+
+.wc-app-connections > .window_content {
+    min-height: 120px;
+    overflow-wrap: anywhere;
+
+    // Loading text
+    > .se-container {
+        color: var(--color-text-muted);
+    }
+
+    .alert,
+    .panel {
+        color: var(--color-text);
+    }
+
+    .alert {
+        margin: 0 0 var(--space-3);
+    }
+
+    .panel {
+        margin: 0 0 var(--space-3);
+
+        &:last-child {
+            margin-bottom: 0;
+        }
+    }
+
+    .panel-title {
+        @include heading(17px);
+    }
+}
+
+// Permission list: checkboxes (editable) or check marks (read-only). The
+// `> .window_content` beats the generic list rules of dialog.scss.
+.wc-app-connections > .window_content .app-connection-permissions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    > li,
+    > li + li {
+        margin: 0;
+        line-height: 1.5;
+    }
+
+    > li:not(:has(> .app-connection-permission)) {
+        display: flex;
+        align-items: baseline;
+        gap: var(--space-2);
+        @include icon(check);
+
+        &::before {
+            color: var(--color-accent-text);
+            transform: translateY(2px);
+        }
+    }
+}
+
+.wc-app-connections > .window_content .app-connection-permission {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    margin: 0;
+    font-weight: 400;
+    cursor: pointer;
+
+    // Centered on the first line of text (14px × 1.5)
+    > input.checkbox {
+        margin: 2.5px 0 0;
+    }
+}
+
+.wc-app-connections > .window_content .app-connection-help {
+    margin: var(--space-3) 0 0;
+    font-size: 13px;
+    color: var(--color-text-muted);
+}
+
+// Footer: the application id on the left, the actions on the right
+.wc-app-connections > .window_content .app-connection-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding-top: var(--space-3);
+    padding-bottom: var(--space-3);
+
+    > .se-btn {
+        flex: none;
+        margin: 0;
+    }
+}
+
+.wc-app-connections > .window_content .app-connection-details {
+    flex: 1 1 160px;
+    min-width: 0;
+    align-self: center;
+    font-size: 13px;
+
+    > summary {
+        width: fit-content;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        @include focus-visible;
+
+        &:hover {
+            color: var(--color-text);
+        }
+    }
+
+    > p {
+        margin: var(--space-2) 0 0;
+        overflow-wrap: anywhere;
+        @include mono(12px);
+    }
+}
+
+@media (max-width: 600px) {
+    .wc-app-connections > .window_content .app-connection-footer > .se-btn {
+        flex: 1;
+        justify-content: center;
+    }
+}
