@@ -2,6 +2,11 @@
 @use "mixins" as *;
 
 .wc-statusbar {
+    // Bottom docked widgets are fixed to the edge of the workspace, right
+    // above the status bar, and slide down when closed: keep them under it
+    // (overlay docked widgets use z-index 105, see workspace/docks.scss)
+    position: relative;
+    z-index: 110;
     display: flex;
     flex: none;
     align-items: center;
