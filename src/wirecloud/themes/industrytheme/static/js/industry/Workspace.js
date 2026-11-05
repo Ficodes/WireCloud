@@ -26,19 +26,21 @@
     const SAVE_DELAY = 400;
     const REMOVE_DELAY = 4500;
 
-    const screen_size_icon = function screen_size_icon(screenSize, index, count) {
-        const name = String(screenSize.name || '').toLowerCase();
-        if (/phone|mobile|small|móvil|movil/.test(name)) {
+    // Widest phone and tablet widths of the platform default screen sizes
+    // (DEFAULT_SCREEN_SIZES in platform/core/plugins.py)
+    const PHONE_MAX_WIDTH = 767;
+    const TABLET_MAX_WIDTH = 1199;
+
+    // The icon of the widest device the range applies to. Names are free text
+    // (renamed by users, translated) so they are not taken into account.
+    const screen_size_icon = function screen_size_icon(screenSize) {
+        const maxWidth = screenSize.lessOrEqual === -1 ? Infinity : screenSize.lessOrEqual;
+        if (maxWidth <= PHONE_MAX_WIDTH) {
             return 'smartphone';
-        } else if (/tablet|medium/.test(name)) {
+        } else if (maxWidth <= TABLET_MAX_WIDTH) {
             return 'tablet';
-        } else if (/desktop|large|wide|escritorio/.test(name)) {
-            return 'monitor';
         }
-        if (index === 0 && count > 1) {
-            return 'smartphone';
-        }
-        return index === count - 1 ? 'monitor' : 'tablet';
+        return 'monitor';
     };
 
     const screen_size_range = function screen_size_range(screenSize) {
@@ -258,11 +260,11 @@
         const seg = Industry.element('div', 'seg wc-layout-sizes');
         seg.setAttribute('role', 'radiogroup');
         seg.setAttribute('aria-label', utils.gettext("Screen size"));
-        screenSizes.forEach((screenSize, index) => {
+        screenSizes.forEach((screenSize) => {
             const selected = screenSize.id === active.id;
             const button = Industry.button({
                 className: 'seg-opt' + (selected ? ' active' : ''),
-                icon: screen_size_icon(screenSize, index, screenSizes.length),
+                icon: screen_size_icon(screenSize),
                 label: selected ? screenSize.name : null,
                 title: screenSize.name + ' · ' + screen_size_range(screenSize),
                 onclick: () => {
