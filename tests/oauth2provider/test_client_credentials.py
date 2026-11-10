@@ -133,7 +133,31 @@ async def test_public_registration_cannot_provision_machine_access(oauth_client)
         assert response.status_code == 400 and response.json()["error"] == "unauthorized_client"
 
 
-@pytest.mark.parametrize("change", ["removed", "secret", "binding", "inactive", "deleted", "expired", "renamed"])
+@pytest.mark.parametrize("grants", [None, [], "authorization_code", ["password"]])
+async def test_registration_rejects_unsupported_grant_metadata(oauth_client, db_session, grants):
+    response = await oauth_client.post("/oauth2/register", json={
+        "redirect_uris": ["https://client.example/cb"], "grant_types": grants,
+    })
+    assert response.status_code == 400 and response.json()["error"] == "invalid_client_metadata"
+    assert await db_session.client.oauth_clients.count_documents({}) == 0
+
+
+@pytest.mark.parametrize("client", [
+    {"token_endpoint_auth_method": "none", "service_user": "untrusted-account"},
+    {"token_endpoint_auth_method": "client_secret_basic"},
+])
+async def test_client_credentials_service_requires_a_configured_service_account(oauth_app, db_session, client):
+    resource = oauth_app.state.oauth2_resources[AUDIENCE]
+    with pytest.raises(service.OAuthError, match="unauthorized_client") as error:
+        await service.exchange_client_credentials(db_session, client, {"resource": AUDIENCE}, resource)
+    assert error.value.status_code == 400
+    assert await db_session.client.oauth_grants.count_documents({}) == 0
+    assert await db_session.client.oauth_tokens.count_documents({}) == 0
+
+
+@pytest.mark.parametrize("change", [
+    "removed", "secret", "binding", "inactive", "deleted", "expired", "renamed", "invalid_configuration",
+])
 async def test_machine_tokens_follow_live_policy(oauth_client, db_session, machine_client, monkeypatch, change):
     config, user, _ = machine_client
     token = (await issue(oauth_client, config)).json()["access_token"]
@@ -141,6 +165,8 @@ async def test_machine_tokens_follow_live_policy(oauth_client, db_session, machi
         monkeypatch.setitem(vars(settings), "OAUTH2_CLIENTS", [])
     elif change == "secret":
         config["client_secret"] = "rotated-secret"
+    elif change == "invalid_configuration":
+        del config["client_secret"]
     elif change == "binding":
         config["service_user"] = "another-account"
     elif change == "inactive":

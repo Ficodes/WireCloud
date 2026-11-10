@@ -18,9 +18,9 @@
 
 import sys
 
-# Wirecloud is only compatible with Python 3.9 or higher
-if sys.version_info < (3, 9):
-    raise Exception("Wirecloud is only compatible with Python 3.9 or higher")
+# Wirecloud is only compatible with Python 3.11 or higher
+if sys.version_info < (3, 11):
+    raise Exception("Wirecloud is only compatible with Python 3.11 or higher")
 
 # Make sure the wirecloud directory is identified as a module
 try:

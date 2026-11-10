@@ -89,7 +89,7 @@ paths and an example project-specific configuration.
 
 ## Development
 
-WireCloud requires Python 3.9 or newer and Node.js with npm. To prepare a local
+WireCloud requires Python 3.11 or newer and Node.js with npm. To prepare a local
 checkout:
 
 ```bash

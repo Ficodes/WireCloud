@@ -7,7 +7,7 @@ name = "wirecloud"
 version = "2.0.0"
 description = "Wirecloud server backend implemented with FastAPI."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = {text = "AGPL-3.0-or-later"}
 dependencies = [
     "fastapi",

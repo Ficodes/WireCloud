@@ -115,8 +115,10 @@ def test_wirecloud_main_custom_openapi(monkeypatch):
     assert main.app.openapi == main.custom_openapi
 
 
-def test_wirecloud_main_bootstrap_guards(monkeypatch):
+@pytest.mark.parametrize("unsupported_version", [(3, 8), (3, 9), (3, 10)])
+def test_wirecloud_main_bootstrap_guards(monkeypatch, unsupported_version):
     source_path = main.__file__
+    assert isinstance(source_path, str)
     with open(source_path, "r", encoding="utf-8") as f:
         source = f.read()
 
@@ -129,7 +131,7 @@ def test_wirecloud_main_bootstrap_guards(monkeypatch):
     import types
 
     original_import = builtins.__import__
-    fake_sys_low = types.SimpleNamespace(version_info=(3, 8), path=[])
+    fake_sys_low = types.SimpleNamespace(version_info=unsupported_version, path=[])
 
     def _import_low(name, globals=None, locals=None, fromlist=(), level=0):
         if name == "sys":
@@ -138,10 +140,10 @@ def test_wirecloud_main_bootstrap_guards(monkeypatch):
 
     monkeypatch.setattr(builtins, "__import__", _import_low)
     g = {"__file__": source_path}
-    with pytest.raises(Exception, match="Python 3.9"):
+    with pytest.raises(Exception, match="Python 3.11"):
         exec(compile(bootstrap, source_path, "exec"), g, g)
 
-    fake_sys = types.SimpleNamespace(version_info=(3, 9), path=[])
+    fake_sys = types.SimpleNamespace(version_info=(3, 11), path=[])
 
     def _import(name, globals=None, locals=None, fromlist=(), level=0):
         if name == "sys":

@@ -6,7 +6,7 @@ WireCloud contains a Python/FastAPI backend and a TypeScript/JavaScript/Sass fro
 
 Requirements:
 
-- Python 3.9 or newer;
+- Python 3.11 or newer;
 - Node.js and npm;
 - MongoDB; and
 - Elasticsearch.
@@ -64,7 +64,7 @@ pytest --cov --cov-report=html
 ### OAuth and MCP integration
 
 CI runs the full backend suite on Python 3.11 and 3.13 with the pinned MCP
-dependencies, alongside the regular Python 3.9 and JavaScript jobs. To reproduce
+dependencies, alongside the core Python 3.11 and JavaScript jobs. To reproduce
 the MCP environment in a Python 3.11+ virtual environment:
 
 ```bash
@@ -74,7 +74,7 @@ python -m pytest tests
 
 The PR coverage comparison uses Python 3.11 with these same MCP dependencies for
 both base and head, so the report includes the optional plugin's tests. A separate
-Python 3.9 job checks core compatibility without installing MCP.
+Python 3.11 job checks core compatibility without installing MCP.
 
 The `oauth-mcp-python-*` CI artifacts contain JUnit results and branch coverage
 for OAuth, MCP, and the authentication module. Both matrix jobs require 100% line

@@ -53,7 +53,7 @@ Published GitHub releases contain two standalone wheels:
 
 | Wheel (example release) | Python | Dependencies |
 | --- | --- | --- |
-| `wirecloud-2.0.0-py3-none-any.whl` | 3.9+ | Regular WireCloud installation. |
+| `wirecloud-2.0.0-py3-none-any.whl` | 3.11+ | Regular WireCloud installation. |
 | `wirecloud-2.0.0+mcp-py3-none-any.whl` | 3.11+ | WireCloud plus the MCP SDK and tested MCP dependency pins. |
 
 Both are available in the `wirecloud-wheels` artifact on push and pull-request
@@ -232,7 +232,7 @@ guidance.
 
 Source installations are useful for development and custom deployments. They require:
 
-- Python 3.9 or newer;
+- Python 3.11 or newer;
 - Node.js and npm;
 - MongoDB;
 - Elasticsearch; and
