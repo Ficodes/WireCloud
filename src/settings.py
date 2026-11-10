@@ -32,7 +32,8 @@ INSTALLED_APPS = (
     'wirecloud.fiware',
     'wirecloud.keycloak',
     'wirecloud.oauth2provider',
-    'wirecloud.mcp'
+    'wirecloud.mcp',
+    'wirecloud_nodered_discovery'
 )
 
 # Local MCP testing: use localhost consistently for the browser and MCP client.
@@ -40,7 +41,22 @@ MCP_PUBLIC_URL = 'http://localhost:8000/mcp'
 AUTH_PUBLIC_URL = 'http://localhost:8000'
 OAUTH2_PUBLIC_URL = 'http://localhost:8000'
 OAUTH2_DYNAMIC_REGISTRATION = True
-OAUTH2_CLIENTS = []
+
+NODERED_DISCOVERY_PUBLIC_URL = 'http://localhost:8000/api/nodered'
+
+OAUTH2_CLIENTS = [
+    {
+        'client_id': 'nodered-discovery',
+        'client_name': 'Node-RED operator discovery',
+        'grant_types': ['client_credentials'],
+        'token_endpoint_auth_method': 'client_secret_basic',
+        'client_secret': 'super-secret-testing-token',
+        'service_user': 'nodered-discovery',
+        'resource_scopes': {
+            NODERED_DISCOVERY_PUBLIC_URL: ['nodered:operators:read'],
+        },
+    }
+]
 # Add exact origins here only when testing a browser client on another origin.
 MCP_ALLOWED_ORIGINS = []
 

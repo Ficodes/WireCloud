@@ -9,7 +9,7 @@ import pytest
 
 if sys.version_info < (3, 11):
     pytest.skip("MCP requires Python 3.11+", allow_module_level=True)
-pytest.importorskip("mcp")
+pytest.importorskip("mcp.server")
 
 from oauth2provider.test_oauth import oauth_app, oauth_client
 from test_mcp import adapter, mcp_setup, package, token_for_client
