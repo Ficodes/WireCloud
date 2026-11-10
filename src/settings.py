@@ -92,7 +92,7 @@ AVAILABLE_THEMES = [
     "defaulttheme",
     "industrytheme"
 ]
-THEME_ACTIVE = "defaulttheme"
+THEME_ACTIVE = "industrytheme"
 
 PROXY_WS_MAX_MSG_SIZE = 4 * 1024 * 1024 # 4MiB
 
