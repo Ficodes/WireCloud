@@ -1,0 +1,683 @@
+// StyledElements data components: model tables, pagination, panels,
+// expanders, thumbnails, ratings, add-ons, code areas, editable elements and
+// hidden fields.
+//
+// Panels and thumbnails are blueprint line drawings: transparent, square,
+// hairline frames.
+@use "mixins" as *;
+
+// =============================================================================
+// Model table (StyledElements.ModelTable): a CSS grid with `display:
+// contents` rows. The header row is sticky, so it needs an opaque
+// background: set `--se-table-bg` when the table sits on a surface.
+// =============================================================================
+
+.se-model-table {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.se-model-table-body {
+    display: grid;
+    grid-auto-rows: max-content;
+    align-content: start;
+    overflow-y: auto;
+    color: var(--color-text);
+    @include scrollbars;
+}
+
+.se-model-table-cell {
+    min-width: 0;
+    padding: var(--space-2) var(--space-3);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    background: transparent;
+}
+
+.se-model-table-headrow {
+    display: contents;
+
+    > .se-model-table-cell {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        @include overline;
+        font-weight: 500;
+        color: var(--color-text-muted);
+        background: var(--se-table-bg, var(--color-bg));
+        border-bottom: 1px solid var(--color-divider);
+
+        &.sortable {
+            cursor: pointer;
+            -webkit-user-select: none;
+            user-select: none;
+
+            &:hover {
+                color: var(--color-text);
+            }
+        }
+
+        &.ascending,
+        &.descending {
+            color: var(--color-text);
+
+            &::after {
+                margin-left: 6px;
+            }
+        }
+
+        &.ascending {
+            @include icon(arrow-up, after, 12px);
+        }
+
+        &.descending {
+            @include icon(arrow-down, after, 12px);
+        }
+    }
+}
+
+.se-model-table-row {
+    display: contents;
+    white-space: nowrap;
+
+    > .se-model-table-cell {
+        border-bottom: 1px solid var(--color-rule);
+        transition: background-color 0.1s linear;
+    }
+
+    // Striped tables (kept below hover/selection)
+    :where(.table-striped) &.odd > .se-model-table-cell {
+        background-color: color-mix(in srgb, var(--color-text) 3%, transparent);
+    }
+
+    &:hover > .se-model-table-cell {
+        background-color: color-mix(in srgb, var(--color-text) 4%, transparent);
+    }
+
+    // Selected rows
+    &.highlight > .se-model-table-cell,
+    &.highlight:hover > .se-model-table-cell {
+        background-color: var(--color-accent-100);
+    }
+}
+
+// Row states
+@each $state, $color in (success: var(--color-success), warning: var(--color-warning), danger: var(--color-danger), info: var(--color-accent)) {
+    .se-model-table-row-#{$state} {
+        > .se-model-table-cell {
+            background-color: color-mix(in srgb, #{$color} 9%, transparent);
+        }
+
+        &:hover > .se-model-table-cell {
+            background-color: color-mix(in srgb, #{$color} 15%, transparent);
+        }
+
+        &.highlight > .se-model-table-cell {
+            background-color: color-mix(in srgb, #{$color} 12%, var(--color-accent-100));
+        }
+    }
+}
+
+// Empty/error messages (alerts spanning the whole row)
+.se-model-table-msg {
+    grid-column: #{"1 / -1"};
+    margin: var(--space-4);
+    text-align: center;
+}
+
+// Status bar (pagination)
+.se-model-table-statusrow {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-height: 40px;
+    padding: var(--space-1) var(--space-3);
+    font-size: 13px;
+    color: var(--color-text-muted);
+    border-top: 1px solid var(--color-divider);
+
+    &:empty {
+        display: none;
+    }
+}
+
+.se-notebook-tab-content.se-container > .se-model-table:first-child > .se-model-table-headrow {
+    padding-top: 3px;
+}
+
+// =============================================================================
+// Pagination (StyledElements.PaginationInterface): ghost icon buttons around
+// a mono "Page n/m" box
+// =============================================================================
+
+.pagination,
+.se-pagination {
+    display: inline-flex;
+    align-items: center;
+    font-size: 13px;
+
+    .se-input-group > .se-btn {
+        width: 30px;
+        min-height: 30px;
+        padding: 0;
+        color: var(--color-text-muted);
+        background: transparent;
+        border-color: transparent;
+
+        &:hover {
+            color: var(--color-text);
+            background-color: var(--color-hover);
+        }
+    }
+
+    .se-box {
+        min-height: 30px;
+        padding: 0 var(--space-3);
+        @include mono(12px);
+        color: var(--color-text-muted);
+        background: transparent;
+        border-color: transparent;
+    }
+
+    .current-page,
+    .total-pages,
+    .total-count {
+        color: var(--color-text);
+    }
+
+    // Legacy icon classes
+    .icon-first-page {
+        @include icon(skip-back);
+    }
+
+    .icon-last-page {
+        @include icon(skip-forward);
+    }
+
+    .icon-prev-page {
+        @include icon(chevron-left);
+    }
+
+    .icon-next-page {
+        @include icon(chevron-right);
+    }
+}
+
+// =============================================================================
+// Add-ons and boxes (StyledElements.Addon, `.se-box`): input group members
+// =============================================================================
+
+.se-add-on,
+.se-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: auto;
+    min-width: 16px;
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.4;
+    white-space: nowrap;
+    text-align: center;
+    text-shadow: none;
+    vertical-align: middle;
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+}
+
+.se-add-on {
+    color: var(--color-text-muted);
+    background-color: var(--color-hover);
+}
+
+.se-box {
+    color: var(--color-text);
+    background-color: transparent;
+}
+
+.input-prepend > .se-hl-west-container > .se-add-on:last-child {
+    margin: 0 -1px 0 0;
+}
+
+.input-append > .se-hl-east-container > .se-add-on:first-child {
+    margin: 0 0 0 -1px;
+}
+
+.btn-group-lg .se-add-on,
+.btn-group-lg .se-box,
+.se-input-group-lg .se-add-on,
+.se-input-group-lg .se-box {
+    min-height: 40px;
+    padding: 8px 14px;
+    font-size: 15px;
+}
+
+.btn-group-sm .se-add-on,
+.btn-group-sm .se-box,
+.se-input-group-sm .se-add-on,
+.se-input-group-sm .se-box {
+    min-height: 28px;
+    padding: 2px 8px;
+    font-size: 13px;
+}
+
+.btn-group-xs .se-add-on,
+.btn-group-xs .se-box,
+.se-input-group-xs .se-add-on,
+.se-input-group-xs .se-box {
+    min-height: 22px;
+    padding: 0 6px;
+    font-size: 12px;
+}
+
+// =============================================================================
+// Panels (StyledElements.Panel): transparent hairline frames
+// =============================================================================
+
+.panel,
+.panel-heading,
+.panel-body,
+.panel-footer {
+    position: relative;
+    box-sizing: border-box;
+}
+
+.panel {
+    margin: 0 0 var(--space-4);
+    color: var(--color-text);
+    background-color: transparent;
+    @include blueprint-frame;
+    transition: border-color 0.12s linear, background-color 0.12s linear;
+}
+
+.panel-heading {
+    padding: var(--space-3) var(--space-4);
+
+    &::after {
+        content: "";
+        display: block;
+        clear: both;
+    }
+
+    > :last-child {
+        margin-bottom: 0;
+    }
+
+    // Icon buttons on the right of the heading
+    .panel-options {
+        position: relative;
+        display: flex;
+        float: right;
+        align-items: center;
+        gap: 2px;
+        margin: -4px -6px -4px var(--space-2);
+
+        .se-btn {
+            width: 28px;
+            min-height: 28px;
+            margin: 0;
+            padding: 0;
+            color: var(--color-text-muted);
+            background: transparent;
+            border-color: transparent;
+
+            &:hover,
+            &:focus-visible {
+                color: var(--color-text);
+                background-color: var(--color-hover);
+            }
+
+            &.disabled {
+                background: transparent;
+            }
+        }
+    }
+}
+
+.panel-title {
+    position: relative;
+    display: block;
+    margin: 0;
+    overflow: hidden;
+    @include heading(17px);
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.panel-subtitle {
+    display: block;
+    clear: both;
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.panel-body {
+    padding: var(--space-3) var(--space-4);
+    font-size: 14px;
+    background-color: transparent;
+
+    > :last-child {
+        margin-bottom: 0;
+    }
+}
+
+.panel-heading + .panel-body {
+    padding-top: 0;
+}
+
+.panel-footer {
+    padding: var(--space-2) var(--space-4);
+    font-size: 13px;
+    background-color: transparent;
+    border-top: 1px solid var(--color-divider);
+}
+
+// Contextual frames
+.panel-primary,
+.panel-info {
+    border-color: var(--color-accent);
+}
+
+.panel-success {
+    border-color: color-mix(in srgb, var(--color-success) 60%, transparent);
+}
+
+.panel-warning {
+    border-color: color-mix(in srgb, var(--color-warning) 60%, transparent);
+}
+
+.panel-danger {
+    border-color: color-mix(in srgb, var(--color-danger) 60%, transparent);
+}
+
+.panel-primary > .panel-heading > .panel-title,
+.panel-info > .panel-heading > .panel-title {
+    color: var(--color-accent-text);
+}
+
+// Selectable panels
+.panel.panel-selectable {
+    cursor: pointer;
+
+    &:hover {
+        border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+    }
+
+    &:focus-visible {
+        @include focus-ring;
+    }
+
+    &.active {
+        background-color: var(--color-accent-100);
+        border-color: var(--color-accent);
+
+        > .panel-heading > .panel-title {
+            color: var(--color-accent-800);
+        }
+    }
+}
+
+// =============================================================================
+// Expander (StyledElements.Expander): a panel whose body collapses
+// =============================================================================
+
+.se-expander {
+    overflow: hidden;
+
+    > .panel-heading {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-2) var(--space-3);
+        -webkit-user-select: none;
+        user-select: none;
+
+        &::after {
+            content: none;
+        }
+
+        &:hover {
+            background-color: var(--color-hover);
+        }
+
+        &:focus {
+            outline: none;
+        }
+
+        &:focus-visible {
+            @include focus-ring(-2px);
+        }
+
+        // Toggle button: a chevron that rotates when expanded
+        > .icon-expand {
+            flex: none;
+            width: 16px;
+            color: var(--color-text-muted);
+
+            > .se-icon {
+                font-size: 16px;
+                @include icon(chevron-right);
+
+                &::before {
+                    transition: transform 0.15s ease-out;
+                }
+            }
+
+            &.active > .se-icon::before {
+                transform: rotate(90deg);
+            }
+        }
+
+        > .title {
+            display: block;
+            flex: 1 1 auto;
+            min-width: 0;
+            font-size: 14px;
+            font-weight: 500;
+            @include text-truncate;
+        }
+    }
+
+    // Collapsed body
+    > .panel-body {
+        width: 0;
+        height: 0;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    &.expanded > .panel-body {
+        width: auto;
+        height: auto;
+        padding: var(--space-3);
+        overflow: auto;
+        border-top: 1px solid var(--color-divider);
+    }
+}
+
+// Accordions (StyledElements.Accordion): stacked expanders
+.styled_accordion > .se-expander {
+    margin: 0;
+
+    & + .se-expander {
+        border-top: 0;
+    }
+}
+
+// =============================================================================
+// Thumbnails: hairline frame, striped placeholder when the image is missing
+// =============================================================================
+
+.se-thumbnail {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    height: 180px;
+    margin: 0 0 var(--space-3);
+    text-align: center;
+    border: 1px solid var(--color-divider);
+    border-radius: 0;
+
+    img {
+        display: block;
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+    }
+}
+
+.se-thumbnail-sm {
+    height: 100px;
+}
+
+.se-thumbnail-missing {
+    @include mono(11px);
+    color: var(--color-text-muted);
+    background: repeating-linear-gradient(135deg, var(--color-hover) 0 1px, transparent 1px 9px);
+
+    img {
+        display: none;
+    }
+}
+
+// =============================================================================
+// Rating stars
+// =============================================================================
+
+.rating,
+.se-rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 400;
+    color: var(--color-accent);
+
+    > span {
+        display: inline-block;
+        margin: 0;
+
+        &.on,
+        &.middle {
+            color: var(--color-accent);
+        }
+
+        &.off {
+            color: color-mix(in srgb, var(--color-text) 25%, transparent);
+        }
+    }
+}
+
+// =============================================================================
+// Code area (StyledElements.CodeArea, a Monaco editor)
+// =============================================================================
+
+.se-code-area {
+    @include input-base;
+
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 25em;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+
+    &.focused {
+        border-color: var(--color-accent);
+        @include focus-ring(0);
+    }
+
+    &.error {
+        border-color: var(--color-danger);
+    }
+}
+
+.se-code-area-fullscreen-btn {
+    position: absolute;
+    top: 6px;
+    right: 20px; // leave room for Monaco's vertical scrollbar
+    z-index: 100; // above Monaco's overlay widgets
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.se-code-area .se-code-area-fullscreen-btn.plain {
+    color: var(--color-text-muted);
+
+    &:hover {
+        color: var(--color-text);
+    }
+}
+
+.se-code-area:hover .se-code-area-fullscreen-btn,
+.se-code-area-fullscreen-btn:focus-visible {
+    opacity: 0.7;
+
+    &:hover {
+        opacity: 1;
+    }
+}
+
+.se-code-area.se-code-area-fullscreen {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 99999;
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    border: 0 none !important;
+    outline: none;
+    box-shadow: none !important;
+}
+
+.monaco-editor {
+    --vscode-focusBorder: transparent !important;
+}
+
+// =============================================================================
+// Editable element (StyledElements.EditableElement): inline editable text
+// =============================================================================
+
+.se-editable-element,
+span[role="textbox"] {
+    border-radius: 0;
+
+    &:focus {
+        outline: none;
+    }
+
+    &:focus-visible {
+        @include focus-ring(1px);
+    }
+
+    &[contenteditable="true"] {
+        padding: 0 3px;
+        color: var(--color-text);
+        text-overflow: clip;
+        background-color: var(--color-bg);
+        outline: 1px solid var(--color-accent);
+        outline-offset: 1px;
+        cursor: text;
+        -webkit-user-select: text;
+        user-select: text;
+    }
+}
+
+// =============================================================================
+// Hidden field (StyledElements.HiddenField)
+// =============================================================================
+
+div.styled_hidden_field,
+.se-hidden-field {
+    display: none;
+}

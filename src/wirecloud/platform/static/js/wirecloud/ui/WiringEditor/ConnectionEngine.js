@@ -56,6 +56,13 @@
 
             this._ondrag = connection_ondrag.bind(this);
             this._ondragend = connection_ondragend.bind(this);
+            this._ondraftmousedown = draft_onmousedown.bind(this);
+
+            // When enabled, clicking an endpoint (instead of dragging from it)
+            // starts a draft connection that follows the pointer until another
+            // endpoint is clicked (see `cancelTemporalConnection`)
+            this.clickToConnect = false;
+            this._draft = false;
 
             Object.defineProperties(this, {
 
@@ -194,6 +201,21 @@
         }
 
         /**
+         * Cancels the connection being created (if any).
+         *
+         * @returns {Boolean} `true` if a connection was being created
+         */
+        cancelTemporalConnection() {
+            if (this.temporalConnection == null) {
+                return false;
+            }
+
+            this._draft = false;
+            endpoint_ondragend.call(this);
+            return true;
+        }
+
+        /**
          * [TODO: removeEndpoint description]
          *
          * @param {Endpoint} endpoint
@@ -242,7 +264,7 @@
     // PRIVATE MEMBERS
     // =========================================================================
 
-    var events = ['click', 'cancel', 'dragstart', 'dragend', 'duplicate', 'establish'];
+    var events = ['click', 'cancel', 'dragstart', 'draftstart', 'dragend', 'duplicate', 'establish'];
 
     var opposites = {
         source: 'target',
@@ -309,12 +331,20 @@
     };
 
     var endpoint_ondragstart = function endpoint_ondragstart(endpoint) {
-        var connection = new ns.Connection();
-        var initialEndpoint;
+        var connection, initialEndpoint;
 
         if (!this.enabled) {
             return;
         }
+
+        if (this._draft) {
+            // Clicking an endpoint completes the draft connection
+            this._draft = false;
+            endpoint_ondragend.call(this, endpoint);
+            return;
+        }
+
+        connection = new ns.Connection();
 
         if (endpoint.hasConnection(this.activeConnection)) {
             if (this.activeConnection.background) {
@@ -344,7 +374,17 @@
         this.dispatchEvent('dragstart', connection, initialEndpoint, endpoint);
 
         this.temporalInitialEndpoint = initialEndpoint;
+        this.temporalOriginEndpoint = endpoint;
         this.temporalConnection = connection;
+    };
+
+    var draft_onmousedown = function draft_onmousedown(event) {
+        if (event.target != null && typeof event.target.closest === 'function' && event.target.closest('.endpoint') != null) {
+            // Handled by the endpoint
+            return;
+        }
+
+        this.cancelTemporalConnection();
     };
 
     var connection_ondrag = function connection_ondrag(event) {
@@ -360,6 +400,16 @@
     var connection_ondragend = function connection_ondragend(event) {
         event.preventDefault();
         event.stopPropagation();
+
+        // The initial endpoint is disabled while connecting, so a click on it
+        // is detected here
+        var origin = this.temporalOriginEndpoint;
+        if (this.clickToConnect && !this._draft && origin != null && event.target != null &&
+                typeof origin.get === 'function' && origin.get().contains(event.target)) {
+            endpoint_ondragend.call(this, origin);
+            return;
+        }
+
         endpoint_ondragend.call(this);
     };
 
@@ -367,8 +417,19 @@
 
         if (!this.enabled || !this.temporalConnection) {
             return;
+        } else if (this._draft) {
+            // Pointer released while drafting a connection
+            return;
+        } else if (this.clickToConnect && finalEndpoint != null && finalEndpoint === this.temporalOriginEndpoint) {
+            // The endpoint was clicked: keep the connection as a draft
+            this._draft = true;
+            document.removeEventListener('mouseup', this._ondragend);
+            document.addEventListener('mousedown', this._ondraftmousedown, true);
+            this.dispatchEvent('draftstart', this.temporalConnection, this.temporalInitialEndpoint);
+            return;
         }
 
+        document.removeEventListener('mousedown', this._ondraftmousedown, true);
         this.wrapperElement.classList.remove('dragging');
         enableEndpoints.call(this, this.temporalInitialEndpoint.type);
 
@@ -416,6 +477,7 @@
         this.dispatchEvent('dragend', this.temporalConnection, this.temporalInitialEndpoint);
 
         delete this.temporalInitialEndpoint;
+        delete this.temporalOriginEndpoint;
         delete this._connectionBackup;
         delete this.temporalConnection;
     };

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}" data-wc-theme="{{ THEME }}" data-wc-view="login">
+<head>
+    <title>{{ trans("WireCloud Platform - Sign in") }}</title>
+{% include "wirecloud/views/_head.html" %}
+    <link rel="stylesheet" href="{{ static("css/cache.css?view=index") }}">
+    <script type="text/javascript">
+        var Wirecloud = {};
+    </script>
+    <script type="text/javascript" src="{{ static("js/wirecloud/BaseRequirements.js") }}"></script>
+</head>
+
+<body class="wc-plain-page wc-login-page">
+    <main class="plain_content">
+        <div class="wc-login-card blueprint">
+            <i class="corner tl" aria-hidden="true"></i><i class="corner tr" aria-hidden="true"></i><i class="corner bl" aria-hidden="true"></i><i class="corner br" aria-hidden="true"></i>
+            <div class="wc-login-brand"><span class="wc-brand-mark" aria-hidden="true">WC</span><span>WireCloud</span></div>
+            <h1 id="wc-login-title">{{ trans("Sign in") }}</h1>
+
+            <div id="unsupported-browser-msg" class="alert alert-error" role="alert" aria-hidden="true" style="display: none;">
+                <h4>{{ trans("Your browser seems to lack some required features") }}</h4>
+                <p>{{ trans("We recommend you to upgrade your browser to the newest version of either <a href=\"https://www.mozilla.org/firefox\">Firefox</a> or <a href=\"https://www.google.com/chrome\">Google Chrome</a> as these are the browsers currently supported by WireCloud.") }}</p>
+            </div>
+
+            <form id="wc-login-form" method="post" aria-labelledby="wc-login-title">
+                {% if form.errors %}
+                <div class="alert alert-danger" role="alert">{{ trans("<h4>Your username and password didn't match.</h4><p>Please try again.</p>") }}</div>
+                {% endif %}
+
+                <input type="hidden" name="next" value="{{ request.query_params.get('next', '')|e }}" />
+                <div class="field">
+                    <label for="wc-username">{{ trans("Username") }}</label>
+                    <input id="wc-username" type="text" class="se-text-field" name="username" autocapitalize="off" autocomplete="username" autofocus="autofocus" required="required" />
+                </div>
+                <div class="field">
+                    <label for="wc-password">{{ trans("Password") }}</label>
+                    <input id="wc-password" type="password" class="se-password-field" name="password" autocomplete="current-password" required="required" />
+                </div>
+                <button class="se-btn btn-primary wc-login-submit" type="submit">{{ trans("Sign in") }}</button>
+            </form>
+        </div>
+    </main>
+
+    <script type="text/javascript">
+        try {
+            Wirecloud.check_basic_requirements();
+        } catch (e) {
+            document.getElementById('unsupported-browser-msg').style.display = "";
+        }
+    </script>
+</body>
+</html>

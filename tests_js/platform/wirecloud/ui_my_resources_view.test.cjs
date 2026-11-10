@@ -536,6 +536,7 @@ const setup = (options = {}) => {
     // Load MyResourcesView
     // -------------------------------------------------------------------------
 
+    loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/Registry.js');
     loadLegacyScript('src/wirecloud/platform/static/js/wirecloud/ui/MyResourcesView.js');
 
     // -------------------------------------------------------------------------

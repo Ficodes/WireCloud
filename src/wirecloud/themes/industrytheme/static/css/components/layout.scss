@@ -1,0 +1,395 @@
+// StyledElements layout components: containers, horizontal/vertical/border
+// layouts, alternatives, input groups, off-canvas layouts, lists and button
+// group containers.
+//
+// Most rules here are structural: the StyledElements JS computes sizes and
+// positions assuming them (absolute containers, flex layouts, hidden
+// alternatives...).
+@use "mixins" as *;
+
+// =============================================================================
+// Container (StyledElements.Container) and its disabled/loading layer
+// =============================================================================
+
+.se-container {
+    position: relative;
+    background: transparent;
+
+    // A loading container is disabled, but it must keep its look: the
+    // disable layer shows the spinner instead
+    &.loading.disabled {
+        opacity: 1;
+    }
+}
+
+.se-container-disable-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 100111;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+
+    > i,
+    > .disable-icon {
+        display: none;
+        font-size: 32px;
+        color: var(--color-accent);
+    }
+}
+
+.loading > .se-container-disable-layer {
+    background: color-mix(in srgb, var(--color-bg) 60%, transparent);
+
+    > i,
+    > .disable-icon {
+        display: inline-block;
+    }
+}
+
+// =============================================================================
+// Horizontal and vertical layouts
+// =============================================================================
+
+.se-horizontal-layout,
+.se-vertical-layout {
+    position: relative;
+    display: flex;
+    box-sizing: border-box;
+    overflow: hidden;
+
+    &.full {
+        position: absolute;
+        inset: 0;
+        width: auto;
+        height: auto;
+    }
+}
+
+.se-horizontal-layout {
+    flex-direction: row;
+    width: auto;
+}
+
+.se-vertical-layout {
+    flex-direction: column;
+    height: 100%;
+}
+
+.se-hl-west-container,
+.se-hl-east-container,
+.se-vl-north-container,
+.se-vl-south-container {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+}
+
+.se-hl-center-container,
+.se-vl-center-container {
+    flex: 1 1 auto;
+    box-sizing: border-box;
+    overflow: auto;
+}
+
+// Horizontal layouts used as composed inputs (file fields, prepend/append
+// inputs) must not clip their focus rings
+.se-horizontal-layout.input,
+.se-horizontal-layout.btn-group {
+    overflow: visible;
+}
+
+.input > .se-hl-west-container,
+.input > .se-hl-center-container,
+.input > .se-hl-east-container {
+    overflow: visible;
+}
+
+// =============================================================================
+// Border layout (StyledElements.BorderLayout). The JS sets top/left/width/
+// height of every region.
+// =============================================================================
+
+.se-border-layout {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.se-bl-north-container,
+.se-bl-south-container {
+    position: absolute;
+    left: 0;
+    right: 0;
+    box-sizing: border-box;
+}
+
+.se-bl-north-container {
+    top: 0;
+}
+
+.se-bl-west-container {
+    position: absolute;
+    left: 0;
+    display: inline-block;
+    box-sizing: border-box;
+}
+
+.se-bl-center-container {
+    position: absolute;
+    box-sizing: border-box;
+    overflow: auto;
+}
+
+.se-bl-east-container {
+    position: absolute;
+    display: inline-block;
+    box-sizing: border-box;
+}
+
+// =============================================================================
+// Alternatives (StyledElements.Alternatives). Every alternative fills its
+// parent; transitions use the `.fade`/`.slide` classes of base/reset.scss and
+// the JS waits for their `transitionend` events.
+// =============================================================================
+
+.se-alternatives {
+    position: relative;
+    min-width: 5em;
+    min-height: 5em;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+
+    &.full {
+        position: absolute;
+        inset: 0;
+        margin: 0;
+    }
+
+    > div {
+        position: absolute;
+        inset: 0;
+        overflow: auto;
+        visibility: inherit;
+        background: transparent;
+        @include scrollbars;
+    }
+
+    > .fade {
+        transition: opacity 0.25s linear;
+    }
+
+    // Sliding alternatives must not show outside the alternatives box, nor
+    // scrollbars while they move
+    &.se-on-transition {
+        overflow: hidden;
+
+        > div {
+            overflow: hidden;
+        }
+    }
+}
+
+.hidden > .se-alternatives > div,
+.se-alternatives > div.hidden {
+    visibility: hidden;
+    height: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .se-alternatives > .fade {
+        transition-duration: 0.01s;
+    }
+}
+
+// =============================================================================
+// Input groups: inputs, add-ons and buttons joined in a row
+// =============================================================================
+
+.se-input-group {
+    display: inline-flex;
+    align-items: stretch;
+    width: auto;
+    margin: 0;
+    vertical-align: middle;
+
+    > * {
+        position: relative;
+        margin: 0;
+    }
+
+    // Joined borders
+    > *:not(:first-child) {
+        margin-left: -1px;
+    }
+
+    // The hovered/focused member draws its border over its neighbours
+    > *:hover,
+    > *:focus-visible,
+    > .focus {
+        z-index: 2;
+    }
+
+    > .se-select,
+    > .se-text-field,
+    > .se-numeric-field,
+    > .se-password-field,
+    > .se-file-field {
+        flex: 1 1 auto;
+        width: auto;
+        min-width: 0;
+    }
+}
+
+.se-input-group-block {
+    display: flex;
+    width: 100%;
+}
+
+// =============================================================================
+// Button group containers (joined buttons are styled in buttons.scss)
+// =============================================================================
+
+.btn-group {
+    position: relative;
+    display: inline-flex;
+    align-items: stretch;
+    margin: 0;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.btn-group-justified {
+    display: flex;
+    flex-wrap: nowrap;
+    width: 100%;
+    margin: 0 0 var(--space-3);
+}
+
+// =============================================================================
+// Off-canvas layout (StyledElements.OffCanvasLayout): a sidebar that slides
+// in over the content. Themes may change the sidebar width with
+// `--se-offcanvas-width`.
+// =============================================================================
+
+.se-offcanvas {
+    --se-offcanvas-width: 300px;
+
+    position: absolute;
+    inset: 0;
+    display: flex;
+    overflow: hidden;
+}
+
+.se-offcanvas-sidebar {
+    position: relative;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    width: var(--se-offcanvas-width);
+    height: 100%;
+    margin: 0;
+    background: var(--color-surface);
+    @include scrollbars;
+}
+
+.se-offcanvas-content {
+    position: relative;
+    flex: 1 1 auto;
+    box-sizing: border-box;
+    min-width: 0;
+    height: 100%;
+    margin: 0;
+    overflow: auto;
+    @include scrollbars;
+}
+
+.se-offcanvas.left-sideway {
+    left: calc(-1 * var(--se-offcanvas-width));
+    transition: left 0.2s cubic-bezier(0.2, 0, 0, 1);
+
+    &.slipped {
+        left: 0;
+    }
+
+    > .se-offcanvas-sidebar {
+        border-right: 1px solid var(--color-divider);
+    }
+}
+
+.se-offcanvas.right-sideway {
+    right: calc(-1 * var(--se-offcanvas-width));
+    transition: right 0.2s cubic-bezier(0.2, 0, 0, 1);
+
+    &.slipped {
+        right: 0;
+    }
+
+    // The sidebar is the first child: move it to the right edge
+    > .se-offcanvas-sidebar {
+        order: 2;
+        border-left: 1px solid var(--color-divider);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .se-offcanvas.left-sideway,
+    .se-offcanvas.right-sideway {
+        transition-duration: 0.01s;
+    }
+}
+
+// =============================================================================
+// Styled list (StyledElements.List): a scrollable, selectable list of rows
+// =============================================================================
+
+div.styled_list {
+    position: relative;
+    box-sizing: border-box;
+    width: 12em;
+    height: 20em;
+    margin: 0;
+    overflow: hidden;
+    white-space: nowrap;
+
+    > div {
+        position: absolute;
+        inset: 0;
+        overflow: auto;
+        background: var(--color-surface);
+        border: 1px solid var(--color-divider);
+        @include scrollbars;
+    }
+
+    &.full {
+        width: 100%;
+        height: 100%;
+    }
+
+    div.row {
+        width: auto;
+        padding: 6px 10px;
+        overflow: hidden;
+        font-size: 14px;
+        line-height: 1.4;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        cursor: pointer;
+
+        &:hover {
+            background-color: var(--color-hover);
+        }
+
+        &.selected {
+            background-color: var(--color-accent-100);
+            color: var(--color-accent-800);
+        }
+    }
+}

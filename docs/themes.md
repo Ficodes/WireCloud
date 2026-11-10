@@ -37,7 +37,7 @@ parent = "defaulttheme"
 label = _("Acme")
 ```
 
-Set `parent = None` only for a complete root theme that supplies everything WireCloud needs. An inherited theme is safer because new parent templates and assets remain available after an upgrade.
+Set `parent = None` only for a complete root theme that supplies everything WireCloud needs. An inherited theme is safer because new parent templates and assets remain available after an upgrade. A root theme has no fallback for templates, static files or translations: when an optional module such as `wirecloud.oauth2provider` adds templates to the default theme, the root theme must add its own versions, and its catalogs must translate every string those templates pass to `trans()`.
 
 The module name, directory name, and configured theme name must match exactly. A missing `parent` attribute is a configuration error. A parent that cannot be imported ends the inheritance chain, usually causing missing templates or assets later, so validate the name carefully.
 
@@ -89,6 +89,74 @@ Templates use Jinja syntax. Common helpers include:
 Keep overrides narrow. Copying a large parent template freezes its structure in the child and makes later parent changes harder to adopt.
 
 Plugins may declare additional template fragments through their `get_templates` hook. Every enabled theme must supply or inherit those paths; otherwise `/api/theme/{theme}` reports the missing template. This is one reason presentation-only changes belong in themes while new behavior belongs in [plugins](plugins.md).
+
+## Theme configuration and extension points
+
+Themes can go beyond restyling. The following hooks are available to any theme; when a theme does not use them, the platform behaves as before.
+
+### Client configuration
+
+A theme module can declare a `config` dictionary. It is returned by `/api/theme/{theme}` and exposed as `Wirecloud.currentTheme.config` (child themes inherit and override their parent's entries):
+
+```python
+config = {
+    "color_schemes": ["light", "dark"],   # schemes supported by the stylesheets
+    "keyboard_shortcuts": True,           # enable Wirecloud.ui.shortcuts
+    "wiring_click_to_connect": True,      # click an output, then an input
+    "shell": "rail",                      # free-form entries for the theme scripts
+    "icon_set": "lucide",
+}
+```
+
+When `color_schemes` lists more than one scheme, the *Color scheme* platform preference (`system`, `light` or `dark`) is shown in the user settings.
+
+### Root state attributes
+
+The root element exposes the platform state, so themes can style states with CSS only:
+
+| Attribute | Values |
+| --- | --- |
+| `data-wc-theme` | active theme name |
+| `data-wc-view` | `classic`, `smartphone` or `embedded` |
+| `data-wc-mode` | `view`, `edit`, `wiring`, `catalogue` or `marketplace` |
+| `data-wc-color-scheme` | `light` or `dark` (also set on the widget documents) |
+| `data-wc-screen-size` | name of the active screen size of the visible tab |
+
+`Wirecloud.UserInterfaceManager.setRootState(name, value)` updates them. Before the platform code is loaded, `data-wc-color-scheme` is missing; style the system preference with `@media (prefers-color-scheme: dark)` on `:root:not([data-wc-color-scheme])`. The last resolved scheme is stored in `localStorage` (`wirecloud.color-scheme`) so pages can apply it before painting.
+
+### Replaceable UI classes
+
+Theme scripts (returned by `get_scripts` in `theme.ts`) run after the platform ones and can replace UI classes through a registry:
+
+```javascript
+class MyHeader extends Wirecloud.ui.WirecloudHeader { /* ... */ }
+Wirecloud.ui.registry.register("WirecloudHeader", MyHeader);
+```
+
+The platform builds these pieces through the registry: `WirecloudHeader`, `WorkspaceView`, `WorkspaceToolbar` (header buttons of the workspace view), `WidgetView` (override `getTemplateComponents()` to change the widget chrome), `WiringEditor`, `WiringEditor.Component`, `WiringEditor.ComponentDraggable`, `MarketplaceView`, `MyResourcesView`, `MyResourcesSearchView` (search view of My resources), `CatalogueSearchView`, `ResourcePainter` and `CommandPalette`. `Wirecloud.ui.registry.get(name)` falls back to `Wirecloud.ui.<name>`.
+
+`Wirecloud.ui.WirecloudHeader.defaults` holds the presentation defaults of the default header (button classes and icons, including `userMenuIconClasses` for each user menu entry: `settings`, `appconnections`, `djangoadmin`, `switchuser`, `adminpanel`, `backtouser` and `signout`) and `buildUserMenu(menu)` fills the user menu, so small changes do not require a new header.
+
+### Semantic view API
+
+Besides `getBreadcrumb()`, `getToolbarButtons()` and `getToolbarMenu()`, the workspace view and the wiring editor describe their actions so headers can render them in any form:
+
+- `getModes()` → `[{id: "view"|"edit"|"wiring", label, icon, shortcut, active, enabled, activate()}]`
+- `getPrimaryAction()` → `{id, label, icon, enabled, run()}` ("Add widget", "Add operator") or `null`
+- `getSecondaryActions()` → e.g. `[{id: "share", ...}]`
+- `deleteSelection()` and `cancel()` (used by the keyboard shortcuts)
+
+The workspace view also tracks the selected widget while editing (`selectWidget(widget)`, `selectedWidget`, `selectionchange` event; the widget gets the `wc-widget-selected` class).
+
+### Commands and keyboard shortcuts
+
+`Wirecloud.commands` lists the commands available in the current context: workspaces, workspace/tab/widget/marketplace menus (built from the same menu builders), navigation and installed components. Use `list(query)` and `run(command)`, and `register()`/`registerProvider()` to add commands. `openPalette()` shows the palette registered as `CommandPalette`.
+
+`Wirecloud.ui.shortcuts` handles `⌘/Ctrl+K` (palette), `V`/`E`/`W` (modes), `Delete` (remove the selected widget or connection) and `Esc` (cancel). Shortcuts are only processed when the theme sets `keyboard_shortcuts`; themes can `register()` more.
+
+### The Industry theme
+
+`industrytheme` is a complete root theme built on these hooks: a navigation rail, a header with a mode switch and a command palette, layout controls in the tab bar, a status bar, a faceted My resources view with a detail pane, light and dark color schemes, Barlow fonts and Lucide icons (Font Awesome class names used by the platform and widgets are mapped to Lucide icons in `static/css/base/_icon-map.scss`; run `scripts/update_icons.py` after adding icons). Its stylesheets are written against the CSS custom properties of `static/css/_tokens.scss`.
 
 ## Translations
 

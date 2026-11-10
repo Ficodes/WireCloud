@@ -1,0 +1,342 @@
+// Wiring connections: SVG paths, bezier handles and the buttons shown at the
+// middle of each connection.
+//
+// DOM (see WiringEditor/Connection.js, ConnectionHandle.js and
+// ConnectionEngine.js):
+//
+// svg.we-connections-layer[.dragging] > g
+//   g.connection [.active] [.highlighted] [.editable] [.incomplete]
+//                [.temporal] [.background] [.missing] [.has-error] [.readonly]
+//     path.connection-path
+//     g.we-connection-handle.{source|target}-handle[.auto]   (.editable only)
+//       path.we-connection-handle-line
+//       circle.we-connection-handle-ball
+//
+// div (sibling of the svg layer)
+//   .connection-options.btn-group[.hidden]   (positioned at the midpoint)
+//     .se-btn.btn-show-logs[.hidden] (+ .badge)
+//     .se-btn.btn-remove.btn-danger | .se-btn.btn-add.btn-info
+//     .se-btn.we-prefs-btn[.hidden]           (visible while active)
+@use "mixins" as *;
+
+$option-size: 24px;
+$option-gap: 4px;
+$danger-shade: color-mix(in srgb, var(--color-neutral-900) 14%, transparent);
+
+@mixin mask-icon($name) {
+    -webkit-mask-image: url("../icons/#{$name}.svg");
+    mask-image: url("../icons/#{$name}.svg");
+}
+
+// =============================================================================
+// Connections
+// =============================================================================
+
+.connection {
+    user-select: none;
+    -webkit-user-select: none;
+
+    > .connection-path {
+        fill: none;
+        stroke: var(--color-accent);
+        stroke-width: 2px;
+        stroke-linecap: butt;
+        cursor: pointer;
+        pointer-events: visibleStroke;
+        transition: stroke 0.12s linear, stroke-width 0.12s linear;
+    }
+
+    // Optional wider transparent path used as hit area (theme scripts may
+    // add it next to the visible path)
+    > .connection-hit {
+        fill: none;
+        stroke: transparent;
+        stroke-width: 14px;
+        cursor: pointer;
+        pointer-events: stroke;
+    }
+
+    // Hovered, or attached to a selected component
+    &.highlighted > .connection-path {
+        stroke: var(--color-accent-700);
+    }
+
+    // Selected / customizing its handles
+    &.active > .connection-path,
+    &.editable > .connection-path {
+        stroke: var(--color-accent-700);
+        stroke-width: 3px;
+    }
+
+    &.editable > .connection-path {
+        cursor: default;
+    }
+
+    // Not part of the active behaviour
+    &.background > .connection-path {
+        stroke: color-mix(in srgb, var(--color-accent) 35%, transparent);
+    }
+
+    &.background.highlighted > .connection-path {
+        stroke: color-mix(in srgb, var(--color-accent-700) 70%, transparent);
+    }
+
+    &.background.active > .connection-path {
+        stroke: var(--color-accent-700);
+    }
+
+    // Connected to a missing endpoint or with errors
+    &.missing > .connection-path,
+    &.has-error > .connection-path {
+        stroke: var(--color-danger);
+    }
+
+    &.missing.background > .connection-path,
+    &.has-error.background > .connection-path {
+        stroke: color-mix(in srgb, var(--color-danger) 35%, transparent);
+    }
+
+    &.missing.highlighted > .connection-path,
+    &.has-error.highlighted > .connection-path,
+    &.missing.active > .connection-path,
+    &.has-error.active > .connection-path {
+        stroke: var(--color-danger);
+    }
+
+    // Draft connection following the pointer
+    &.incomplete > .connection-path {
+        stroke: var(--color-accent);
+        stroke-width: 2px;
+        stroke-dasharray: 5 5;
+        cursor: grabbing;
+        pointer-events: none;
+        transition: none;
+    }
+
+    // Existing connection being moved to another endpoint
+    &.temporal > .connection-path {
+        stroke: color-mix(in srgb, var(--color-accent) 45%, transparent);
+        stroke-width: 2px;
+        stroke-dasharray: 5 5;
+        pointer-events: none;
+    }
+}
+
+// While a connection is being created, paths must not catch the pointer
+.we-connections-layer.dragging .connection > .connection-path,
+.we-connections-layer.dragging .connection > .connection-hit {
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .connection > .connection-path {
+        transition: none;
+    }
+}
+
+// =============================================================================
+// Bezier handles (connection preferences > "Customize")
+// =============================================================================
+
+.we-connection-handle {
+    pointer-events: auto;
+
+    > .we-connection-handle-line {
+        fill: none;
+        stroke: var(--color-accent-700);
+        stroke-width: 1px;
+        pointer-events: none;
+    }
+
+    &.auto > .we-connection-handle-line {
+        stroke-dasharray: 4 3;
+    }
+
+    > .we-connection-handle-ball {
+        fill: var(--color-bg);
+        stroke: var(--color-accent-700);
+        stroke-width: 1.5px;
+        cursor: grab;
+        pointer-events: all;
+
+        &:hover,
+        &.active {
+            fill: var(--color-accent);
+            stroke: var(--color-accent);
+        }
+
+        &:active {
+            cursor: grabbing;
+        }
+    }
+}
+
+// =============================================================================
+// Connection options. The box is the size of the main (remove/add) button and
+// is centred on the midpoint of the curve; preferences go to its right and
+// logs to its left.
+//
+// Generic circle buttons (components/buttons.scss, `.btn-group-circle`) give
+// the default buttons a solid `--color-bg` fill with a very specific
+// selector: hover/pressed tints are painted with `background-image` on top of
+// it.
+// =============================================================================
+
+.connection-options {
+    position: absolute;
+    z-index: 20;
+    display: block;
+    width: $option-size;
+    height: $option-size;
+    margin: 0;
+    padding: 0;
+    transform: translate(-50%, -50%);
+    border: 0;
+    box-shadow: none;
+    white-space: nowrap;
+
+    &.hidden {
+        display: none !important;
+    }
+
+    > .se-btn {
+        position: absolute;
+        top: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: $option-size;
+        height: $option-size;
+        min-width: 0;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        font-size: 13px;
+        line-height: 1;
+        color: var(--color-text);
+        background-color: var(--color-bg);
+        background-image: none;
+        border: 1px solid var(--color-divider);
+        border-radius: 50%;
+        box-shadow: var(--shadow-md);
+        cursor: pointer;
+        @include focus-visible;
+
+        &:hover {
+            background-image: linear-gradient(var(--color-hover), var(--color-hover));
+        }
+
+        &:active,
+        &.open {
+            background-image: linear-gradient(var(--color-pressed), var(--color-pressed));
+        }
+
+        &.disabled,
+        &.disabled:hover {
+            opacity: 0.45;
+            background-image: none;
+            cursor: not-allowed;
+        }
+
+        &.hidden {
+            display: none !important;
+        }
+    }
+
+    // Main button, at the midpoint
+    > .se-btn.btn-remove,
+    > .se-btn.btn-add {
+        left: 0;
+        font-size: 13px;
+        border: 0;
+    }
+
+    > .se-btn.btn-remove {
+        color: var(--color-on-danger, #fff);
+        background-color: var(--color-danger);
+
+        &:hover,
+        &:active {
+            color: var(--color-on-danger, #fff);
+            background-color: var(--color-danger);
+            background-image: linear-gradient($danger-shade, $danger-shade);
+        }
+
+        &.disabled,
+        &.disabled:hover {
+            background-image: none;
+        }
+
+        > .fa-trash::before,
+        > .fa-times::before {
+            @include mask-icon("x");
+        }
+    }
+
+    // Background connection: add it to the active behaviour
+    > .se-btn.btn-add {
+        color: var(--color-bg);
+        background-color: var(--color-accent);
+
+        &:hover {
+            color: var(--color-bg);
+            background-color: var(--color-accent-600);
+            background-image: none;
+        }
+
+        &:active {
+            background-color: var(--color-accent-700);
+            background-image: none;
+        }
+    }
+
+    > .se-btn.we-prefs-btn {
+        left: calc(100% + #{$option-gap});
+
+        > .fa-bars::before {
+            @include mask-icon("ellipsis");
+        }
+    }
+
+    > .se-btn.btn-show-logs {
+        right: calc(100% + #{$option-gap});
+
+        // Error count
+        > .badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 14px;
+            height: 14px;
+            margin: 0;
+            padding: 0 3px;
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 500;
+            line-height: 1;
+            color: var(--color-on-danger, #fff);
+            background: var(--color-danger);
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
+            transform: none;
+        }
+    }
+}
+
+// The main button is only shown for the selected connection (the platform
+// shows the preferences button only while the connection is active). A
+// connection with errors keeps its logs button, centred on the curve.
+.connection-options:has(> .we-prefs-btn.hidden) > .se-btn.btn-remove,
+.connection-options:has(> .we-prefs-btn.hidden) > .se-btn.btn-add {
+    display: none;
+}
+
+.connection-options:has(> .we-prefs-btn.hidden) > .se-btn.btn-show-logs {
+    right: auto;
+    left: 0;
+    color: var(--color-danger);
+}

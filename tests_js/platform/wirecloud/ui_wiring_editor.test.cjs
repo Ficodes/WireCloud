@@ -281,7 +281,10 @@ test.beforeEach(() => {
     global.DOMParser = function DOMParser() {};
     DOMParser.prototype.parseFromString = function() { const doc = document.createElement('div'); doc.documentElement = document.createElement('root'); return doc; };
 
-    loadLegacyScripts(['src/wirecloud/platform/static/js/wirecloud/ui/WiringEditor.js']);
+    loadLegacyScripts([
+        'src/wirecloud/platform/static/js/wirecloud/ui/Registry.js',
+        'src/wirecloud/platform/static/js/wirecloud/ui/WiringEditor.js',
+    ]);
 
     // ---- WiringEditor sub-class mocks (must be AFTER loadLegacyScripts since the
     const WE = Wirecloud.ui.WiringEditor;

@@ -296,7 +296,12 @@ def test_workspace_preferences_templates_extensions_and_openapi(monkeypatch):
     assert "title" in workspace_ctx
     assert "params" in workspace_ctx
     platform_prefs = plugin.get_platform_preferences()
-    assert [pref.name for pref in platform_prefs] == ["allow_external_token_use", "external_token_domain_whitelist"]
+    assert [pref.name for pref in platform_prefs] == ["allow_external_token_use", "external_token_domain_whitelist", "color-scheme"]
+    color_scheme = platform_prefs[2]
+    assert color_scheme.type == "select"
+    assert color_scheme.defaultValue == "system"
+    assert [entry.value for entry in color_scheme.initialEntries] == ["system", "light", "dark"]
+    assert color_scheme.requiredThemeConfig == "color_schemes"
 
     workspace_prefs = plugin.get_workspace_preferences()
     assert any(pref.name == "public" for pref in workspace_prefs)

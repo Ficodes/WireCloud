@@ -1,0 +1,33 @@
+<s:styledgui xmlns:s="http://wirecloud.conwet.fi.upm.es/StyledElements" xmlns:t="http://wirecloud.conwet.fi.upm.es/Template" xmlns="http://www.w3.org/1999/xhtml">
+<s:borderlayout>
+
+    <s:northcontainer>
+
+        <s:options>{"class": "search_bar"}</s:options>
+
+        <t:pagination />
+
+    </s:northcontainer>
+
+    <s:westcontainer>
+        <s:options>{"class": "search_bar"}</s:options>
+
+        <div class="field">
+            <label for="catalogue-search-input">{{ trans('Keywords') }}</label>
+            <t:searchinput id="catalogue-search-input" aria-label="{{ trans('Search keywords') }}" />
+        </div>
+
+        <div class="field">
+            <label for="catalogue-scope-select">{{ trans('Type') }}</label>
+            <t:scope id="catalogue-scope-select" aria-label="{{ trans('Type') }}" />
+        </div>
+
+        <t:reset_button />
+    </s:westcontainer>
+
+    <s:centercontainer>
+        <t:resourcelist />
+    </s:centercontainer>
+
+</s:borderlayout>
+</s:styledgui>

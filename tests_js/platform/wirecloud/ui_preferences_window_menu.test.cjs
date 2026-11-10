@@ -328,3 +328,28 @@ test('PreferencesWindowMenu shows validation and persistence errors', async () =
     assert.equal(Wirecloud.lastMessage.error.message, 'server failed');
     assert.equal(Wirecloud.lastMessage.level, 'error');
 });
+
+test('PreferencesWindowMenu only shows preferences supported by the active theme', () => {
+    setup();
+    const manager = makeManager();
+    const scheme = {
+        name: 'color-scheme',
+        label: 'Color scheme',
+        options: { type: 'select', requiredThemeConfig: 'color_schemes' },
+        hidden: false,
+        inheritable: false,
+        default: 'system',
+    };
+    manager.meta.preferences['color-scheme'] = scheme;
+    manager.preferences['color-scheme'] = { value: 'dark', inherit: false, meta: scheme };
+
+    Wirecloud.currentTheme = { config: { color_schemes: ['light'] } };
+    let menu = new Wirecloud.ui.PreferencesWindowMenu('platform', manager);
+    menu.show('parent');
+    assert.equal('color-scheme' in menu.interfaces, false);
+
+    Wirecloud.currentTheme = { config: { color_schemes: ['light', 'dark'] } };
+    menu = new Wirecloud.ui.PreferencesWindowMenu('platform', manager);
+    menu.show('parent');
+    assert.equal(menu.interfaces['color-scheme'].base.getValue(), 'dark');
+});

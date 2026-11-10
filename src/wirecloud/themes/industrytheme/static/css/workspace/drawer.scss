@@ -1,0 +1,45 @@
+// "Add widget" drawer: the component sidebar of the workspace view, shown on
+// the right side over the dashboard
+@use "mixins" as *;
+
+.wc-workspace > .se-offcanvas > .se-offcanvas-sidebar {
+    // The panel itself (wirecloud/component_sidebar) is styled with the wiring
+    // sidebar, which uses the same template
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    width: 360px;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    color: var(--color-text);
+    background: var(--color-surface);
+    border-left: 1px solid var(--color-divider);
+    box-shadow: var(--shadow-lg);
+    transform: translateX(calc(100% + 40px));
+    visibility: hidden;
+    transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), visibility 0s linear 0.25s;
+
+    > * {
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+}
+
+.wc-workspace > .se-offcanvas.slipped > .se-offcanvas-sidebar {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), visibility 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wc-workspace > .se-offcanvas > .se-offcanvas-sidebar,
+    .wc-workspace > .se-offcanvas.slipped > .se-offcanvas-sidebar {
+        transition-duration: 0.01s;
+    }
+}

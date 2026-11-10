@@ -1,0 +1,8 @@
+<s:styledgui xmlns:s="http://wirecloud.conwet.fi.upm.es/StyledElements" xmlns:t="http://wirecloud.conwet.fi.upm.es/Template" xmlns="http://www.w3.org/1999/xhtml">
+    <div class="wc-upgrade-component-info">
+        <div class="field"><label>{{ trans("Current version") }}</label><span class="wc-upgrade-component-version"><t:currentversion/></span></div>
+        <div class="field"><label>{{ trans("New version") }}</label><t:versionselect/></div>
+    </div>
+    <h6 class="wc-upgrade-component-changelog-title">{{ trans("Change Log") }}</h6>
+    <div class="wc-upgrade-component-changelog"><t:changelog/></div>
+</s:styledgui>

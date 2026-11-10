@@ -26,7 +26,8 @@
     const privates = new WeakMap();
 
     const _create_widget = function _create_widget(model) {
-        const widget = new Wirecloud.ui.WidgetView(this, model);
+        const WidgetView = ns.registry.get('WidgetView');
+        const widget = new WidgetView(this, model);
 
         privates.get(this).widgets.push(widget);
 
