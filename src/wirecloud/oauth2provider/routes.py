@@ -54,7 +54,10 @@ metadata_router = APIRouter()
 
 
 async def oauth_error_handler(request: Request, exc: auth.OAuthError) -> JSONResponse:
-    return JSONResponse(exc.detail, exc.status_code, headers={"Cache-Control": "no-store"})
+    headers = {"Cache-Control": "no-store"}
+    if exc.status_code == 401 and request.headers.get("authorization", "").partition(" ")[0].casefold() == "basic":
+        headers["WWW-Authenticate"] = 'Basic realm="oauth2"'
+    return JSONResponse(exc.detail, exc.status_code, headers=headers)
 
 
 async def browser_identity(request: Request, db: DBSession) -> tuple[Optional[UserAll], Token]:
@@ -132,7 +135,7 @@ async def authorization_metadata(request: Request) -> dict[str, Any]:
         "token_endpoint": issuer + "/token",
         "revocation_endpoint": issuer + "/revoke",
         "response_types_supported": ["code"],
-        "grant_types_supported": ["authorization_code", "refresh_token"],
+        "grant_types_supported": ["authorization_code", "refresh_token", "client_credentials"],
         "code_challenge_methods_supported": ["S256"],
         "client_id_metadata_document_supported": True,
         "authorization_response_iss_parameter_supported": True,
@@ -293,6 +296,8 @@ async def authorize(request: Request, db: DBDep) -> RedirectResponse:
     q = request.query_params
     resource = auth.get_resource(request, q.get("resource", ""))
     client = await auth.get_client(db, q.get("client_id", ""))
+    if "authorization_code" not in client.get("grant_types", ["authorization_code", "refresh_token"]):
+        auth.oauth_error("unauthorized_client", "Client cannot use browser authorization")
     redirect = q.get("redirect_uri", "")
     if not any(auth.redirect_matches(registered, redirect) for registered in client["redirect_uris"]):
         auth.oauth_error(description="Unregistered redirect URI")
@@ -536,11 +541,18 @@ async def approve(request: Request, db: DBDep) -> RedirectResponse:
 async def token_endpoint(request: Request, db: DBDep) -> JSONResponse:
     form = await request.form(max_files=0, max_fields=12)
     client = await auth.authenticate_client(db, form, request.headers.get("authorization", ""))
-    auth.get_resource(request, str(form.get("resource", "")))
+    resource = auth.get_resource(request, str(form.get("resource", "")))
+    grant_type = form.get("grant_type")
+    if grant_type in ("authorization_code", "refresh_token", "client_credentials") and grant_type not in client.get(
+        "grant_types", ["authorization_code", "refresh_token"]
+    ):
+        auth.oauth_error("unauthorized_client", "Grant type is not allowed for this client")
     if form.get("grant_type") == "authorization_code":
         result = await auth.exchange_code(db, client, form)
     elif form.get("grant_type") == "refresh_token":
         result = await auth.exchange_refresh(db, client, form)
+    elif grant_type == "client_credentials":
+        result = await auth.exchange_client_credentials(db, client, form, resource)
     else:
         auth.oauth_error("unsupported_grant_type", "Unsupported grant")
     await commit(db)

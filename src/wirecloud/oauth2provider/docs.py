@@ -17,6 +17,9 @@
 # along with Wirecloud.  If not, see <http://www.gnu.org/licenses/>.
 
 
+from typing import Any
+
+
 # Shared response formats
 oauth_error_schema = {
     "type": "object",
@@ -80,7 +83,7 @@ authorization_metadata_response_example = {
     "revocation_endpoint": "https://wirecloud.example.org/oauth2/revoke",
     "registration_endpoint": "https://wirecloud.example.org/oauth2/register",
     "response_types_supported": ["code"],
-    "grant_types_supported": ["authorization_code", "refresh_token"],
+    "grant_types_supported": ["authorization_code", "refresh_token", "client_credentials"],
     "code_challenge_methods_supported": ["S256"],
     "client_id_metadata_document_supported": True,
     "authorization_response_iss_parameter_supported": True,
@@ -108,14 +111,15 @@ resource_metadata_path_description = "Path of the registered resource, including
 
 # POST /oauth2/register
 register_summary = "Register an OAuth client"
-register_description = "Dynamically register a client with explicit HTTPS or loopback callback URLs. Metadata is limited to 64 KiB and 20 redirect URIs. Registration is limited to 60 requests per observed client IP per hour. This registers an application; a user must still sign in and approve its access. Confidential clients receive a secret once, while only its hash is stored."
+register_description = "Dynamically register a client with explicit HTTPS or loopback callback URLs. Metadata is limited to 64 KiB and 20 redirect URIs. Registration is limited to 60 requests per observed client IP per hour. This registers an application; a user must still sign in and approve its access. Confidential clients receive a secret once, while only its hash is stored. Client credentials grants are reserved for administrator-configured clients and cannot be dynamically registered."
 register_response_description = "Registered client metadata and, for a confidential client, its new secret"
-register_request_schema = {
+register_request_schema: dict[str, Any] = {
     "type": "object", "required": ["redirect_uris"],
     "properties": {
         "client_name": {"type": "string", "description": "Application name displayed on consent and app connections", "default": "Application", "maxLength": 150},
         "redirect_uris": {"type": "array", "minItems": 1, "maxItems": 20, "items": {"type": "string", "format": "uri"}, "description": "Explicit HTTPS or loopback callbacks; fragments and embedded credentials are rejected"},
         "token_endpoint_auth_method": {"type": "string", "enum": ["none", "client_secret_post", "client_secret_basic"], "default": "none", "description": "Client authentication method for token exchange and revocation"},
+        "grant_types": {"type": "array", "minItems": 1, "items": {"type": "string", "enum": ["authorization_code", "refresh_token"]}, "default": ["authorization_code", "refresh_token"], "description": "Allowed grants; client_credentials is accepted only in server configuration"},
     },
 }
 register_request_example = {
@@ -184,9 +188,9 @@ approve_request_body = {"required": True, "content": {"application/x-www-form-ur
 }}}
 
 # POST /oauth2/token
-token_endpoint_summary = "Exchange an authorization code or refresh token"
-token_endpoint_description = "Issue opaque access and refresh tokens for an exact resource audience. Authorization codes are one-use and require the original callback and PKCE verifier. Refresh tokens rotate; reusing one revokes the connection. Tokens remain bound to the authorizing WireCloud session. Clients may narrow refresh scopes; only an explicit browser permission edit can expand the connection."
-token_endpoint_response_description = "New access and refresh tokens"
+token_endpoint_summary = "Issue OAuth tokens"
+token_endpoint_description = "Issue opaque tokens for an exact resource audience. Authorization codes require the original callback and PKCE verifier. Refresh tokens rotate; reuse revokes the session-bound connection. Clients may narrow refresh scopes; browser permission edits can expand the connection. Client credentials require a dedicated configured confidential client, an active service_user and a resource_scopes allowlist. They issue a 15-minute access token without a refresh token or browser session; omitted scope requests the client's allowlisted scopes for that resource. Resource plugins enforce the service account's current WireCloud permissions."
+token_endpoint_response_description = "New access token and, for session-bound grants, a refresh token"
 token_client_properties = {
     "client_id": {"type": "string", "description": "Required for public and client_secret_post clients; HTTP Basic clients provide their ID in the header"},
     "client_secret": {"type": "string", "description": "Required only for client_secret_post clients"},
@@ -197,17 +201,18 @@ token_endpoint_request_schema = {
     "required": ["grant_type", "resource"],
     "properties": {
         **token_client_properties,
-        "grant_type": {"type": "string", "enum": ["authorization_code", "refresh_token"]},
+        "grant_type": {"type": "string", "enum": ["authorization_code", "refresh_token", "client_credentials"]},
         "code": {"type": "string", "description": "One-use authorization code; required for authorization_code"},
         "code_verifier": {"type": "string", "minLength": 43, "maxLength": 128, "pattern": "^[A-Za-z0-9._~-]+$", "description": "Original PKCE verifier; required for authorization_code"},
         "redirect_uri": {"type": "string", "format": "uri", "description": "Exact callback URI used during authorization; required for authorization_code"},
         "refresh_token": {"type": "string", "description": "Unconsumed refresh token; required for refresh_token"},
-        "scope": {"type": "string", "description": "Optional space-separated subset of the current token's effective scopes when refreshing"},
+        "scope": {"type": "string", "description": "Optional space-separated subset of effective refresh scopes or the configured client's resource_scopes"},
     },
     "oneOf": [
         {"required": ["code", "code_verifier", "redirect_uri"],
          "properties": {"grant_type": {"enum": ["authorization_code"]}}},
         {"required": ["refresh_token"], "properties": {"grant_type": {"enum": ["refresh_token"]}}},
+        {"properties": {"grant_type": {"enum": ["client_credentials"]}}},
     ],
 }
 token_endpoint_request_examples = {
@@ -220,6 +225,10 @@ token_endpoint_request_examples = {
         "grant_type": "refresh_token", "client_id": "registered-client-id", "refresh_token": "opaque-refresh-token",
         "resource": "https://wirecloud.example.org/mcp", "scope": "wirecloud:read",
     }},
+    "client_credentials": {"summary": "Request service-account access with client_secret_post", "value": {
+        "grant_type": "client_credentials", "client_id": "automation", "client_secret": "configured-secret",
+        "resource": "https://wirecloud.example.org/mcp", "scope": "wirecloud:read",
+    }},
 }
 token_endpoint_request_body = {"required": True, "content": {"application/x-www-form-urlencoded": {
     "schema": token_endpoint_request_schema, "examples": token_endpoint_request_examples,
@@ -229,11 +238,11 @@ token_endpoint_response_example = {
     "token_type": "Bearer", "expires_in": 900, "scope": "wirecloud:read",
 }
 token_endpoint_response_schema = {
-    "type": "object", "required": list(token_endpoint_response_example),
+    "type": "object", "required": [key for key in token_endpoint_response_example if key != "refresh_token"],
     "properties": {
-        "access_token": {"type": "string"}, "refresh_token": {"type": "string"},
+        "access_token": {"type": "string"}, "refresh_token": {"type": "string", "description": "Omitted for client_credentials grants"},
         "token_type": {"type": "string", "enum": ["Bearer"]},
-        "expires_in": {"type": "integer", "minimum": 0, "description": "Access-token lifetime in seconds, bounded by the authorizing session"},
+        "expires_in": {"type": "integer", "minimum": 0, "description": "Access-token lifetime in seconds, at most 15 minutes; session-bound grants cannot outlive their session"},
         "scope": {"type": "string", "description": "Granted space-separated scopes"},
     },
 }

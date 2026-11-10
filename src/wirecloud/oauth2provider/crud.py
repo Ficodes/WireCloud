@@ -95,7 +95,8 @@ async def get_unrevoked_grant(db: DBSession, grant_id: str) -> Optional[dict[str
 
 async def get_grants_for_user(db: DBSession, user_id: str, current_time: datetime) -> list[dict[str, Any]]:
     return await db.client.oauth_grants.find(
-        {"user_id": user_id, "revoked": False, "expires_at": {"$gt": current_time}}
+        {"user_id": user_id, "grant_type": {"$ne": "client_credentials"},
+         "revoked": False, "expires_at": {"$gt": current_time}}
     ).to_list()
 
 
@@ -103,7 +104,8 @@ async def update_grant_scopes(
     db: DBSession, grant_id: str, user_id: str, scopes: list[str], current_time: datetime
 ) -> bool:
     result = await db.client.oauth_grants.update_one(
-        {"_id": grant_id, "user_id": user_id, "revoked": False, "expires_at": {"$gt": current_time}},
+        {"_id": grant_id, "user_id": user_id, "grant_type": {"$ne": "client_credentials"},
+         "revoked": False, "expires_at": {"$gt": current_time}},
         {"$set": {"scopes": scopes}, "$inc": {"scope_version": 1}},
     )
     return bool(result.matched_count)
@@ -112,11 +114,12 @@ async def update_grant_scopes(
 async def revoke_grant(
     db: DBSession, grant_id: str, *, client_id: Optional[str] = None, user_id: Optional[str] = None
 ) -> None:
-    query = {"_id": grant_id}
+    query: dict[str, Any] = {"_id": grant_id}
     if client_id is not None:
         query["client_id"] = client_id
     if user_id is not None:
         query["user_id"] = user_id
+        query["grant_type"] = {"$ne": "client_credentials"}
     await db.client.oauth_grants.update_one(query, {"$set": {"revoked": True}})
 
 

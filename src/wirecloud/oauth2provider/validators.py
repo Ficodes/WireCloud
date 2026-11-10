@@ -31,4 +31,4 @@ def validate_oauth_settings(settings: object, offline: bool = False) -> None:
         raise ImproperlyConfigured("OAUTH2_DYNAMIC_REGISTRATION must be a boolean")
 
     for client in getattr(settings, "OAUTH2_CLIENTS", []):
-        validate_client(client)
+        validate_client(client, configured=True)

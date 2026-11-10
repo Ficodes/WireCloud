@@ -31,7 +31,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request
 
 from wirecloud import settings
-from wirecloud.commons.auth.crud import get_user_with_all_info, is_token_valid
+from wirecloud.commons.auth.crud import get_user_with_all_info, get_user_with_all_info_by_username, is_token_valid
 from wirecloud.commons.auth.schemas import UserAll
 from wirecloud.commons.auth.tokens import digest, now, pkce, random_token, utc
 from wirecloud.database import DBSession, Id, commit
@@ -61,7 +61,7 @@ class OAuthPrincipal:
     user: UserAll
     client_id: str
     grant_id: str
-    session_id: str
+    session_id: Optional[str]
     audience: str
     scopes: frozenset[str]
 
@@ -154,11 +154,20 @@ def redirect_matches(registered: str, requested: str) -> bool:
     )
 
 
-def validate_client(data: Mapping[str, Any]) -> dict[str, Any]:
+def validate_client(data: Mapping[str, Any], *, configured: bool = False) -> dict[str, Any]:
+    grants = data.get("grant_types", ["authorization_code", "refresh_token"])
+    if (
+        not isinstance(grants, list) or not grants
+        or any(grant not in ("authorization_code", "refresh_token", "client_credentials") for grant in grants)
+    ):
+        oauth_error("invalid_client_metadata", "Unsupported grant types")
+    machine = "client_credentials" in grants
+    if machine and (not configured or grants != ["client_credentials"]):
+        oauth_error("invalid_client_metadata", "Client credentials require a dedicated configured client")
     redirects = data.get("redirect_uris", [])
     if (
         not isinstance(redirects, list)
-        or not redirects
+        or (not redirects and not machine)
         or len(redirects) > 20
         or any(not isinstance(uri, str) or not valid_redirect(uri) for uri in redirects)
     ):
@@ -166,13 +175,34 @@ def validate_client(data: Mapping[str, Any]) -> dict[str, Any]:
     method = data.get("token_endpoint_auth_method", "none")
     if method not in ("none", "client_secret_post", "client_secret_basic"):
         oauth_error("invalid_client_metadata", "Unsupported client authentication method")
-    return {
+    result: dict[str, Any] = {
         "client_name": str(data.get("client_name", "Application"))[:150],
         "redirect_uris": redirects,
         "token_endpoint_auth_method": method,
-        "grant_types": ["authorization_code", "refresh_token"],
-        "response_types": ["code"],
+        "grant_types": grants,
+        "response_types": [] if machine else ["code"],
     }
+    if machine:
+        resources = data.get("resource_scopes")
+        if (
+            method == "none"
+            or not isinstance(data.get("client_id"), str) or not data["client_id"]
+            or not isinstance(data.get("client_secret"), str) or not data["client_secret"]
+            or not isinstance(data.get("service_user"), str) or not data["service_user"]
+            or not isinstance(resources, dict) or not resources
+            or any(
+                not isinstance(audience, str) or not valid_redirect(audience)
+                or urlsplit(audience).query
+                or not isinstance(scopes, list) or not scopes
+                or any(not isinstance(scope, str) or not scope or any(
+                    ord(c) < 33 or ord(c) > 126 or c in '\\"' for c in scope
+                ) for scope in scopes)
+                for audience, scopes in resources.items()
+            )
+        ):
+            oauth_error("invalid_client_metadata", "Client credentials require a secret, service_user and resource_scopes")
+        result.update(service_user=data["service_user"], resource_scopes=resources)
+    return result
 
 
 def bearer_token(request: Request) -> str:
@@ -234,7 +264,7 @@ async def get_client(db: DBSession, client_id: str) -> dict[str, Any]:
     if client is None:
         for candidate in getattr(settings, "OAUTH2_CLIENTS", []):
             if candidate.get("client_id") == client_id:
-                client = dict(validate_client(candidate), client_id=client_id)
+                client = dict(validate_client(candidate, configured=True), client_id=client_id)
                 if candidate.get("client_secret"):
                     client["secret_hash"] = digest(candidate["client_secret"])
                 break
@@ -253,6 +283,9 @@ async def authenticate_client(
     method = "client_secret_post" if secret else "none"
     scheme, _, credentials = authorization.partition(" ")
     if scheme.casefold() == "basic":
+        if "client_secret" in form:
+            oauth_error("invalid_client", "Use only one client authentication method", 401)
+        body_client_id = client_id
         try:
             from urllib.parse import unquote_plus
 
@@ -262,6 +295,8 @@ async def authenticate_client(
             method = "client_secret_basic"
         except (ValueError, UnicodeError):
             oauth_error("invalid_client", "Invalid client authentication", 401)
+        if body_client_id and body_client_id != client_id:
+            oauth_error("invalid_client", "Conflicting client identifiers", 401)
     client = await get_client(db, client_id)
     if client["token_endpoint_auth_method"] != method or (
         method != "none" and not hmac.compare_digest(client.get("secret_hash", ""), digest(secret))
@@ -272,10 +307,35 @@ async def authenticate_client(
 
 async def active_grant(db: DBSession, grant_id: str) -> Optional[tuple[dict[str, Any], UserAll]]:
     grant = await crud.get_unrevoked_grant(db, grant_id)
-    if grant is None or utc(grant["expires_at"]) <= now() or not await is_token_valid(db, Id(grant["session_id"])):
+    if grant is None or utc(grant["expires_at"]) <= now():
+        return None
+    if grant.get("grant_type") == "client_credentials":
+        # Re-read the administrator's policy on every request, so removal,
+        # credential rotation, account changes and scope reductions take effect.
+        candidate = next((item for item in getattr(settings, "OAUTH2_CLIENTS", [])
+                          if item.get("client_id") == grant["client_id"]), None)
+        if candidate is None:
+            return None
+        try:
+            client = validate_client(candidate, configured=True)
+        except OAuthError:
+            return None
+        if (
+            client["grant_types"] != ["client_credentials"]
+            or client["service_user"] != grant["service_user"]
+            or digest(candidate["client_secret"]) != grant["credential_hash"]
+        ):
+            return None
+        grant["scopes"] = [scope for scope in grant["scopes"]
+                           if scope in client["resource_scopes"].get(grant["audience"], [])]
+        if not grant["scopes"]:
+            return None
+    elif not await is_token_valid(db, Id(grant["session_id"])):
         return None
     user = await get_user_with_all_info(db, Id(grant["user_id"]))
     if user is None or not user.is_active:
+        return None
+    if grant.get("grant_type") == "client_credentials" and user.username != grant["service_user"]:
         return None
     return grant, user
 
@@ -306,7 +366,10 @@ def effective_scopes(record: Mapping[str, Any], grant: Mapping[str, Any]) -> lis
 async def issue_tokens(db: DBSession, grant: Mapping[str, Any], scopes: Collection[str]) -> dict[str, Any]:
     access, refresh = random_token(), random_token()
     expiration = min(now() + timedelta(minutes=15), utc(grant["expires_at"]))
-    for token, kind, expiry in ((access, "access", expiration), (refresh, "refresh", utc(grant["expires_at"]))):
+    tokens = [(access, "access", expiration)]
+    if grant.get("grant_type") != "client_credentials":
+        tokens.append((refresh, "refresh", utc(grant["expires_at"])))
+    for token, kind, expiry in tokens:
         await crud.create_token(
             db,
             {
@@ -319,13 +382,40 @@ async def issue_tokens(db: DBSession, grant: Mapping[str, Any], scopes: Collecti
                 "used": False,
             }
         )
-    return {
+    result = {
         "access_token": access,
-        "refresh_token": refresh,
         "token_type": "Bearer",
         "expires_in": max(0, int((expiration - now()).total_seconds())),
         "scope": " ".join(scopes),
     }
+    if grant.get("grant_type") != "client_credentials":
+        result["refresh_token"] = refresh
+    return result
+
+
+async def exchange_client_credentials(
+    db: DBSession, client: Mapping[str, Any], form: Mapping[str, Any], resource: OAuthResource
+) -> dict[str, Any]:
+    if client["token_endpoint_auth_method"] == "none" or not client.get("service_user"):
+        oauth_error("unauthorized_client", "Client credentials require an administrator-configured confidential client")
+    allowed = client["resource_scopes"].get(resource.audience, [])
+    if not allowed:
+        oauth_error("invalid_target", "Resource is not allowed for this client")
+    scopes = list(dict.fromkeys(str(form.get("scope", " ".join(allowed))).split()))
+    if not scopes or not set(scopes).issubset(allowed) or not set(scopes).issubset(resource.scopes):
+        oauth_error("invalid_scope", "Unknown, empty or unauthorized scopes")
+    user = await get_user_with_all_info_by_username(db, client["service_user"])
+    if user is None or not user.is_active:
+        oauth_error("unauthorized_client", "Service account is unavailable")
+    grant = {
+        "_id": random_token(), "grant_type": "client_credentials",
+        "client_id": client["client_id"], "client_name": client["client_name"],
+        "user_id": str(user.id), "service_user": client["service_user"], "session_id": None,
+        "audience": resource.audience, "scopes": scopes, "credential_hash": client["secret_hash"],
+        "expires_at": now() + timedelta(minutes=15), "revoked": False,
+    }
+    await crud.create_grant(db, grant)
+    return await issue_tokens(db, grant, scopes)
 
 
 async def exchange_code(db: DBSession, client: Mapping[str, Any], form: Mapping[str, Any]) -> dict[str, Any]:

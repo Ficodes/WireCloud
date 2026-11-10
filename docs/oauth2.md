@@ -1,7 +1,8 @@
 # OAuth client connections
 
 `wirecloud.oauth2provider` is an optional OAuth 2.0 authorization server for plugins
-that offer user-authorized connections to external clients. The [MCP plugin](mcp.md)
+that offer user-authorized connections and configured service-account access to
+external clients. The [MCP plugin](mcp.md)
 is one consumer. Other plugins can register their own resource URLs and scopes
 without depending on MCP or its SDK.
 
@@ -78,8 +79,9 @@ and configured resource URLs depend on the hostname.
 A client is the external application requesting a connection. Client registration
 records its name, allowed callback URLs, and client authentication method so
 WireCloud can validate subsequent authorization requests. It does not create a
-WireCloud user, approve access, or issue access tokens. The user must still sign in
-through WireCloud and explicitly approve the requested resource and scopes.
+WireCloud user, approve access, or issue access tokens. Browser clients require
+sign-in and explicit user consent. Administrators can separately provision
+[client credentials](#client-credentials) for service accounts.
 
 WireCloud supports three ways to identify clients:
 
@@ -119,7 +121,7 @@ proxy configuration used by the application server.
 For a public client, `token_endpoint_auth_method` is `none`: possession of a client
 ID is not authentication as a user. Confidential clients may request
 `client_secret_post` or `client_secret_basic`; registration then also returns a
-generated `client_secret`, whose hash is stored by WireCloud. All clients still
+generated `client_secret`, whose hash is stored by WireCloud. All dynamically registered clients still
 use Authorization Code with S256 PKCE and user consent.
 
 Set `OAUTH2_DYNAMIC_REGISTRATION = False` (Docker:
@@ -146,6 +148,86 @@ OAUTH2_CLIENTS = [{
 For a confidential client, use `client_secret_post` or `client_secret_basic` and
 provide `client_secret` in server configuration. The client must use the same
 authentication method during token exchange and revocation.
+
+### Client credentials
+
+For unattended services, provision a dedicated confidential client in
+`OAUTH2_CLIENTS`. This implements the [OAuth 2.0 client credentials grant](https://www.rfc-editor.org/rfc/rfc6749#section-4.4).
+Create a WireCloud account for the service first and assign only the permissions
+and object access it needs. Reference its exact username in `service_user`:
+
+```python
+import os
+
+OAUTH2_CLIENTS = [{
+    'client_id': 'automation',
+    'client_name': 'Workspace automation',
+    'grant_types': ['client_credentials'],
+    'token_endpoint_auth_method': 'client_secret_basic',
+    'client_secret': os.environ['AUTOMATION_CLIENT_SECRET'],
+    'service_user': 'workspace-bot',
+    'resource_scopes': {
+        'https://wirecloud.example.org/mcp': ['wirecloud:read'],
+    },
+}]
+```
+
+Use a strong secret and supply it through deployment secrets. `client_secret_basic`
+and `client_secret_post` are supported; the client must use its configured method.
+`grant_types` must be exactly `['client_credentials']` for these clients. Callback
+URLs are optional, and browser authorization and refresh grants are disabled.
+Existing browser clients keep their default Authorization Code and refresh grants.
+Dynamic registration and HTTPS metadata documents cannot provision machine access
+or select a service account.
+
+Each `resource_scopes` key is an exact registered resource audience. Each value is
+a nonempty list of allowed scopes declared by that resource. Request a token using
+HTTP Basic authentication, URL-encoding the client ID and secret before Basic
+encoding if they contain reserved characters:
+
+```bash
+curl --user "automation:${AUTOMATION_CLIENT_SECRET}" \
+  --data-urlencode 'grant_type=client_credentials' \
+  --data-urlencode 'resource=https://wirecloud.example.org/mcp' \
+  --data-urlencode 'scope=wirecloud:read' \
+  https://wirecloud.example.org/oauth2/token
+```
+
+For `client_secret_post`, send `client_id` and `client_secret` as form fields
+instead of HTTP Basic. Use only one authentication method per request. `resource`
+is required. Omitted `scope` requests all scopes allowlisted for that resource;
+explicit scopes must be a nonempty subset. A successful response is:
+
+```json
+{
+  "access_token": "opaque-access-token",
+  "token_type": "Bearer",
+  "expires_in": 899,
+  "scope": "wirecloud:read"
+}
+```
+
+Tokens last at most 15 minutes. No refresh token, browser login, consent, or
+WireCloud login session is created. Obtain another token with the client secret
+when needed. `OAuthPrincipal.user` is the current service account and
+`OAuthPrincipal.session_id` is `None`; resource plugins continue checking the
+account's live permissions and object access. Scopes do not grant WireCloud
+permissions. Browser logout does not invalidate these tokens.
+
+Verification rechecks the configured client, account status and resource allowlist
+on every request. Removing the client, rotating its secret, changing its service
+account, or deleting, renaming or deactivating that account invalidates existing
+tokens once the updated configuration is loaded by each server process. Scope
+reductions restrict existing tokens; configuration changes never expand an issued
+token's scopes. Removing all its allowed scopes invalidates the token. Restart
+all workers after changing deployment settings.
+
+Revoke an individual machine grant through `/oauth2/revoke` with its access token
+and the same client authentication method. Other tokens issued independently to
+that client remain usable. Machine grants do not appear in browser **App
+connections** and cannot be edited through its permission controls. No database
+migration or additional dependency is needed; existing session-bound grants
+continue to work.
 
 ### HTTPS client metadata documents
 
@@ -213,7 +295,9 @@ class ExamplePlugin(WirecloudPlugin):
 ```
 
 `require_access` accepts bearer tokens only. It validates the audience, required
-scopes, live WireCloud session, active account, and current user identity. Missing
+scopes, active account, and current user identity. User-authorized tokens also
+require a live WireCloud session; client-credentials tokens recheck their configured
+service-account policy. Missing
 or invalid tokens return HTTP 401; missing scopes return HTTP 403. Both include an
 OAuth challenge pointing at resource metadata. Plugins still enforce their normal
 permissions and object access checks using `principal.user`. A scope does not grant
@@ -239,7 +323,7 @@ uses Authorization Code with S256 PKCE and sends the resource's exact audience i
 | --- | --- |
 | `/oauth2/authorize` | Validate the client, callback, resource, scopes, and PKCE challenge, then start browser authorization. |
 | `/oauth2/consent` | Show the requested access and let the signed-in user approve or deny it. |
-| `/oauth2/token` | Exchange an authorization code or rotate a refresh token. |
+| `/oauth2/token` | Exchange an authorization code, rotate a refresh token, or authenticate a configured service client. |
 | `/oauth2/register` | Register client metadata when dynamic registration is enabled. |
 | `/oauth2/revoke` | Revoke a connection using one of its tokens and the client's authentication method. |
 | `/oauth2/connections` | Let the signed-in user review and revoke their app connections. |
@@ -256,7 +340,7 @@ Each resource plugin configures CORS separately for its own endpoints.
 
 ### Session lifetime and revocation
 
-Grants are bound to the client, selected resource, scopes, and authorizing WireCloud
+User-authorized grants are bound to the client, selected resource, scopes, and authorizing WireCloud
 session. Access tokens last at most 15 minutes. Refresh tokens rotate and cannot
 outlive that session. Logout, session revocation or expiry, account deactivation,
 and provider logout that invalidates the WireCloud session also end delegated
@@ -336,7 +420,10 @@ consent, PKCE/state replay, token rotation, browser CSRF and connection ownershi
 session revocation, provider-neutral login, and resource audience/scope isolation.
 They also check confidential clients, malformed metadata, private-address fetch
 rejection, registration limits, CORS behind URL prefixes, and account changes
-between displaying and submitting consent:
+between displaying and submitting consent. Client-credentials tests cover both
+secret authentication methods, service-account access without a session, resource
+and scope limits, configuration and account changes, expiry, revocation, and
+isolation from public registration and browser permission management:
 
 ```bash
 python -m pytest tests/oauth2provider
