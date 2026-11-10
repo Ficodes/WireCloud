@@ -59,6 +59,18 @@ wc_db._transactions_supported = False
 
 import pytest
 
+
+@pytest.fixture
+def registered_route_paths():
+    """List effective paths with both lazy and flattened FastAPI routers."""
+    from fastapi import routing
+
+    def paths(app):
+        routes = getattr(routing, "iter_route_contexts", iter)(app.routes)
+        return {route.path for route in routes if route.path is not None}
+
+    return paths
+
 # ---------------------------------------------------------------------------
 # 3. Helpers
 # ---------------------------------------------------------------------------

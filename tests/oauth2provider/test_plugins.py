@@ -82,13 +82,14 @@ def test_resource_registration_rejects_duplicates_invalid_defaults_and_disabled_
         register_resource(oauth_app, OAuthResource(EXAMPLE, {"read": "Read"}, "Example"))
 
 
-def test_commons_does_not_mount_optional_oauth_routes():
+def test_commons_does_not_mount_optional_oauth_routes(registered_route_paths):
     from fastapi import FastAPI
     from wirecloud.commons.plugins import WirecloudCommonsPlugin
     app = FastAPI()
     WirecloudCommonsPlugin(app)
-    assert "/auth/login" in {route.path for route in app.routes}
-    assert not any(route.path.startswith("/oauth2/") for route in app.routes)
+    paths = registered_route_paths(app)
+    assert "/auth/login" in paths
+    assert not any(path.startswith("/oauth2/") for path in paths)
 
 
 @pytest.mark.parametrize("prefix", ["", "/wirecloud", "/wirecloud/"])

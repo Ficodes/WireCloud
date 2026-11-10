@@ -23,11 +23,11 @@ def test_platform_url_patterns_shape():
     assert workspace.urlpattern == "/workspace/{owner}/{name}"
 
 
-def test_frontend_urls_use_canonical_trailing_slashes():
+def test_frontend_urls_use_canonical_trailing_slashes(registered_route_paths):
     def normalize(path):
         return re.sub(r"\{[^}]+\}", "{}", path).rstrip("/")
 
-    route_paths = {route.path for route in app.routes}
+    route_paths = registered_route_paths(app)
 
     for name, template in get_plugin_urls().items():
         matching_routes = {path for path in route_paths if normalize(path) == normalize(template.urlpattern)}

@@ -75,6 +75,9 @@ python -m pytest tests
 The PR coverage comparison uses Python 3.11 with these same MCP dependencies for
 both base and head, so the report includes the optional plugin's tests. A separate
 Python 3.11 job checks core compatibility without installing MCP.
+SDK-dependent tests check for `mcp.server` before collection and skip when the
+optional SDK is unavailable; SDK-independent layout tests still run. Async
+fixtures explicitly use function-scoped event loops.
 
 The `oauth-mcp-python-*` CI artifacts contain JUnit results and branch coverage
 for OAuth, MCP, and the authentication module. Both matrix jobs require 100% line

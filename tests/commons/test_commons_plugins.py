@@ -10,12 +10,12 @@ def test_wirecloud_commons_plugin_init_with_none():
     assert plugin.app is None
 
 
-def test_wirecloud_commons_plugin_registers_routes_and_handlers():
+def test_wirecloud_commons_plugin_registers_routes_and_handlers(registered_route_paths):
     app = FastAPI()
     plugin = plugins.WirecloudCommonsPlugin(app)
 
     assert plugin.app is app
-    route_paths = {route.path for route in app.routes}
+    route_paths = registered_route_paths(app)
     assert "/api/auth/login" in route_paths
     assert "/api/i18n/js_catalogue" in route_paths
     assert "/api/search" in route_paths

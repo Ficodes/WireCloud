@@ -85,11 +85,11 @@ async def test_populate_component_paths(monkeypatch, db_session):
     assert called["users"] == ["wirecloud-user"]
 
 
-def test_core_plugin_init_and_market_constants():
+def test_core_plugin_init_and_market_constants(registered_route_paths):
     app = FastAPI()
     plugin = core_plugins.WirecloudCorePlugin(app)
     assert plugin.app is app
-    paths = {route.path for route in app.routes}
+    paths = registered_route_paths(app)
     assert "/" in paths
     assert "/api/context/" in paths
     assert "/workspace/{owner}/{name}" in paths
