@@ -393,7 +393,7 @@ class WirecloudCorePlugin(WirecloudPlugin):
             PreferenceKey(
                 name='sharelist',
                 label=_('Share list'),
-                type='text',  # Legacy client field type used by the preference renderer. Hidden and never rendered.
+                type='list',
                 hidden=True,
                 description=_('List of users with access to this workspace. (default: [])'),
                 defaultValue=[]

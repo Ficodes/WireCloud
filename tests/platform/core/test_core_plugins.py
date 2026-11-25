@@ -315,8 +315,9 @@ def test_workspace_preferences_templates_extensions_and_openapi(monkeypatch):
 
     prefs_by_name = {pref.name: pref for pref in workspace_prefs}
     sharelist_pref = prefs_by_name["sharelist"]
-    assert sharelist_pref.type == "text"
+    assert sharelist_pref.type == "list"
     assert sharelist_pref.hidden is True
+    assert sharelist_pref.defaultValue == []
 
     screen_sizes_pref = prefs_by_name["screenSizes"]
     assert screen_sizes_pref.type == "screenSizes"

@@ -165,7 +165,9 @@ async def test_parse_context_from_query_paths(monkeypatch, db_session):
     ctx = await routes.parse_context_from_query(db_session, None, req, "GET")
     assert ctx.component_type == "widget"
     assert ctx.component_id == "w1"
-    assert "__wirecloud_workspace_id" not in req.url
+    # Context parsing must not assign to Starlette's read-only URL property.
+    assert "__wirecloud_workspace_id" in str(req.url)
+    assert ctx.is_ws is False
 
     req2 = _FakeRequest(url="https://wirecloud.example.org/p?x=1", query_params={"x": "1"})
     ctx2 = await routes.parse_context_from_query(db_session, None, req2, "POST")
@@ -471,7 +473,7 @@ async def test_do_request_ws_success_and_close_paths(monkeypatch, db_session):
     async def _wait(tasks, return_when=None):
         done = set()
         for t in tasks:
-            done.add(routes.asyncio.create_task(t))
+            done.add(routes.asyncio.ensure_future(t))
         return done, set()
 
     monkeypatch.setattr(routes.asyncio, "wait", _wait)
@@ -711,10 +713,11 @@ async def test_do_request_ws_loop_branches_and_streaming_body(monkeypatch, db_se
     monkeypatch.setattr(proxy, "read_ws_from_server", _read_server)
 
     async def _wait(tasks, return_when=None):
-        first = routes.asyncio.create_task(tasks[0])
-        for task in tasks[1:]:
-            task.close()
-        return {first}, set()
+        # Drive both real tasks; the obsolete mock discarded a receive task and
+        # could loop forever after the production relay correctly used Tasks.
+        futures = {routes.asyncio.ensure_future(task) for task in tasks}
+        await asyncio.gather(*futures)
+        return futures, set()
 
     monkeypatch.setattr(routes.asyncio, "wait", _wait)
     out = await proxy.do_request(ws_req, "wss://api.example.org/ws", "WS", request_data_ws, db_session, None)
@@ -802,7 +805,7 @@ async def test_do_request_ws_loop_remaining_branches(monkeypatch, db_session):
     async def _wait(tasks, return_when=None):
         for task in tasks:
             if asyncio.iscoroutine(task):
-                task.close()
+                task.close() if asyncio.iscoroutine(task) else task.cancel()
 
         wait_calls["n"] += 1
         if wait_calls["n"] == 1:
@@ -881,7 +884,7 @@ async def test_do_request_ws_direct_break_path(monkeypatch, db_session):
     async def _wait(tasks, return_when=None):
         for task in tasks:
             if asyncio.iscoroutine(task):
-                task.close()
+                task.close() if asyncio.iscoroutine(task) else task.cancel()
         f = routes.asyncio.get_running_loop().create_future()
         f.set_result(("client", None, None, (1000, "bye")))
         return {f}, set()

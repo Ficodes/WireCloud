@@ -105,7 +105,7 @@ class LocaleWSMiddleware:
             cookies = cookie_parser(cookie_header)
 
         language = get_language_from_req_data(headers.get("accept-language"), query_params.get("lang"), cookies.get("lang"))
-        scope["state"]["lang"] = language
+        scope.setdefault("state", {})["lang"] = language
 
         await self.app(scope, receive, send)
         return None
